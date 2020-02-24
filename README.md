@@ -39,10 +39,10 @@ Uses pretrained weights to make predictions on images. Below table displays the 
 
     $ python3 detect.py --image_folder data/samples/
 
-<p align="center"><img src="assets/giraffe.png" width="480"\></p>
-<p align="center"><img src="assets/dog.png" width="480"\></p>
-<p align="center"><img src="assets/traffic.png" width="480"\></p>
-<p align="center"><img src="assets/messi.png" width="480"\></p>
+<p align="center"><img src="assets/giraffe.png" width="480"></p>
+<p align="center"><img src="assets/dog.png" width="480"></p>
+<p align="center"><img src="assets/traffic.png" width="480"></p>
+<p align="center"><img src="assets/messi.png" width="480"></p>
 
 ## Train
 ```
@@ -103,9 +103,11 @@ $ tensorboard --logdir='logs' --port=6006
 #### Custom model
 Run the commands below to create a custom model definition, replacing `<num-classes>` with the number of classes in your dataset.
 
-```
-$ cd config/                                # Navigate to config dir
-$ bash create_custom_model.sh <num-classes> # Will create custom model 'yolov3-custom.cfg'
+```bash
+# Move to config dir
+$ cd config/                                
+# create custom model 'custom.cfg'
+$ bash create_custom_model.sh $(num_classes) 
 ```
 
 #### Classes
@@ -124,7 +126,7 @@ In `data/custom/train.txt` and `data/custom/valid.txt`, add paths to images that
 To train on the custom dataset run:
 
 ```
-$ python3 train.py --model_def config/yolov3-custom.cfg --data_config config/custom.data
+$ python3 train.py --model_def config/custom.cfg --data_config config/custom.data
 ```
 
 Add `--pretrained_weights weights/darknet53.conv.74` to train using a backend pretrained on ImageNet.
