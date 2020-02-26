@@ -14,19 +14,21 @@
 # limitations under the License.
 # ==============================================================================
 
-# Code source: https://github.com/pjreddie/darknet/tree/master/scripts/get_coco_dataset.sh
+# Code source: https://github.com/AlexeyAB/darknet/blob/master/scripts/get_coco_dataset.sh
 
 # Clone COCO API
+git clone https://github.com/pdollar/coco
 mkdir coco2014
 cd coco2014
 
 mkdir images
-mdkir labels
 cd images
 
 # Download Images
-wget -c https://pjreddie.com/media/files/train2014.zip
-wget -c https://pjreddie.com/media/files/val2014.zip
+# wget -c https://pjreddie.com/media/files/train2014.zip
+# wget -c https://pjreddie.com/media/files/val2014.zip
+wget -c http://images.cocodataset.org/zips/train2014.zip
+wget -c http://images.cocodataset.org/zips/val2014.zip
 
 # Unzip
 unzip -q train2014.zip
