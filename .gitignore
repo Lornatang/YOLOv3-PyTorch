@@ -129,4 +129,5 @@ data/voc2010
 data/voc2012
 weights/*.weights
 weights/darknet53.conv.74
-checkpoints/
+weights/*.pth
+runs
