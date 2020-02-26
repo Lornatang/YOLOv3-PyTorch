@@ -1,15 +1,29 @@
-# pip install -U -r requirements.txt
+# --------------------- If use pip -----------------------------
 numpy
 opencv-python
 torch
+onnx
 matplotlib
 pycocotools
 tqdm
 pillow
+scikit-image
 
-# Nvidia Apex (optional) for mixed precision training --------------------------
+# -------------------------------------------------------------- #
+#                          optional                              #
+# -------------------------------------------------------------- #
+
+# ---------- Nvidia Apex for mixed precision training ----------
 # git clone https://github.com/NVIDIA/apex && cd apex && pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" . --user && cd .. && rm -rf apex
 
-# Tensorboard (optional) pip requirements --------------------------------------
+# ------------------- Tensorboard ------------------------------
 # tb-nightly
 # future
+
+# ------------------ If use anconda -----------------------------
+# conda update -yn base -c defaults conda
+# conda install -yc anaconda numpy opencv matplotlib tqdm pillow ipython future
+# conda install -yc conda-forge scikit-image pycocotools tensorboard
+# conda install -yc spyder-ide spyder-line-profiler
+# conda install -yc pytorch pytorch torchvision
+# conda install -yc conda-forge protobuf numpy && pip install onnx  # https://github.com/onnx/onnx#linux-and-macos

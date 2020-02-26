@@ -1,6 +1,7 @@
 import argparse
 from sys import platform
-
+import torch.onnx
+import torch.backends.cudnn as cudnn
 from models import *  # set ONNX_EXPORT in models.py
 from utils.datasets import *
 from utils.utils import *
@@ -22,7 +23,7 @@ def detect(save_img=False):
 
   # Load weights
   attempt_download(weights)
-  if weights.endswith('.pt'):  # pytorch format
+  if weights.endswith('.pth'):  # pytorch format
     model.load_state_dict(torch.load(weights, map_location=device)['model'])
   else:  # darknet format
     load_darknet_weights(model, weights)
@@ -31,8 +32,10 @@ def detect(save_img=False):
   classify = False
   if classify:
     modelc = torch_utils.load_classifier(name='resnet101', n=2)  # initialize
-    modelc.load_state_dict(torch.load('weights/resnet101.pt', map_location=device)['model'])  # load weights
+    modelc.load_state_dict(torch.load('weights/resnet101.pth', map_location=device)['model'])  # load weights
     modelc.to(device).eval()
+  else:
+    modelc = None
 
   # Fuse Conv2d + BatchNorm2d layers
   # model.fuse()
@@ -63,7 +66,7 @@ def detect(save_img=False):
   vid_path, vid_writer = None, None
   if webcam:
     view_img = True
-    torch.backends.cudnn.benchmark = True  # set True to speed up constant image size inference
+    cudnn.benchmark = True  # set True to speed up constant image size inference
     dataset = LoadStreams(source, img_size=img_size)
   else:
     save_img = True
@@ -72,6 +75,9 @@ def detect(save_img=False):
   # Get names and colors
   names = load_classes(opt.names)
   colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
+
+  # Avoid errors caused by referencing local variables
+  save_path = None
 
   # Run inference
   t0 = time.time()
@@ -156,10 +162,10 @@ def detect(save_img=False):
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
-  parser.add_argument('--cfg', type=str, default='cfg/yolov3-spp.cfg', help='*.cfg path')
-  parser.add_argument('--names', type=str, default='data/coco.names', help='*.names path')
-  parser.add_argument('--weights', type=str, default='weights/yolov3-spp-ultralytics.pt', help='weights path')
-  parser.add_argument('--source', type=str, default='data/samples', help='source')  # input file/folder, 0 for webcam
+  parser.add_argument('--cfg', type=str, default='cfg/yolov3.cfg', help='*.cfg path')
+  parser.add_argument('--names', type=str, default='data/coco2014.names', help='*.names path')
+  parser.add_argument('--weights', type=str, default='weights/yolov3.weights', help='weights path')
+  parser.add_argument('--source', type=str, default='data/examples', help='source')  # input file/folder, 0 for webcam
   parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
   parser.add_argument('--img-size', type=int, default=416, help='inference size (pixels)')
   parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')

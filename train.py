@@ -16,8 +16,8 @@ except:
     mixed_precision = False  # not installed
 
 wdir = 'weights' + os.sep  # weights dir
-last = wdir + 'last.pt'
-best = wdir + 'best.pt'
+last = wdir + 'last.pth'
+best = wdir + 'best.pth'
 results_file = 'results.txt'
 
 # Hyperparameters (results68: 59.9 mAP@0.5 yolov3-spp-416) https://github.com/ultralytics/yolov3/issues/310
@@ -102,8 +102,8 @@ def train():
     start_epoch = 0
     best_fitness = 0.0
     attempt_download(weights)
-    if weights.endswith('.pt'):  # pytorch format
-        # possible weights are '*.pt', 'yolov3-spp.pt', 'yolov3-tiny.pt' etc.
+    if weights.endswith('.pth'):  # pytorch format
+        # possible weights are '*.pth', 'yolov3-spp.pth', 'yolov3-tiny.pth' etc.
         chkpt = torch.load(weights, map_location=device)
 
         # load model
@@ -140,7 +140,7 @@ def train():
     # scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
     # scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=range(59, 70, 1), gamma=0.8)  # gradual fall to 0.1*lr0
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[round(epochs * x) for x in [0.8, 0.9]], gamma=0.1)
-    scheduler.last_epoch = start_epoch - 1
+    scheduler.last_epoch = start_epoch
 
     # # Plot lr schedule
     # y = []
@@ -211,13 +211,13 @@ def train():
     torch_utils.model_info(model, report='summary')  # 'full' or 'summary'
     print('Using %g dataloader workers' % nw)
     print('Starting training for %g epochs...' % epochs)
-    for epoch in range(start_epoch, epochs):  # epoch ------------------------------
+    for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         model.train()
 
         # Prebias
         if prebias:
             if epoch < 3:  # prebias
-                ps = 0.1, 0.9  # prebias settings (lr=0.1, momentum=0.9)
+                ps = np.interp(epoch, [0, 3], [0.1, hyp['lr0']]), 0.0  # prebias settings (lr=0.1, momentum=0.0)
             else:  # normal training
                 ps = hyp['lr0'], hyp['momentum']  # normal training settings
                 print_model_biases(model)
@@ -284,11 +284,11 @@ def train():
             # Compute gradient
             if mixed_precision:
                 with amp.scale_loss(loss, optimizer) as scaled_loss:
-                  scaled_loss.backward(,
+                    scaled_loss.backward()
             else:
-              loss.backward(,
+                loss.backward()
 
-            # Accumulate gradient for x batches before optimizing
+            # Optimize accumulated gradient
             if ni % accumulate == 0:
                 optimizer.step()
                 optimizer.zero_grad()
@@ -301,10 +301,13 @@ def train():
 
             # end batch ------------------------------------------------------------------------------------------------
 
+        # Update scheduler
+        scheduler.step(epoch)
+
         # Process epoch results
         final_epoch = epoch + 1 == epochs
         if not opt.notest or final_epoch:  # Calculate mAP
-            is_coco = any([x in data for x in ['coco.data', 'coco2014.data', 'coco2017.data']]) and model.nc == 80
+            is_coco = any([x in data for x in ['coco2014.data', 'coco2014.data', 'coco2017.data']]) and model.nc == 80
             results, maps = test.test(cfg,
                                       data,
                                       batch_size=batch_size * 2,
@@ -315,9 +318,6 @@ def train():
                                       save_json=final_epoch and is_coco,
                                       single_cls=opt.single_cls,
                                       dataloader=testloader)
-
-        # Update scheduler
-        scheduler.step()
 
         # Write epoch results
         with open(results_file, 'a') as f:
@@ -372,8 +372,8 @@ def train():
         n = '_' + n if not n.isnumeric() else n
         fresults, flast, fbest = 'results%s.txt' % n, 'last%s.pt' % n, 'best%s.pt' % n
         os.rename('results.txt', fresults)
-        os.rename(wdir + 'last.pt', wdir + flast) if os.path.exists(wdir + 'last.pt') else None
-        os.rename(wdir + 'best.pt', wdir + fbest) if os.path.exists(wdir + 'best.pt') else None
+        os.rename(wdir + 'last.pth', wdir + flast) if os.path.exists(wdir + 'last.pth') else None
+        os.rename(wdir + 'best.pth', wdir + fbest) if os.path.exists(wdir + 'best.pth') else None
         if opt.bucket:  # save to cloud
             os.system('gsutil cp %s gs://%s/results' % (fresults, opt.bucket))
             os.system('gsutil cp %s gs://%s/weights' % (wdir + flast, opt.bucket))
@@ -390,21 +390,21 @@ def train():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=273)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument('--batch-size', type=int, default=16)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    parser.add_argument('--epochs', type=int, default=500)
+    parser.add_argument('--batch-size', type=int, default=8)
     parser.add_argument('--accumulate', type=int, default=4, help='batches to accumulate before optimizing')
     parser.add_argument('--cfg', type=str, default='cfg/yolov3-spp.cfg', help='*.cfg path')
-    parser.add_argument('--data', type=str, default='data/coco2017.data', help='*.data path')
+    parser.add_argument('--data', type=str, default='data/coco2014.data', help='*.data path')
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67% - 150%) img_size every 10 batches')
     parser.add_argument('--img-size', nargs='+', type=int, default=[416], help='train and test image-sizes')
     parser.add_argument('--rect', action='store_true', help='rectangular training')
-    parser.add_argument('--resume', action='store_true', help='resume training from last.pt')
+    parser.add_argument('--resume', action='store_true', help='resume training from last.pth')
     parser.add_argument('--nosave', action='store_true', help='only save final checkpoint')
     parser.add_argument('--notest', action='store_true', help='only test final epoch')
     parser.add_argument('--evolve', action='store_true', help='evolve hyperparameters')
     parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
-    parser.add_argument('--weights', type=str, default='weights/yolov3-spp-ultralytics.pt', help='initial weights path')
+    parser.add_argument('--weights', type=str, default='weights/darknet53.conv.74', help='ImageNet pretrained weights path')
     parser.add_argument('--arc', type=str, default='default', help='yolo architecture')  # default, uCE, uBCE
     parser.add_argument('--name', default='', help='renames results.txt to results_name.txt if supplied')
     parser.add_argument('--device', default='', help='device id (i.e. 0 or 0,1 or cpu)')
