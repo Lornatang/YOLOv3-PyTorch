@@ -33,7 +33,7 @@ def test(cfg,
 
         # Load weights
         attempt_download(weights)
-        if weights.endswith('.pt'):  # pytorch format
+        if weights.endswith('.pth'):  # pytorch format
             model.load_state_dict(torch.load(weights, map_location=device)['model'])
         else:  # darknet format
             load_darknet_weights(model, weights)
@@ -78,7 +78,6 @@ def test(cfg,
         # Plot images with bounding boxes
         if batch_i == 0 and not os.path.exists('test_batch0.png'):
             plot_images(imgs=imgs, targets=targets, paths=paths, fname='test_batch0.png')
-
 
         # Disable gradients
         with torch.no_grad():
@@ -208,9 +207,9 @@ def test(cfg,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(prog='test.py')
-    parser.add_argument('--cfg', type=str, default='cfg/yolov3-spp.cfg', help='*.cfg path')
+    parser.add_argument('--cfg', type=str, default='cfg/yolov3.cfg', help='*.cfg path')
     parser.add_argument('--data', type=str, default='data/coco2014.data', help='*.data path')
-    parser.add_argument('--weights', type=str, default='weights/yolov3-spp-ultralytics.pt', help='weights path')
+    parser.add_argument('--weights', type=str, default='weights/yolov3.weights', help='weights path')
     parser.add_argument('--batch-size', type=int, default=32, help='size of each image batch')
     parser.add_argument('--img-size', type=int, default=416, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.001, help='object confidence threshold')
@@ -220,7 +219,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', default='', help='device id (i.e. 0 or 0,1) or cpu')
     parser.add_argument('--single-cls', action='store_true', help='train as single-class dataset')
     opt = parser.parse_args()
-    opt.save_json = opt.save_json or any([x in opt.data for x in ['coco.data', 'coco2014.data', 'coco2017.data']])
+    opt.save_json = opt.save_json or any([x in opt.data for x in ['coco2014.data', 'coco2014.data', 'coco2017.data']])
     print(opt)
 
     if opt.task == 'test':  # task = 'test', 'study', 'benchmark'

@@ -431,13 +431,13 @@ def convert(cfg='cfg/yolov3-spp.cfg', weights='weights/yolov3-spp.weights'):
     model = Darknet(cfg)
 
     # Load weights and save
-    if weights.endswith('.pt'):  # if PyTorch format
+    if weights.endswith('.pth'):  # if PyTorch format
         model.load_state_dict(torch.load(weights, map_location='cpu')['model'])
         save_weights(model, path='converted.weights', cutoff=-1)
         print("Success: converted '%s' to 'converted.weights'" % weights)
 
     elif weights.endswith('.weights'):  # darknet format
-        _ = load_darknet_weights(model, weights)
+        load_darknet_weights(model, weights)
 
         chkpt = {'epoch': -1,
                  'best_fitness': None,
@@ -445,8 +445,8 @@ def convert(cfg='cfg/yolov3-spp.cfg', weights='weights/yolov3-spp.weights'):
                  'model': model.state_dict(),
                  'optimizer': None}
 
-        torch.save(chkpt, 'converted.pt')
-        print("Success: converted '%s' to 'converted.pt'" % weights)
+        torch.save(chkpt, 'converted.pth')
+        print("Success: converted '%s' to 'converted.pth'" % weights)
 
     else:
         print('Error: extension not supported.')
