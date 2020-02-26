@@ -131,3 +131,5 @@ weights/*.weights
 weights/darknet53.conv.74
 weights/*.pth
 runs
+results.txt
+test_batch0.png
