@@ -1,7 +1,9 @@
 import argparse
 from sys import platform
-import torch.onnx
+
 import torch.backends.cudnn as cudnn
+import torch.onnx
+
 from models import *  # set ONNX_EXPORT in models.py
 from utils.datasets import *
 from utils.utils import *
