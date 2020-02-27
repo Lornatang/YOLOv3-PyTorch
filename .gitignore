@@ -133,3 +133,5 @@ weights/*.pth
 runs
 results.txt
 test_batch0.png
+results.png
+video
