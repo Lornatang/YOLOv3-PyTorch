@@ -21,9 +21,11 @@ from torch.optim.optimizer import Optimizer
 
 
 class AdaBound(Optimizer):
-    """Implements AdaBound algorithm.
+    r""" Implements AdaBound algorithm.
+
     It has been proposed in `Adaptive Gradient Methods with Dynamic Bound of Learning Rate`_.
-    Arguments:
+
+    Args:
         params (iterable): iterable of parameters to optimize or dicts defining
             parameter groups
         lr (float, optional): Adam learning rate (default: 1e-3)
