@@ -3,6 +3,7 @@ import argparse
 import torch.distributed as dist
 import torch.optim as optim
 import torch.optim.lr_scheduler as lr_scheduler
+import torch.utils.data
 
 import test  # import test.py to get mAP after each epoch
 from models import *
@@ -132,6 +133,10 @@ def train():
         # possible weights are '*.weights', 'yolov3-tiny.conv.15',  'darknet53.conv.74' etc.
         load_darknet_weights(model, weights)
 
+    # Mixed precision training https://github.com/NVIDIA/apex
+    if mixed_precision:
+        model, optimizer = amp.initialize(model, optimizer, opt_level='O1', verbosity=0)
+
     # Scheduler https://github.com/ultralytics/yolov3/issues/238
     # lf = lambda x: 1 - x / epochs  # linear ramp to zero
     # lf = lambda x: 10 ** (hyp['lrf'] * x / epochs)  # exp ramp
@@ -154,8 +159,8 @@ def train():
     # plt.savefig('LR.png', dpi=300)
 
     # Mixed precision training https://github.com/NVIDIA/apex
-    if mixed_precision:
-        model, optimizer = amp.initialize(model, optimizer, opt_level='O1', verbosity=0)
+    # if mixed_precision:
+    #     model, optimizer = amp.initialize(model, optimizer, opt_level='O1', verbosity=0)
 
     # Initialize distributed training
     if device.type != 'cpu' and torch.cuda.device_count() > 1:
@@ -257,7 +262,8 @@ def train():
             if ni < 1:
                 fname = 'train_batch%g.png' % i  # filename
                 plot_images(imgs=imgs, targets=targets, paths=paths, fname=fname)
-                tb_writer.add_image(fname, cv2.imread(fname)[:, :, ::-1], dataformats='HWC')
+                if tb_writer:
+                    tb_writer.add_image(fname, cv2.imread(fname)[:, :, ::-1], dataformats='HWC')
 
             # Multi-Scale training
             if opt.multi_scale:
@@ -300,9 +306,6 @@ def train():
 
             # end batch ------------------------------------------------------------------------------------------------
 
-        # Update scheduler
-        scheduler.step(epoch)
-
         # Process epoch results
         final_epoch = epoch + 1 == epochs
         if not opt.notest or final_epoch:  # Calculate mAP
@@ -317,6 +320,9 @@ def train():
                                       save_json=final_epoch and is_coco,
                                       single_cls=opt.single_cls,
                                       dataloader=testloader)
+
+        # Update scheduler
+        scheduler.step()
 
         # Write epoch results
         with open(results_file, 'a') as f:
@@ -389,8 +395,8 @@ def train():
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--epochs', type=int, default=500)
-    parser.add_argument('--batch-size', type=int, default=8)
+    parser.add_argument('--epochs', type=int, default=273)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
+    parser.add_argument('--batch-size', type=int, default=16)  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument('--accumulate', type=int, default=4, help='batches to accumulate before optimizing')
     parser.add_argument('--cfg', type=str, default='cfg/yolov3-spp.cfg', help='*.cfg path')
     parser.add_argument('--data', type=str, default='data/coco2014.data', help='*.data path')
