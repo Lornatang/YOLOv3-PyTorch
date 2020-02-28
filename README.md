@@ -68,9 +68,36 @@ To run a specific models:
 **YOLOv3-SPP:** `python3 detect.py --cfg cfg/yolov3-spp.cfg --weights yolov3-spp.weights`  
 
 
-# Pretrained Weights
+### Train on Custom Dataset
+Run the commands below to create a custom model definition, replacing `<num-classes>` with the number of classes in your dataset.
 
-Download from: [https://drive.google.com/open?id=1LezFG5g3BCW6iYaV89B2i64cqEUZD7e0](https://drive.google.com/open?id=1LezFG5g3BCW6iYaV89B2i64cqEUZD7e0)
+```bash
+# move to config dir
+cd cfg/
+# create custom model 'yolov3-custom.cfg'. (In fact, it is OK to modify two lines of parameters, see `create_model.sh`)                              
+sh ./create_model.sh <num-classes>
+```
+
+#### Classes
+Add class names to `data/custom/classes.names`. This file should have one row per class name.
+
+#### Image Folder
+Move the images of your dataset to `data/custom/images/`.
+
+#### Annotation Folder
+Move your annotations to `data/custom/labels/`. The dataloader expects that the annotation file corresponding to the image `data/custom/images/train.jpg` has the path `data/custom/labels/train.txt`. Each row in the annotation file should define one bounding box, using the syntax `label_idx x_center y_center width height`. The coordinates should be scaled `[0, 1]`, and the `label_idx` should be zero-indexed and correspond to the row number of the class name in `data/custom/classes.names`.
+
+#### Define Train and Validation Sets
+In `data/custom/train.txt` and `data/custom/valid.txt`, add paths to images that will be used as train and validation data respectively.
+
+#### Train
+To train on the custom dataset run:
+
+```bash
+python3 train.py --cfg cfg/yolov3-custom.cfg --data cfg/custom.data --epochs 100 --multi-scale
+```
+
+Add `--weights weights/darknet53.conv.74` to train using a backend pretrained on ImageNet.
 
 ## Darknet Conversion
 
@@ -105,6 +132,7 @@ YOLOv3-tiny<br>YOLOv3<br>YOLOv3-SPP<br>**[YOLOv3-SPP-ultralytics](https://drive.
 ```bash
 $ python3 test.py --cfg yolov3-spp.cfg --weights yolov3-spp-ultralytics.pt --img 608
 ```
+
 ```text
 Namespace(batch_size=32, cfg='yolov3-spp.cfg', conf_thres=0.001, data='data/coco2014.data', device='', img_size=608, iou_thres=0.6, save_json=True, single_cls=False, task='test', weights='yolov3-spp-ultralytics.pt')
 Using CUDA device0 _CudaDeviceProperties(name='Tesla T4', total_memory=15079MB)
