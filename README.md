@@ -1,10 +1,8 @@
 # YOLOv3-PyTorch
 
-```html
 <p align="center"><img src="assets/bus.png" width="608"></p>
 <p align="center"><img src="assets/giraffe.png" width="608"></p>
 <p align="center"><img src="assets/zidane.png" width="608"></p>
-```
 
 ### Overview
 This project is a [YOLOv3](http://xxx.itp.ac.cn/abs/1804.02767) object detection system developed by [PyTorch](https://pytorch.org/) neural network framework developed by FaceBook Company.
