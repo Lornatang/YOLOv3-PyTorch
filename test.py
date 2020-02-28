@@ -21,7 +21,7 @@ def test(cfg,
          dataloader=None):
     # Initialize/load model and set device
     if model is None:
-        device = torch_utils.select_device(opt.device, batch_size=batch_size)
+        device = utils.select_device(opt.device, batch_size=batch_size)
         verbose = opt.task == 'test'
 
         # Remove previous

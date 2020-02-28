@@ -15,7 +15,7 @@ def detect(save_img=False):
   webcam = source == '0' or source.startswith('rtsp') or source.startswith('http') or source.endswith('.txt')
 
   # Initialize
-  device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
+  device = utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
   if os.path.exists(out):
     shutil.rmtree(out)  # delete output folder
   os.makedirs(out)  # make new output folder
@@ -33,7 +33,7 @@ def detect(save_img=False):
   # Second-stage classifier
   classify = False
   if classify:
-    modelc = torch_utils.load_classifier(name='resnet101', n=2)  # initialize
+    modelc = utils.load_classifier(name='resnet101', n=2)  # initialize
     modelc.load_state_dict(torch.load('weights/resnet101.pth', map_location=device)['model'])  # load weights
     modelc.to(device).eval()
   else:
