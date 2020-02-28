@@ -379,10 +379,6 @@ def train():
         os.rename('results.txt', fresults)
         os.rename(wdir + 'last.pth', wdir + flast) if os.path.exists(wdir + 'last.pth') else None
         os.rename(wdir + 'best.pth', wdir + fbest) if os.path.exists(wdir + 'best.pth') else None
-        if opt.bucket:  # save to cloud
-            os.system('gsutil cp %s gs://%s/results' % (fresults, opt.bucket))
-            os.system('gsutil cp %s gs://%s/weights' % (wdir + flast, opt.bucket))
-            # os.system('gsutil cp %s gs://%s/weights' % (wdir + fbest, opt.bucket))
 
     if not opt.evolve:
         plot_results()  # save as results.png
@@ -407,7 +403,6 @@ if __name__ == '__main__':
     parser.add_argument('--nosave', action='store_true', help='only save final checkpoint')
     parser.add_argument('--notest', action='store_true', help='only test final epoch')
     parser.add_argument('--evolve', action='store_true', help='evolve hyperparameters')
-    parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
     parser.add_argument('--weights', type=str, default='weights/darknet53.conv.74', help='pretrained weights path')
     parser.add_argument('--arc', type=str, default='default', help='yolo architecture')  # default, uCE, uBCE
