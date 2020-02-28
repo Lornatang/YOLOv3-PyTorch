@@ -318,7 +318,7 @@ class Darknet(nn.Module):
                     if isinstance(b, nn.modules.batchnorm.BatchNorm2d):
                         # fuse this bn layer with the previous conv2d layer
                         conv = a[i - 1]
-                        fused = torch_utils.fuse_conv_and_bn(conv, b)
+                        fused = utils.fuse_conv_and_bn(conv, b)
                         a = nn.Sequential(fused, *list(a.children())[i + 1:])
                         break
             fused_list.append(a)
