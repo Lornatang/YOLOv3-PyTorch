@@ -159,28 +159,13 @@ def train():
     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[round(epochs * x) for x in [0.8, 0.9]], gamma=0.1)
     scheduler.last_epoch = start_epoch
 
-    # # Plot lr schedule
-    # y = []
-    # for _ in range(epochs):
-    #     scheduler.step()
-    #     y.append(optimizer.param_groups[0]['lr'])
-    # plt.plot(y, '.-', label='LambdaLR')
-    # plt.xlabel('epoch')
-    # plt.ylabel('LR')
-    # plt.tight_layout()
-    # plt.savefig('LR.png', dpi=300)
-
-    # Mixed precision training https://github.com/NVIDIA/apex
-    # if mixed_precision:
-    #     model, optimizer = amp.initialize(model, optimizer, opt_level='O1', verbosity=0)
-
     # Initialize distributed training
     if device.type != 'cpu' and torch.cuda.device_count() > 1:
         dist.init_process_group(backend='nccl',  # 'distributed backend'
                                 init_method='tcp://127.0.0.1:9999',  # distributed training init method
                                 world_size=1,  # number of nodes for distributed training
                                 rank=0)  # distributed training node rank
-        model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
+        model = torch.nn.parallel.DistributedDataParallel(model)
         model.yolo_layers = model.module.yolo_layers  # move yolo layer indices to top level
 
     # Dataset
@@ -258,17 +243,6 @@ def train():
             ni = i + nb * epoch  # number integrated batches (since train start)
             imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
             targets = targets.to(device)
-
-            # Hyperparameter burn-in
-            # n_burn = nb - 1  # min(nb // 5 + 1, 1000)  # number of burn-in batches
-            # if ni <= n_burn:
-            #     for m in model.named_modules():
-            #         if m[0].endswith('BatchNorm2d'):
-            #             m[1].momentum = 1 - i / n_burn * 0.99  # BatchNorm2d momentum falls from 1 - 0.01
-            #     g = (i / n_burn) ** 4  # gain rises from 0 - 1
-            #     for x in optimizer.param_groups:
-            #         x['lr'] = hyp['lr0'] * g
-            #         x['weight_decay'] = hyp['weight_decay'] * g
 
             # Plot images with bounding boxes
             if ni < 1:
