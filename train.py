@@ -1,3 +1,16 @@
+# Copyright 2020 Lorna Authors. All Rights Reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 import argparse
 
 import torch.distributed as dist
@@ -17,8 +30,8 @@ except:
     mixed_precision = False  # not installed
 
 wdir = 'weights' + os.sep  # weights dir
-last = wdir + 'last.pth'
-best = wdir + 'best.pth'
+last = wdir + 'checkpoint.pth'
+best = wdir + 'model_best.pth'
 results_file = 'results.txt'
 
 # Hyperparameters (results68: 59.9 mAP@0.5 yolov3-spp-416) https://github.com/ultralytics/yolov3/issues/310
@@ -102,7 +115,6 @@ def train():
 
     start_epoch = 0
     best_fitness = 0.0
-    attempt_download(weights)
     if weights.endswith('.pth'):  # pytorch format
         # possible weights are '*.pth', 'yolov3-spp.pth', 'yolov3-tiny.pth' etc.
         chkpt = torch.load(weights, map_location=device)
@@ -213,7 +225,7 @@ def train():
     # torch.autograd.set_detect_anomaly(True)
     results = (0, 0, 0, 0, 0, 0, 0)  # 'P', 'R', 'mAP', 'F1', 'val GIoU', 'val Objectness', 'val Classification'
     t0 = time.time()
-    utils.model_info(model, report='summary')  # 'full' or 'summary'
+    torch_utils.model_info(model, report='summary')  # 'full' or 'summary'
     print('Using %g dataloader workers' % nw)
     print('Starting training for %g epochs...' % epochs)
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
@@ -377,8 +389,8 @@ def train():
         n = '_' + n if not n.isnumeric() else n
         fresults, flast, fbest = 'results%s.txt' % n, 'last%s.pt' % n, 'best%s.pt' % n
         os.rename('results.txt', fresults)
-        os.rename(wdir + 'last.pth', wdir + flast) if os.path.exists(wdir + 'last.pth') else None
-        os.rename(wdir + 'best.pth', wdir + fbest) if os.path.exists(wdir + 'best.pth') else None
+        os.rename(wdir + 'last.pth', wdir + flast) if os.path.exists(wdir + 'checkpoint.pth') else None
+        os.rename(wdir + 'best.pth', wdir + fbest) if os.path.exists(wdir + 'yolov3-best.pth') else None
 
     if not opt.evolve:
         plot_results()  # save as results.png
@@ -395,7 +407,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch-size', type=int, default=16)  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument('--accumulate', type=int, default=4, help='batches to accumulate before optimizing')
     parser.add_argument('--cfg', type=str, default='cfg/yolov3-spp.cfg', help='*.cfg path')
-    parser.add_argument('--data', type=str, default='data/coco2014.data', help='*.data path')
+    parser.add_argument('--data', type=str, default='cfg/coco2014.data', help='*.data path')
     parser.add_argument('--multi-scale', action='store_true', help='adjust (67% - 150%) img_size every 10 batches')
     parser.add_argument('--img-size', nargs='+', type=int, default=[416], help='train and test image-sizes')
     parser.add_argument('--rect', action='store_true', help='rectangular training')
@@ -404,7 +416,7 @@ if __name__ == '__main__':
     parser.add_argument('--notest', action='store_true', help='only test final epoch')
     parser.add_argument('--evolve', action='store_true', help='evolve hyperparameters')
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
-    parser.add_argument('--weights', type=str, default='weights/darknet53.conv.74', help='pretrained weights path')
+    parser.add_argument('--weights', type=str, default='', help='pretrained weights path')
     parser.add_argument('--arc', type=str, default='default', help='yolo architecture')  # default, uCE, uBCE
     parser.add_argument('--name', default='', help='renames results.txt to results_name.txt if supplied')
     parser.add_argument('--device', default='', help='device id (i.e. 0 or 0,1 or cpu)')
@@ -414,7 +426,7 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     opt.weights = last if opt.resume else opt.weights
     print(opt)
-    device = utils.select_device(opt.device, apex=mixed_precision, batch_size=opt.batch_size)
+    device = torch_utils.select_device(opt.device, apex=mixed_precision, batch_size=opt.batch_size)
     if device.type == 'cpu':
         mixed_precision = False
 
