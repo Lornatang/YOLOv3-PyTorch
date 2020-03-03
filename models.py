@@ -11,10 +11,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+from pathlib import Path
+
+import numpy as np
+import torch
+import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.parse_config import *
-from utils.utils import *
+from utils import fuse_conv_and_bn
+from utils import parse_model_cfg
 
 ONNX_EXPORT = False
 
@@ -74,8 +79,6 @@ def create_modules(module_defs, img_size, arc):
             layers = mdef['layers']
             filters = sum([output_filters[i + 1 if i > 0 else i] for i in layers])
             routs.extend([l if l > 0 else l + i for l in layers])
-            # if mdef[i+1]['type'] == 'reorg3d':
-            #     modules = nn.Upsample(scale_factor=1/float(mdef[i+1]['stride']), mode='nearest')  # reorg3d
 
         elif mdef['type'] == 'shortcut':  # nn.Sequential() placeholder for 'shortcut' layer
             layers = mdef['from']
@@ -84,8 +87,6 @@ def create_modules(module_defs, img_size, arc):
             modules = weightedFeatureFusion(layers=layers, weight='weights_type' in mdef)
 
         elif mdef['type'] == 'reorg3d':  # yolov3-spp-pan-scale
-            # torch.Size([16, 128, 104, 104])
-            # torch.Size([16, 64, 208, 208]) <-- # stride 2 interpolate dimensions 2 and 3 to cat with prior layer
             pass
 
         elif mdef['type'] == 'yolo':
@@ -116,8 +117,8 @@ def create_modules(module_defs, img_size, arc):
                 # bias = torch.load('weights/yolov3-spp.bias.pt')[yolo_index]  # list of tensors [3x85, 3x85, 3x85]
                 module_list[-1][0].bias = torch.nn.Parameter(bias.view(-1))
                 # utils.print_model_biases(model)
-            except:
-                print('WARNING: smart bias initialization failure.')
+            except ValueError:
+                print('Warning: smart bias initialization failure.')
 
         else:
             print('Warning: Unrecognized Layer Type: ' + mdef['type'])
@@ -330,7 +331,7 @@ class Darknet(nn.Module):
                     if isinstance(b, nn.modules.batchnorm.BatchNorm2d):
                         # fuse this bn layer with the previous conv2d layer
                         conv = a[i - 1]
-                        fused = torch_utils.fuse_conv_and_bn(conv, b)
+                        fused = fuse_conv_and_bn(conv, b)
                         a = nn.Sequential(fused, *list(a.children())[i + 1:])
                         break
             fused_list.append(a)
