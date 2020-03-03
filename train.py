@@ -28,7 +28,6 @@ from tqdm import tqdm
 
 from models import Darknet
 from models import load_darknet_weights
-from utils import parse_data_cfg
 from test import evaluate
 from utils import LoadImagesAndLabels
 from utils import compute_loss
@@ -37,6 +36,7 @@ from utils import init_seeds
 from utils import labels_to_class_weights
 from utils import labels_to_image_weights
 from utils import model_info
+from utils import parse_data_cfg
 from utils import plot_images
 from utils import plot_results
 from utils import print_model_biases

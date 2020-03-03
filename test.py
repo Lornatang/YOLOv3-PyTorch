@@ -15,16 +15,16 @@ import argparse
 import glob
 import os
 import time
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-from tqdm import tqdm
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from models import Darknet
 from models import load_darknet_weights
-from models import parse_data_cfg
 from utils import LoadImagesAndLabels
 from utils import ap_per_class
 from utils import box_iou
@@ -32,6 +32,7 @@ from utils import clip_coords
 from utils import compute_loss
 from utils import load_classes
 from utils import non_max_suppression
+from utils import parse_data_cfg
 from utils import select_device
 from utils import xywh2xyxy
 
