@@ -12,29 +12,43 @@
 # limitations under the License.
 # ==============================================================================
 import argparse
-import json
-
+import glob
+import os
+import time
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import torch.nn as nn
+from tqdm import tqdm
 from torch.utils.data import DataLoader
 
-from models import *
-from utils.datasets import *
-from utils.utils import *
+from models import Darknet
+from models import load_darknet_weights
+from models import parse_data_cfg
+from utils import LoadImagesAndLabels
+from utils import ap_per_class
+from utils import box_iou
+from utils import clip_coords
+from utils import compute_loss
+from utils import load_classes
+from utils import non_max_suppression
+from utils import select_device
+from utils import xywh2xyxy
 
 
-def test(cfg,
-         data,
-         weights=None,
-         batch_size=16,
-         img_size=416,
-         conf_thres=0.001,
-         iou_thres=0.6,  # for nms
-         save_json=False,
-         single_cls=False,
-         model=None,
-         dataloader=None):
+def evaluate(cfg,
+             data,
+             weights=None,
+             batch_size=16,
+             img_size=416,
+             conf_thres=0.001,
+             iou_thres=0.6,  # for nms
+             single_cls=False,
+             model=None,
+             dataloader=None):
     # Initialize/load model and set device
     if model is None:
-        device = torch_utils.select_device(opt.device, batch_size=batch_size)
+        device = select_device(opt.device, batch_size=batch_size)
         verbose = opt.task == 'test'
 
         # Remove previous
@@ -77,7 +91,6 @@ def test(cfg,
 
     seen = 0
     model.eval()
-    coco91class = coco80_to_coco91_class()
     s = ('%20s' + '%10s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@0.5', 'F1')
     p, r, f1, mp, mr, map, mf1 = 0., 0., 0., 0., 0., 0., 0.
     loss = torch.zeros(3)
@@ -86,10 +99,6 @@ def test(cfg,
         imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
         targets = targets.to(device)
         _, _, height, width = imgs.shape  # batch size, channels, height, width
-
-        # Plot images with bounding boxes
-        if batch_i == 0 and not os.path.exists('test_batch0.png'):
-            plot_images(imgs=imgs, targets=targets, paths=paths, fname='test_batch0.png')
 
         # Disable gradients
         with torch.no_grad():
@@ -121,20 +130,6 @@ def test(cfg,
 
             # Clip boxes to image bounds
             clip_coords(pred, (height, width))
-
-            # Append to pycocotools JSON dictionary
-            if save_json:
-                # [{"image_id": 42, "category_id": 18, "bbox": [258.15, 41.29, 348.26, 243.78], "score": 0.236}, ...
-                image_id = int(Path(paths[si]).stem.split('_')[-1])
-                box = pred[:, :4].clone()  # xyxy
-                scale_coords(imgs[si].shape[1:], box, shapes[si][0], shapes[si][1])  # to original shape
-                box = xyxy2xywh(box)  # xywh
-                box[:, :2] -= box[:, 2:] / 2  # xy center to top-left corner
-                for di, d in enumerate(pred):
-                    jdict.append({'image_id': image_id,
-                                  'category_id': coco91class[int(d[5])],
-                                  'bbox': [floatn(x, 3) for x in box[di]],
-                                  'score': floatn(d[4], 5)})
 
             # Assign all predictions as incorrect
             correct = torch.zeros(len(pred), niou, dtype=torch.bool)
@@ -187,29 +182,6 @@ def test(cfg,
         for i, c in enumerate(ap_class):
             print(pf % (names[c], seen, nt[c], p[i], r[i], ap[i], f1[i]))
 
-    # Save JSON
-    if save_json and map and len(jdict):
-        imgIds = [int(Path(x).stem.split('_')[-1]) for x in dataloader.dataset.img_files]
-        with open('results.json', 'w') as file:
-            json.dump(jdict, file)
-
-        try:
-            from pycocotools.coco import COCO
-            from pycocotools.cocoeval import COCOeval
-        except:
-            print('WARNING: missing pycocotools package, can not compute official COCO mAP. See requirements.txt.')
-
-        # https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocoEvalDemo.ipynb
-        cocoGt = COCO(glob.glob('../coco/annotations/instances_val*.json')[0])  # initialize COCO ground truth api
-        cocoDt = cocoGt.loadRes('results.json')  # initialize COCO pred api
-
-        cocoEval = COCOeval(cocoGt, cocoDt, 'bbox')
-        cocoEval.params.imgIds = imgIds  # [:32]  # only evaluate these images
-        cocoEval.evaluate()
-        cocoEval.accumulate()
-        cocoEval.summarize()
-        mf1, map = cocoEval.stats[:2]  # update to pycocotools results (mAP@0.5:0.95, mAP@0.5)
-
     # Return results
     maps = np.zeros(nc) + map
     for i, c in enumerate(ap_class):
@@ -225,7 +197,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch-size', type=int, default=32, help='size of each image batch')
     parser.add_argument('--img-size', type=int, default=416, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.001, help='object confidence threshold')
-    parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
+    parser.add_argument('--iou-thres', type=float, default=0.5, help='IOU threshold for NMS')
     parser.add_argument('--save-json', action='store_true', help='save a cocoapi-compatible JSON results file')
     parser.add_argument('--task', default='test', help="'test', 'study', 'benchmark'")
     parser.add_argument('--device', default='', help='device id (i.e. 0 or 0,1) or cpu')
@@ -236,22 +208,21 @@ if __name__ == '__main__':
 
     # task = 'test', 'study', 'benchmark'
     if opt.task == 'test':  # (default) test normally
-        test(opt.cfg,
-             opt.data,
-             opt.weights,
-             opt.batch_size,
-             opt.img_size,
-             opt.conf_thres,
-             opt.iou_thres,
-             opt.save_json,
-             opt.single_cls)
+        evaluate(opt.cfg,
+                 opt.data,
+                 opt.weights,
+                 opt.batch_size,
+                 opt.img_size,
+                 opt.conf_thres,
+                 opt.iou_thres,
+                 opt.single_cls)
 
     elif opt.task == 'benchmark':  # mAPs at 320-608 at conf 0.5 and 0.7
         y = []
         for i in [320, 416, 512, 608]:  # img-size
             for j in [0.5, 0.7]:  # iou-thres
                 t = time.time()
-                r = test(opt.cfg, opt.data, opt.weights, opt.batch_size, i, opt.conf_thres, j, opt.save_json)[0]
+                r = evaluate(opt.cfg, opt.data, opt.weights, opt.batch_size, i, opt.conf_thres, j)[0]
                 y.append(r + (time.time() - t,))
         np.savetxt('benchmark.txt', y, fmt='%10.4g')  # y = np.loadtxt('study.txt')
 
@@ -260,7 +231,7 @@ if __name__ == '__main__':
         x = np.arange(0.4, 0.9, 0.05)  # iou-thres
         for i in x:
             t = time.time()
-            r = test(opt.cfg, opt.data, opt.weights, opt.batch_size, opt.img_size, opt.conf_thres, i, opt.save_json)[0]
+            r = evaluate(opt.cfg, opt.data, opt.weights, opt.batch_size, opt.img_size, opt.conf_thres, i)[0]
             y.append(r + (time.time() - t,))
         np.savetxt('study.txt', y, fmt='%10.4g')  # y = np.loadtxt('study.txt')
 

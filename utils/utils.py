@@ -12,9 +12,7 @@
 # limitations under the License.
 # ==============================================================================
 import glob
-import os
 import random
-import shutil
 from pathlib import Path
 
 import cv2
@@ -25,7 +23,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torchvision
-from tqdm import tqdm
 
 from . import torch_utils  #
 
@@ -507,9 +504,8 @@ def build_targets(model, targets):
         # Class
         tcls.append(c)
         if c.shape[0]:  # if any targets
-            assert c.max() < model.nc, 'Model accepts %g classes labeled from 0-%g, however you labelled a class %g. ' \
-                                       'See https://github.com/ultralytics/yolov3/wiki/Train-Custom-Data' % (
-                                           model.nc, model.nc - 1, c.max())
+            assert c.max() < model.nc, 'Model accepts %g classes labeled from 0-%g, however you labelled a class %g. ' % (
+                model.nc, model.nc - 1, c.max())
 
     return tcls, tbox, indices, av
 
@@ -521,7 +517,6 @@ def non_max_suppression(prediction, conf_thres=0.5, iou_thres=0.5, multi_cls=Tru
     Returns detections with shape:
         (x1, y1, x2, y2, object_conf, conf, class)
     """
-    # NMS methods https://github.com/ultralytics/yolov3/issues/679 'or', 'and', 'merge', 'vision', 'vision_batch'
 
     # Box constraints
     min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
@@ -583,21 +578,12 @@ def non_max_suppression(prediction, conf_thres=0.5, iou_thres=0.5, multi_cls=Tru
                 det_max.append(dc)  # No NMS required if only 1 prediction
                 continue
             elif n > 500:
-                dc = dc[:500]  # limit to first 500 boxes: https://github.com/ultralytics/yolov3/issues/117
+                dc = dc[:500]
 
             if method == 'vision':
                 det_max.append(dc[torchvision.ops.boxes.nms(dc[:, :4], dc[:, 4], iou_thres)])
 
             elif method == 'or':  # default
-                # METHOD1
-                # ind = list(range(len(dc)))
-                # while len(ind):
-                # j = ind[0]
-                # det_max.append(dc[j:j + 1])  # save highest conf detection
-                # reject = (bbox_iou(dc[j], dc[ind]) > iou_thres).nonzero()
-                # [ind.pop(i) for i in reversed(reject)]
-
-                # METHOD2
                 while dc.shape[0]:
                     det_max.append(dc[:1])  # save highest conf detection
                     if len(dc) == 1:  # Stop if we're at the last detection
@@ -642,11 +628,6 @@ def non_max_suppression(prediction, conf_thres=0.5, iou_thres=0.5, multi_cls=Tru
     return output
 
 
-def get_yolo_layers(model):
-    bool_vec = [x['type'] == 'yolo' for x in model.module_defs]
-    return [i for i, x in enumerate(bool_vec) if x]  # [82, 94, 106] for yolov3
-
-
 def print_model_biases(model):
     # prints the bias neurons preceding each yolo layer
     print('\nModel Bias Summary: %8s%18s%18s%18s' % ('layer', 'regression', 'objectness', 'classification'))
@@ -663,7 +644,7 @@ def print_model_biases(model):
                                                '%5.2f+/-%-5.2f' % (b[:, 5:].mean(), b[:, 5:].std())))
 
 
-def strip_optimizer(f='weights/last.pt'):  # from utils.utils import *; strip_optimizer()
+def strip_optimizer(f='weights/checkpoint.pth'):  # from utils.utils import *; strip_optimizer()
     # Strip optimizer from *.pt files for lighter files (reduced by 2/3 size)
     x = torch.load(f, map_location=torch.device('cpu'))
     x['optimizer'] = None
@@ -672,7 +653,7 @@ def strip_optimizer(f='weights/last.pt'):  # from utils.utils import *; strip_op
     torch.save(x, f)
 
 
-def create_backbone(f='weights/last.pt'):  # from utils.utils import *; create_backbone()
+def create_backbone(f='weights/checkpoint.pth'):  # from utils.utils import *; create_backbone()
     # create a backbone from a *.pt file
     x = torch.load(f, map_location=torch.device('cpu'))
     x['optimizer'] = None
@@ -681,177 +662,22 @@ def create_backbone(f='weights/last.pt'):  # from utils.utils import *; create_b
     for p in x['model'].values():
         try:
             p.requires_grad = True
-        except:
+        except ValueError:
             pass
-    torch.save(x, 'weights/backbone.pt')
+    torch.save(x, 'weights/checkpoint.pth')
 
 
-def coco_class_count(path='../coco/labels/train2014/'):
-    # Histogram of occurrences per class
-    nc = 80  # number classes
-    x = np.zeros(nc, dtype='int32')
-    files = sorted(glob.glob('%s/*.*' % path))
-    for i, file in enumerate(files):
-        labels = np.loadtxt(file, dtype=np.float32).reshape(-1, 5)
-        x += np.bincount(labels[:, 0].astype('int32'), minlength=nc)
-        print(i, len(files))
-
-
-def coco_only_people(path='../coco/labels/train2017/'):  # from utils.utils import *; coco_only_people()
-    # Find images with only people
-    files = sorted(glob.glob('%s/*.*' % path))
-    for i, file in enumerate(files):
-        labels = np.loadtxt(file, dtype=np.float32).reshape(-1, 5)
-        if all(labels[:, 0] == 0):
-            print(labels.shape[0], file)
-
-
-def select_best_evolve(path='evolve*.txt'):  # from utils.utils import *; select_best_evolve()
-    # Find best evolved mutation
-    for file in sorted(glob.glob(path)):
-        x = np.loadtxt(file, dtype=np.float32, ndmin=2)
-        print(file, x[fitness(x).argmax()])
-
-
-def crop_images_random(path='../images/', scale=0.50):  # from utils.utils import *; crop_images_random()
-    # crops images into random squares up to scale fraction
-    # WARNING: overwrites images!
-    for file in tqdm(sorted(glob.glob('%s/*.*' % path))):
-        img = cv2.imread(file)  # BGR
-        if img is not None:
-            h, w = img.shape[:2]
-
-            # create random mask
-            a = 30  # minimum size (pixels)
-            mask_h = random.randint(a, int(max(a, h * scale)))  # mask height
-            mask_w = mask_h  # mask width
-
-            # box
-            xmin = max(0, random.randint(0, w) - mask_w // 2)
-            ymin = max(0, random.randint(0, h) - mask_h // 2)
-            xmax = min(w, xmin + mask_w)
-            ymax = min(h, ymin + mask_h)
-
-            # apply random color mask
-            cv2.imwrite(file, img[ymin:ymax, xmin:xmax])
-
-
-def coco_single_class_labels(path='../coco/labels/train2014/', label_class=43):
-    # Makes single-class coco datasets. from utils.utils import *; coco_single_class_labels()
-    if os.path.exists('new/'):
-        shutil.rmtree('new/')  # delete output folder
-    os.makedirs('new/')  # make new output folder
-    os.makedirs('new/labels/')
-    os.makedirs('new/images/')
-    for file in tqdm(sorted(glob.glob('%s/*.*' % path))):
-        with open(file, 'r') as f:
-            labels = np.array([x.split() for x in f.read().splitlines()], dtype=np.float32)
-        i = labels[:, 0] == label_class
-        if any(i):
-            img_file = file.replace('labels', 'images').replace('txt', 'jpg')
-            labels[:, 0] = 0  # reset class to 0
-            with open('new/images.txt', 'a') as f:  # add image to dataset list
-                f.write(img_file + '\n')
-            with open('new/labels/' + Path(file).name, 'a') as f:  # write label
-                for l in labels[i]:
-                    f.write('%g %.6f %.6f %.6f %.6f\n' % tuple(l))
-            shutil.copyfile(src=img_file, dst='new/images/' + Path(file).name.replace('txt', 'jpg'))  # copy images
-
-
-def kmean_anchors(path='../coco/train2017.txt', n=9, img_size=(608, 608)):
-    # from utils.utils import *; _ = kmean_anchors()
-    # Produces a list of target kmeans suitable for use in *.cfg files
-    from utils.datasets import LoadImagesAndLabels
-    thr = 0.20  # IoU threshold
-
-    def print_results(k):
-        k = k[np.argsort(k.prod(1))]  # sort small to large
-        iou = wh_iou(wh, torch.Tensor(k))
-        max_iou = iou.max(1)[0]
-        bpr, aat = (max_iou > thr).float().mean(), (iou > thr).float().mean() * n  # best possible recall, anch > thr
-        print('%.2f iou_thr: %.3f best possible recall, %.2f anchors > thr' % (thr, bpr, aat))
-        print('n=%g, img_size=%s, IoU_all=%.3f/%.3f-mean/best, IoU>thr=%.3f-mean: ' %
-              (n, img_size, iou.mean(), max_iou.mean(), iou[iou > thr].mean()), end='')
-        for i, x in enumerate(k):
-            print('%i,%i' % (round(x[0]), round(x[1])), end=',  ' if i < len(k) - 1 else '\n')  # use in *.cfg
-        return k
-
-    def fitness(k):  # mutation fitness
-        iou = wh_iou(wh, torch.Tensor(k))  # iou
-        max_iou = iou.max(1)[0]
-        return max_iou.mean()  # product
-
-    # Get label wh
-    wh = []
-    dataset = LoadImagesAndLabels(path, augment=True, rect=True, cache_labels=True)
-    nr = 1 if img_size[0] == img_size[1] else 10  # number augmentation repetitions
-    for s, l in zip(dataset.shapes, dataset.labels):
-        wh.append(l[:, 3:5] * (s / s.max()))  # image normalized to letterbox normalized wh
-    wh = np.concatenate(wh, 0).repeat(nr, axis=0)  # augment 10x
-    wh *= np.random.uniform(img_size[0], img_size[1], size=(wh.shape[0], 1))  # normalized to pixels (multi-scale)
-    wh = wh[(wh > 2.0).all(1)]  # remove below threshold boxes (< 2 pixels wh)
-
-    # Darknet yolov3.cfg anchors
-    use_darknet = False
-    if use_darknet and n == 9:
-        k = np.array([[10, 13], [16, 30], [33, 23], [30, 61], [62, 45], [59, 119], [116, 90], [156, 198], [373, 326]])
-    else:
-        # Kmeans calculation
-        from scipy.cluster.vq import kmeans
-        print('Running kmeans for %g anchors on %g points...' % (n, len(wh)))
-        s = wh.std(0)  # sigmas for whitening
-        k, dist = kmeans(wh / s, n, iter=30)  # points, mean distance
-        k *= s
-    wh = torch.Tensor(wh)
-    k = print_results(k)
-
-    # # Plot
-    # k, d = [None] * 20, [None] * 20
-    # for i in tqdm(range(1, 21)):
-    #     k[i-1], d[i-1] = kmeans(wh / s, i)  # points, mean distance
-    # fig, ax = plt.subplots(1, 2, figsize=(14, 7))
-    # ax = ax.ravel()
-    # ax[0].plot(np.arange(1, 21), np.array(d) ** 2, marker='.')
-    # fig, ax = plt.subplots(1, 2, figsize=(14, 7))  # plot wh
-    # ax[0].hist(wh[wh[:, 0]<100, 0],400)
-    # ax[1].hist(wh[wh[:, 1]<100, 1],400)
-    # fig.tight_layout()
-    # fig.savefig('wh.png', dpi=200)
-
-    # Evolve
-    npr = np.random
-    f, sh, ng, mp, s = fitness(k), k.shape, 1000, 0.9, 0.1  # fitness, generations, mutation prob, sigma
-    for _ in tqdm(range(ng), desc='Evolving anchors'):
-        v = np.ones(sh)
-        while (v == 1).all():  # mutate until a change occurs (prevent duplicates)
-            v = ((npr.random(sh) < mp) * npr.random() * npr.randn(*sh) * s + 1).clip(0.3, 3.0)  # 98.6, 61.6
-        kg = (k.copy() * v).clip(min=2.0)
-        fg = fitness(kg)
-        if fg > f:
-            f, k = fg, kg.copy()
-            print_results(k)
-    k = print_results(k)
-
-    return k
-
-
-def print_mutation(hyp, results, bucket=''):
+def print_mutation(hyp, results):
     # Print mutation results to evolve.txt (for use with train.py --evolve)
     a = '%10s' * len(hyp) % tuple(hyp.keys())  # hyperparam keys
     b = '%10.3g' * len(hyp) % tuple(hyp.values())  # hyperparam values
     c = '%10.4g' * len(results) % results  # results (P, R, mAP, F1, test_loss)
     print('\n%s\n%s\nEvolved fitness: %s\n' % (a, b, c))
 
-    if bucket:
-        os.system('gsutil cp gs://%s/evolve.txt .' % bucket)  # download evolve.txt
-
     with open('evolve.txt', 'a') as f:  # append result
         f.write(c + b + '\n')
     x = np.unique(np.loadtxt('evolve.txt', ndmin=2), axis=0)  # load unique rows
     np.savetxt('evolve.txt', x[np.argsort(-fitness(x))], '%10.3g')  # save sort by fitness
-
-    if bucket:
-        os.system('gsutil cp evolve.txt gs://%s' % bucket)  # upload evolve.txt
 
 
 def apply_classifier(x, model, img, im0):
@@ -995,12 +821,10 @@ def plot_evolution_results(hyp):  # from utils.utils import *; plot_evolution_re
     # Plot hyperparameter evolution results in evolve.txt
     x = np.loadtxt('evolve.txt', ndmin=2)
     f = fitness(x)
-    weights = (f - f.min()) ** 2  # for weighted results
     fig = plt.figure(figsize=(12, 10))
     matplotlib.rc('font', **{'size': 8})
     for i, (k, v) in enumerate(hyp.items()):
         y = x[:, i + 7]
-        # mu = (y * weights).sum() / weights.sum()  # best weighted result
         mu = y[f.argmax()]  # best single result
         plt.subplot(4, 5, i + 1)
         plt.plot(mu, f.max(), 'o', markersize=10)
@@ -1034,17 +858,15 @@ def plot_results_overlay(start=0, stop=0):  # from utils.utils import *; plot_re
         fig.savefig(f.replace('.txt', '.png'), dpi=200)
 
 
-def plot_results(start=0, stop=0, bucket='', id=()):  # from utils.utils import *; plot_results()
+def plot_results(start=0, stop=0):  # from utils.utils import *; plot_results()
     # Plot training results files 'results*.txt'
     fig, ax = plt.subplots(2, 5, figsize=(12, 6))
     ax = ax.ravel()
     s = ['GIoU', 'Objectness', 'Classification', 'Precision', 'Recall',
          'val GIoU', 'val Objectness', 'val Classification', 'mAP@0.5', 'F1']
-    if bucket:
-        os.system('rm -rf storage.googleapis.com')
-        files = ['https://storage.googleapis.com/%s/results%g.txt' % (bucket, x) for x in id]
-    else:
-        files = glob.glob('results*.txt') + glob.glob('../../Downloads/results*.txt')
+
+    files = glob.glob('results*.txt') + glob.glob('../../Downloads/results*.txt')
+
     for f in sorted(files):
         results = np.loadtxt(f, usecols=[2, 3, 4, 8, 9, 12, 13, 14, 10, 11], ndmin=2).T
         n = results.shape[1]  # number of rows
@@ -1053,7 +875,6 @@ def plot_results(start=0, stop=0, bucket='', id=()):  # from utils.utils import 
             y = results[i, x]
             if i in [0, 1, 2, 5, 6, 7]:
                 y[y == 0] = np.nan  # dont show zero loss values
-                # y /= y[0]  # normalize
             ax[i].plot(x, y, marker='.', label=Path(f).stem, linewidth=2, markersize=8)
             ax[i].set_title(s[i])
             if i in [5, 6, 7]:  # share train and val loss y axes
