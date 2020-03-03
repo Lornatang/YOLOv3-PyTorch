@@ -173,7 +173,6 @@ def train():
                                   augment=True,
                                   hyp=hyp,  # augmentation hyperparameters
                                   rect=opt.rect,  # rectangular training
-                                  cache_labels=True,
                                   cache_images=opt.cache_images,
                                   single_cls=opt.single_cls)
 
@@ -191,7 +190,6 @@ def train():
     testloader = torch.utils.data.DataLoader(LoadImagesAndLabels(test_path, img_size_test, batch_size * 2,
                                                                  hyp=hyp,
                                                                  rect=True,
-                                                                 cache_labels=True,
                                                                  cache_images=opt.cache_images,
                                                                  single_cls=opt.single_cls),
                                              batch_size=batch_size * 2,
