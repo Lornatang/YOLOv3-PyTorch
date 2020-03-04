@@ -10,7 +10,7 @@ train_total = int(xml_total * 0.8)
 train_sample = random.sample(range(xml_total), train_total)
 
 train = open(txt_path + "/train.txt", "w")
-val = open(txt_path + "/val.txt", "w")
+val = open(txt_path + "/valid.txt", "w")
 
 for i in range(xml_total):
     name = xml_list[i][:-4] + "\n"
