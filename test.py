@@ -49,8 +49,8 @@ def evaluate(cfg,
              dataloader=None):
     # Initialize/load model and set device
     if model is None:
-        device = select_device(opt.device, batch_size=batch_size)
-        verbose = opt.task == "test"
+        device = select_device(args.device, batch_size=batch_size)
+        verbose = args.task == "test"
 
         # Remove previous
         for f in glob.glob("test_batch*.jpg"):
@@ -201,39 +201,39 @@ if __name__ == "__main__":
     parser.add_argument("--conf-thres", type=float, default=0.001, help="object confidence threshold")
     parser.add_argument("--iou-thres", type=float, default=0.5, help="IOU threshold for NMS")
     parser.add_argument("--save-json", action="store_true", help="save a cocoapi-compatible JSON results file")
-    parser.add_argument("--task", default="test", help=""test", "study", "benchmark"")
+    parser.add_argument("--task", default="test", help="`test`, `study`, `benchmark`")
     parser.add_argument("--device", default="", help="device id (i.e. 0 or 0,1) or cpu")
     parser.add_argument("--single-cls", action="store_true", help="train as single-class dataset")
-    opt = parser.parse_args()
-    opt.save_json = opt.save_json or any([x in opt.data for x in ["coco2014.data", "coco2014.data", "coco2017.data"]])
-    print(opt)
+    args = parser.parse_args()
+    args.save_json = args.save_json or any([x in args.data for x in ["coco2014.data", "coco2014.data", "coco2017.data"]])
+    print(args)
 
     # task = "test", "study", "benchmark"
-    if opt.task == "test":  # (default) test normally
-        evaluate(opt.cfg,
-                 opt.data,
-                 opt.weights,
-                 opt.batch_size,
-                 opt.img_size,
-                 opt.conf_thres,
-                 opt.iou_thres,
-                 opt.single_cls)
+    if args.task == "test":  # (default) test normally
+        evaluate(args.cfg,
+                 args.data,
+                 args.weights,
+                 args.batch_size,
+                 args.img_size,
+                 args.conf_thres,
+                 args.iou_thres,
+                 args.single_cls)
 
-    elif opt.task == "benchmark":  # mAPs at 320-608 at conf 0.5 and 0.7
+    elif args.task == "benchmark":  # mAPs at 320-608 at conf 0.5 and 0.7
         y = []
         for i in [320, 416, 512, 608]:  # img-size
             for j in [0.5, 0.7]:  # iou-thres
                 t = time.time()
-                r = evaluate(opt.cfg, opt.data, opt.weights, opt.batch_size, i, opt.conf_thres, j)[0]
+                r = evaluate(args.cfg, args.data, args.weights, args.batch_size, i, args.conf_thres, j)[0]
                 y.append(r + (time.time() - t,))
         np.savetxt("benchmark.txt", y, fmt="%10.4g")  # y = np.loadtxt("study.txt")
 
-    elif opt.task == "study":  # Parameter study
+    elif args.task == "study":  # Parameter study
         y = []
         x = np.arange(0.4, 0.9, 0.05)  # iou-thres
         for i in x:
             t = time.time()
-            r = evaluate(opt.cfg, opt.data, opt.weights, opt.batch_size, opt.img_size, opt.conf_thres, i)[0]
+            r = evaluate(args.cfg, args.data, args.weights, args.batch_size, args.img_size, args.conf_thres, i)[0]
             y.append(r + (time.time() - t,))
         np.savetxt("study.txt", y, fmt="%10.4g")  # y = np.loadtxt("study.txt")
 
