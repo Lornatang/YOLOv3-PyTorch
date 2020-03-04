@@ -139,13 +139,13 @@ def detect(save_img=False):
                 # Print results
                 for classes in detect[:, -1].unique():
                     number = (detect[:, -1] == classes).sum()  # detections per class
-                    context += f"{number:g} {names[int(classes)]}s, "
+                    context += f"{number} {names[int(classes)]}s, "
 
                 # Write results
                 for *xyxy, confidence, classes in detect:
                     if save_txt:  # Write to file
                         with open(save_path + ".txt", "a") as files:
-                            files.write(("%g " * 6 + "\n") % (*xyxy, classes, confidence))
+                            files.write(("%e " * 6 + "\n") % (*xyxy, classes, confidence))
 
                     if save_img or view_image:  # Add bbox to image
                         label = f"{names[int(classes)]} {confidence:.2f}"
@@ -176,7 +176,7 @@ def detect(save_img=False):
                         video_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*args.fourcc), fps, (w, h))
                     video_writer.write(im0)
 
-    print("Done. (%.3fs)" % (time.time() - start_time))
+    print(f"Done. ({time.time() - start_time:.3f}s)")
 
 
 if __name__ == "__main__":
