@@ -4,10 +4,10 @@ opencv-python
 torch
 onnx
 matplotlib
-pycocotools
 tqdm
 pillow
 scikit-image
+tensorboard
 
 # -------------------------------------------------------------- #
 #                          optional                              #
