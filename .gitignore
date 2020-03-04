@@ -128,6 +128,7 @@ data/voc
 data/voc2007
 data/voc2010
 data/voc2012
+data/masks
 weights/*.weights
 weights/darknet53.conv.74
 weights/*.pth
