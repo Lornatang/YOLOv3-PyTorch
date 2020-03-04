@@ -39,11 +39,11 @@ from utils import select_device
 def detect(save_img=False):
     # (320, 192) or (416, 256) or (608, 352) for (height, width)
     image_size = (608, 352) if ONNX_EXPORT else args.image_size
-    out, source, weights, view_img, save_txt = args.output, args.source, args.weights, args.view_img, args.save_txt
-    camera = source == '0' or source.startswith('http') or source.endswith('.txt')
+    out, source, weights, view_image, save_txt = args.output, args.source, args.weights, args.view_img, args.save_txt
+    camera = source == "0" or source.startswith("http") or source.endswith(".txt")
 
     # Initialize
-    device = select_device(device='cpu' if ONNX_EXPORT else args.device)
+    device = select_device(device="cpu" if ONNX_EXPORT else args.device)
     if os.path.exists(out):
         shutil.rmtree(out)  # delete output folder
     os.makedirs(out)  # make new output folder
@@ -52,17 +52,18 @@ def detect(save_img=False):
     model = Darknet(args.cfg, image_size)
 
     # Load weights
-    if weights.endswith('.pth'):
-        model.load_state_dict(torch.load(weights, map_location=device)['model'])
+    if weights.endswith(".pth"):
+        model.load_state_dict(torch.load(weights, map_location=device)["model"])
     else:
         load_darknet_weights(model, weights)
 
     # Second-stage classifier
     classify = False
     if classify:
-        model_classifier = load_classifier(name='resnet101', n=2)  # initialize
-        model_classifier.load_state_dict(
-            torch.load('weights/resnet101.pth', map_location=device)['model'])  # load weights
+        # init model
+        model_classifier = load_classifier(name="resnet101", n=2)
+        # load model
+        model_classifier.load_state_dict(torch.load("weights/resnet101.pth", map_location=device)["model"])
         model_classifier.to(device)
         model_classifier.eval()
     else:
@@ -77,7 +78,7 @@ def detect(save_img=False):
     if ONNX_EXPORT:
         model.fuse()
         image = torch.zeros((1, 3) + image_size)  # (1, 3, 608, 352)
-        filename = args.weights.replace(args.weights.split('.')[-1], 'onnx')  # *.onnx filename
+        filename = args.weights.replace(args.weights.split(".")[-1], "onnx")  # *.onnx filename
         torch.onnx.export(model, tuple(image), filename, verbose=False, opset_version=11)
 
         # Validate exported model
@@ -90,7 +91,7 @@ def detect(save_img=False):
     # Set Dataloader
     video_path, video_writer = None, None
     if camera:
-        view_img = True
+        view_image = True
         cudnn.benchmark = True  # set True to speed up constant image size inference
         dataset = LoadStreams(source, img_size=image_size)
     else:
@@ -123,45 +124,45 @@ def detect(save_img=False):
             predict = apply_classifier(predict, model_classifier, image, im0s)
 
         # Process detections
-        for i, det in enumerate(predict):  # detections per image
+        for i, detect in enumerate(predict):  # detections per image
             if camera:  # batch_size >= 1
-                p, s, im0 = image_path[i], f'{i}: ', im0s[i]
+                p, context, im0 = image_path[i], f"{i:g}: ", im0s[i]
             else:
-                p, s, im0 = image_path, '', im0s
+                p, context, im0 = image_path, "", im0s
 
             save_path = str(Path(out) / Path(p).name)
-            s += f'{image.shape[2]}*{image.shape[3]} '  # get image size
-            if det is not None and len(det):
+            context += f"{image.shape[2]}*{image.shape[3]} "  # get image size
+            if detect is not None and len(detect):
                 # Rescale boxes from img_size to im0 size
-                det[:, :4] = scale_coords(image.shape[2:], det[:, :4], im0.shape).round()
+                detect[:, :4] = scale_coords(image.shape[2:], detect[:, :4], im0.shape).round()
 
                 # Print results
-                for c in det[:, -1].unique():
-                    n = (det[:, -1] == c).sum()  # detections per class
-                    s += '%g %ss, ' % (n, names[int(c)])  # add to string
+                for classes in detect[:, -1].unique():
+                    number = (detect[:, -1] == classes).sum()  # detections per class
+                    context += f"{number:g} {names[int(classes)]}s, "
 
                 # Write results
-                for *xyxy, conf, cls in det:
+                for *xyxy, confidence, classes in detect:
                     if save_txt:  # Write to file
-                        with open(save_path + '.txt', 'a') as file:
-                            file.write(('%g ' * 6 + '\n') % (*xyxy, cls, conf))
+                        with open(save_path + ".txt", "a") as files:
+                            files.write(("%g " * 6 + "\n") % (*xyxy, classes, confidence))
 
-                    if save_img or view_img:  # Add bbox to image
-                        label = '%s %.2f' % (names[int(cls)], conf)
-                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)])
+                    if save_img or view_image:  # Add bbox to image
+                        label = f"{names[int(classes)]} {confidence:.2f}"
+                        plot_one_box(xyxy, im0, label=label, color=colors[int(classes)])
 
             # Stream results
-            if view_img:
-                cv2.imshow(p, im0)
-                if cv2.waitKey(1) == ord('q'):  # q to quit
+            if view_image:
+                cv2.imshow("camera", im0)
+                if cv2.waitKey(1) == ord("q"):  # q to quit
                     raise StopIteration
 
             # Print time (inference + NMS)
-            print(f"{s}Done. {time.time() - t:.3f}s")
+            print(f"{context}Done. {time.time() - t:.3f}s")
 
             # Save results (image with detections)
             if save_img:
-                if dataset.mode == 'images':
+                if dataset.mode == "images":
                     cv2.imwrite(save_path, im0)
                 else:
                     if video_path != save_path:  # new video
@@ -175,25 +176,35 @@ def detect(save_img=False):
                         video_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*args.fourcc), fps, (w, h))
                     video_writer.write(im0)
 
-    print('Done. (%.3fs)' % (time.time() - start_time))
+    print("Done. (%.3fs)" % (time.time() - start_time))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', type=str, default='cfg/yolov3.cfg', help='*.cfg path')
-    parser.add_argument('--names', type=str, default='data/coco.names', help='*.names path')
-    parser.add_argument('--weights', type=str, default='weights/yolov3.pth', help='weights path')
-    parser.add_argument('--source', type=str, default='data/examples', help='source')  # input file/folder, 0 for webcam
-    parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
-    parser.add_argument('--image-size', type=int, default=608, help='inference size (pixels)')
-    parser.add_argument('--confidence-threshold', type=float, default=0.6, help='object confidence threshold')
-    parser.add_argument('--iou-threshold', type=float, default=0.6, help='IOU threshold for NMS')
-    parser.add_argument('--fourcc', type=str, default='mp4v', help='output video codec (verify ffmpeg support)')
-    parser.add_argument('--device', default='', help='device id (i.e. 0 or 0,1) or cpu')
-    parser.add_argument('--view-img', action='store_true', help='display results')
-    parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
-    parser.add_argument('--classes', nargs='+', type=int, help='filter by class')
-    parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
+    parser.add_argument("--cfg", type=str, default="cfg/yolov3.cfg",
+                        help="Neural network profile path. (default=cfg/yolov3.cfg)")
+    parser.add_argument("--names", type=str, default="data/coco.names",
+                        help="Types of objects detected. (default=data/coco.names)")
+    parser.add_argument("--weights", type=str, default="weights/yolov3.pth",
+                        help="Model file weight path. (default=weights/yolov3.pth")
+    parser.add_argument("--source", type=str, default="data/examples",
+                        help="Image input source. (default=data/examples)")
+    parser.add_argument("--output", type=str, default="output",
+                        help="Output result folder. (default=output)")
+    parser.add_argument("--image-size", type=int, default=608,
+                        help="Size of processing picture. (default=608)")
+    parser.add_argument("--confidence-threshold", type=float, default=0.6,
+                        help="Object confidence threshold. (default=0.6)")
+    parser.add_argument("--iou-threshold", type=float, default=0.6,
+                        help="IOU threshold for NMS. (default=0.6)")
+    parser.add_argument("--fourcc", type=str, default="mp4v",
+                        help="output video codec (verify ffmpeg support). (default=mp4v)")
+    parser.add_argument("--device", default="",
+                        help="device id (i.e. 0 or 0,1) or cpu. (default="")")
+    parser.add_argument("--view-img", action="store_true", help="Display results")
+    parser.add_argument("--save-txt", action="store_true", help="Save results to *.txt")
+    parser.add_argument("--classes", nargs="+", type=int, help="Filter by class")
+    parser.add_argument("--agnostic-nms", action="store_true", help="Class-agnostic NMS")
     args = parser.parse_args()
     print(args)
 
