@@ -37,8 +37,8 @@ from utils import select_device
 
 
 def detect(save_img=False):
-    image_size = (
-    608, 352) if ONNX_EXPORT else args.image_size  # (320, 192) or (416, 256) or (608, 352) for (height, width)
+    # (320, 192) or (416, 256) or (608, 352) for (height, width)
+    image_size = (608, 352) if ONNX_EXPORT else args.image_size
     out, source, weights, view_img, save_txt = args.output, args.source, args.weights, args.view_img, args.save_txt
     camera = source == '0' or source.startswith('http') or source.endswith('.txt')
 
