@@ -535,7 +535,7 @@ def load_image(self, index):
             image = cv2.resize(image, (int(w0 * r), int(h0 * r)), interpolation=interp)
         return image, (h0, w0), image.shape[:2]  # img, hw_original, hw_resized
     else:
-        return self.imgs[index], self.img_hw0[index], self.img_hw[index]  # img, hw_original, hw_resized
+        return self.images[index], self.img_hw0[index], self.img_hw[index]  # img, hw_original, hw_resized
 
 
 def augment_hsv(img, hgain=0.5, sgain=0.5, vgain=0.5):

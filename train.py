@@ -15,15 +15,14 @@ import argparse
 import glob
 import os
 import random
-import time
 
-import cv2
 import math
 import numpy as np
 import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data
+import warnings
 from tqdm import tqdm
 
 from models import Darknet
@@ -37,10 +36,8 @@ from utils import labels_to_class_weights
 from utils import labels_to_image_weights
 from utils import model_info
 from utils import parse_data_cfg
-from utils import plot_images
 from utils import plot_results
 from utils import print_model_biases
-from utils import print_mutation
 from utils import select_device
 
 mixed_precision = True
@@ -49,62 +46,62 @@ try:  # Mixed precision training https://github.com/NVIDIA/apex
 except ImportWarning:
     mixed_precision = False  # not installed
 
-hyp = {"giou": 3.54,  # giou loss gain
-       "cls": 37.4,  # cls loss gain
-       "cls_pw": 1.0,  # cls BCELoss positive_weight
-       "obj": 64.3,  # obj loss gain (*=img_size/320 if img_size != 320)
-       "obj_pw": 1.0,  # obj BCELoss positive_weight
-       "iou_t": 0.225,  # iou training threshold
-       'lr0': 0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
-       "lrf": -4.,  # final LambdaLR learning rate = lr0 * (10 ** lrf)
-       "momentum": 0.937,  # SGD momentum
-       "weight_decay": 0.000484,  # optimizer weight decay
-       "fl_gamma": 0.5,  # focal loss gamma
-       "hsv_h": 0.0138,  # image HSV-Hue augmentation (fraction)
-       "hsv_s": 0.678,  # image HSV-Saturation augmentation (fraction)
-       "hsv_v": 0.36,  # image HSV-Value augmentation (fraction)
-       "degrees": 1.98,  # image rotation (+/- deg)
-       "translate": 0.05,  # image translation (+/- fraction)
-       "scale": 0.05,  # image scale (+/- gain)
-       "shear": 0.641}  # image shear (+/- deg)
+parameters = {"giou": 3.54,  # giou loss gain
+              "cls": 37.4,  # cls loss gain
+              "cls_pw": 1.0,  # cls BCELoss positive_weight
+              "obj": 64.3,  # obj loss gain (*=img_size/320 if img_size != 320)
+              "obj_pw": 1.0,  # obj BCELoss positive_weight
+              "iou_t": 0.225,  # iou training threshold
+              'lr0': 0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
+              "lrf": -4.,  # final LambdaLR learning rate = lr0 * (10 ** lrf)
+              "momentum": 0.937,  # SGD momentum
+              "weight_decay": 0.000484,  # optimizer weight decay
+              "fl_gamma": 0.5,  # focal loss gamma
+              "hsv_h": 0.0138,  # image HSV-Hue augmentation (fraction)
+              "hsv_s": 0.678,  # image HSV-Saturation augmentation (fraction)
+              "hsv_v": 0.36,  # image HSV-Value augmentation (fraction)
+              "degrees": 1.98,  # image rotation (+/- deg)
+              "translate": 0.05,  # image translation (+/- fraction)
+              "scale": 0.05,  # image scale (+/- gain)
+              "shear": 0.641}  # image shear (+/- deg)
 
-# Overwrite hyp with hyp*.txt (optional)
-f = glob.glob("hyp*.txt")
-if f:
-    print("Using %s" % f[0])
-    for k, v in zip(hyp.keys(), np.loadtxt(f[0])):
-        hyp[k] = v
+# Overwrite hyp with hyp*.txt
+parameter_file = glob.glob("hyp*.txt")
+if parameter_file:
+    print(f"Using {parameter_file[0]}")
+    for keys, value in zip(parameters.keys(), np.loadtxt(parameter_file[0])):
+        parameters[keys] = value
 
 
 def train():
-    cfg = opt.cfg
-    data = opt.data
-    img_size, img_size_test = opt.img_size if len(opt.img_size) == 2 else opt.img_size * 2  # train, test sizes
-    epochs = opt.epochs  # 500200 batches at bs 64, 117263 images = 273 epochs
-    batch_size = opt.batch_size
-    accumulate = opt.accumulate  # effective bs = batch_size * accumulate = 16 * 4 = 64
-    weights = opt.weights  # initial training weights
+    cfg = args.cfg
+    data = args.data
+    image_size, img_size_val = args.image_size if len(args.image_size) == 2 else args.image_size * 2  # train, test sizes
+    epochs = args.epochs  # 500200 batches at bs 64, 117263 images = 273 epochs
+    batch_size = args.batch_size
+    accumulate = args.accumulate  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    weights = args.weights  # initial training weights
 
     # Initialize
     init_seeds()
-    if opt.multi_scale:
-        img_sz_min = round(img_size / 32 / 1.5)
-        img_sz_max = round(img_size / 32 * 1.5)
-        img_size = img_sz_max * 32  # initiate with maximum multi_scale size
-        print("Using multi-scale %g - %g" % (img_sz_min * 32, img_size))
+    if args.multi_scale:
+        img_sz_min = round(image_size / 32 / 1.5)
+        img_sz_max = round(image_size / 32 * 1.5)
+        image_size = img_sz_max * 32  # initiate with maximum multi_scale size
+        print(f"Using multi-scale {img_sz_min * 32} - {image_size}")
 
     # Configure run
     data_dict = parse_data_cfg(data)
     train_path = data_dict["train"]
     test_path = data_dict["valid"]
-    nc = 1 if opt.single_cls else int(data_dict["classes"])  # number of classes
+    nc = 1 if args.single_cls else int(data_dict["classes"])  # number of classes
 
     # Remove previous results
-    for f in glob.glob("*_batch*.png") + glob.glob("results.txt"):
-        os.remove(f)
+    for files in glob.glob("results.txt"):
+        os.remove(files)
 
     # Initialize model
-    model = Darknet(cfg, arc=opt.arc).to(device)
+    model = Darknet(cfg, arch=args.arch).to(device)
 
     # Optimizer
     pg0, pg1, pg2 = [], [], []  # optimizer parameter groups
@@ -116,45 +113,47 @@ def train():
         else:
             pg0 += [v]  # all else
 
-    if opt.adam:
-        optimizer = torch.optim.Adam(pg0, lr=hyp["lr0"])
+    if args.adam:
+        optimizer = torch.optim.Adam(pg0, lr=parameters["lr0"])
     else:
-        optimizer = torch.optim.SGD(pg0, lr=hyp["lr0"], momentum=hyp["momentum"], nesterov=True)
-    optimizer.add_param_group({"params": pg1, "weight_decay": hyp["weight_decay"]})  # add pg1 with weight_decay
+        optimizer = torch.optim.SGD(pg0, lr=parameters["lr0"], momentum=parameters["momentum"], nesterov=True)
+    optimizer.add_param_group({"params": pg1, "weight_decay": parameters["weight_decay"]})  # add pg1 with weight_decay
     optimizer.add_param_group({"params": pg2})  # add pg2 (biases)
     optimizer.param_groups[2]["lr"] *= 2.0  # bias lr
     del pg0, pg1, pg2
 
     start_epoch = 0
     best_fitness = 0.0
-    if weights.endswith(".pth"):  # pytorch format
+    if weights.endswith(".pth"):
         # possible weights are "*.pth", "yolov3-spp.pth", "yolov3-tiny.pth" etc.
-        chkpt = torch.load(weights, map_location=device)
+        state = torch.load(weights, map_location=device)
 
         # load model
         try:
-            chkpt["model"] = {k: v for k, v in chkpt["model"].items() if model.state_dict()[k].numel() == v.numel()}
-            model.load_state_dict(chkpt["model"], strict=False)
+            state["model"] = {k: v for k, v in state["model"].items() if model.state_dict()[k].numel() == v.numel()}
+            model.load_state_dict(state["model"], strict=False)
         except KeyError as e:
-            s = f"{opt.weights} is not compatible with {opt.cfg}. Specify --weights "" or specify a --cfg compatible with {opt.weights}. "
+            s = f"{args.weights} is not compatible with {args.cfg}. Specify --weights "" or specify a --cfg compatible with {args.weights}. "
             raise KeyError(s) from e
 
         # load optimizer
-        if chkpt["optimizer"] is not None:
-            optimizer.load_state_dict(chkpt["optimizer"])
-            best_fitness = chkpt["best_fitness"]
+        if state["optimizer"] is not None:
+            optimizer.load_state_dict(state["optimizer"])
+            best_fitness = state["best_fitness"]
 
         # load results
-        if chkpt.get("training_results") is not None:
+        if state.get("training_results") is not None:
             with open("results.txt", "w") as file:
-                file.write(chkpt["training_results"])  # write results.txt
+                file.write(state["training_results"])  # write results.txt
 
-        start_epoch = chkpt["epoch"] + 1
-        del chkpt
+        start_epoch = state["epoch"] + 1
+        del state
 
-    elif len(weights) > 0:  # darknet format
+    elif len(weights) > 0:
         # possible weights are "*.weights", "yolov3-tiny.conv.15",  "darknet53.conv.74" etc.
         load_darknet_weights(model, weights)
+    else:
+        print("Pre training model weight not loaded")
 
     # Mixed precision training https://github.com/NVIDIA/apex
     if mixed_precision:
@@ -174,31 +173,30 @@ def train():
         model.yolo_layers = model.module.yolo_layers  # move yolo layer indices to top level
 
     # Dataset
-    dataset = LoadImagesAndLabels(train_path, img_size, batch_size,
+    dataset = LoadImagesAndLabels(train_path, image_size, batch_size,
                                   augment=True,
-                                  hyp=hyp,  # augmentation hyperparameters
-                                  rect=opt.rect,  # rectangular training
-                                  cache_images=opt.cache_images,
-                                  single_cls=opt.single_cls)
+                                  hyp=parameters,  # augmentation hyperparameters
+                                  rect=args.rect,  # rectangular training
+                                  cache_images=args.cache_images,
+                                  single_cls=args.single_cls)
 
     # Dataloader
     batch_size = min(batch_size, len(dataset))
-    nw = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
     dataloader = torch.utils.data.DataLoader(dataset,
                                              batch_size=batch_size,
-                                             num_workers=nw,
-                                             shuffle=not opt.rect,  # Shuffle=True unless rectangular training is used
+                                             num_workers=args.workers,
+                                             shuffle=not args.rect,  # Shuffle=True unless rectangular training is used
                                              pin_memory=True,
                                              collate_fn=dataset.collate_fn)
 
     # Testloader
-    testloader = torch.utils.data.DataLoader(LoadImagesAndLabels(test_path, img_size_test, batch_size * 2,
-                                                                 hyp=hyp,
+    testloader = torch.utils.data.DataLoader(LoadImagesAndLabels(test_path, img_size_val, batch_size * 2,
+                                                                 hyp=parameters,
                                                                  rect=True,
-                                                                 cache_images=opt.cache_images,
-                                                                 single_cls=opt.single_cls),
+                                                                 cache_images=args.cache_images,
+                                                                 single_cls=args.single_cls),
                                              batch_size=batch_size * 2,
-                                             num_workers=nw,
+                                             num_workers=args.workers,
                                              pin_memory=True,
                                              collate_fn=dataset.collate_fn)
 
@@ -206,23 +204,24 @@ def train():
     nb = len(dataloader)
     prebias = start_epoch == 0
     model.nc = nc  # attach number of classes to model
-    model.arc = opt.arc  # attach yolo architecture
-    model.hyp = hyp  # attach hyperparameters to model
+    model.arch = args.arch  # attach yolo architecture
+    model.hyp = parameters  # attach hyperparameters to model
     model.class_weights = labels_to_class_weights(dataset.labels, nc).to(device)  # attach class weights
     maps = np.zeros(nc)  # mAP per class
     results = (0, 0, 0, 0, 0, 0, 0)  # "P", "R", "mAP", "F1", "val GIoU", "val Objectness", "val Classification"
     model_info(model, report="summary")  # "full" or "summary"
-    print("Using %g dataloader workers" % nw)
-    print("Starting training for %g epochs..." % opt.epochs)
-    for epoch in range(start_epoch, opt.epochs):
+    print(f"Using {args.workers} dataloader workers.")
+    print(f"Starting training for {args.epochs} epochs...")
+    for epoch in range(start_epoch, args.epochs):
         model.train()
         model.hyp['gr'] = 1 - (1 + math.cos(min(epoch * 2, epochs) * math.pi / epochs)) / 2  # GIoU <-> 1.0 loss ratio
 
         # Prebias
         if prebias:
             ne = max(round(30 / nb), 3)  # number of prebias epochs
-            ps = np.interp(epoch, [0, ne], [0.1, hyp["lr0"] * 2]), \
-                 np.interp(epoch, [0, ne], [0.9, hyp["momentum"]])  # prebias settings (lr=0.1, momentum=0.9)
+            # prebias settings (lr=0.1, momentum=0.9)
+            ps = np.interp(epoch, [0, ne], [0.1, parameters["lr0"] * 2]), np.interp(epoch, [0, ne],
+                                                                                    [0.9, parameters["momentum"]])
             if epoch == ne:
                 print_model_biases(model)
                 prebias = False
@@ -236,39 +235,35 @@ def train():
         if dataset.image_weights:
             w = model.class_weights.cpu().numpy() * (1 - maps) ** 2  # class weights
             image_weights = labels_to_image_weights(dataset.labels, nc=nc, class_weights=w)
-            dataset.indices = random.choices(range(dataset.n), weights=image_weights, k=dataset.n)  # rand weighted idx
+            # rand weighted idx
+            dataset.indices = random.choices(range(dataset.image_files_num), weights=image_weights,
+                                             k=dataset.image_files_num)
 
-        mloss = torch.zeros(4).to(device)  # mean losses
-        print(("\n" + "%10s" * 8) % ("Epoch", "gpu_mem", "GIoU", "obj", "cls", "total", "targets", "img_size"))
-        pbar = tqdm(enumerate(dataloader), total=nb)  # progress bar
-        for i, (imgs, targets, paths, _) in pbar:  # batch -------------------------------------------------------------
+        mean_losses = torch.zeros(4).to(device)
+        print(("\n" + "%10s" * 8) % ("Epoch", "memory", "GIoU", "obj", "cls", "total", "targets", "image_size"))
+        progress_bar = tqdm(enumerate(dataloader), total=nb)
+        for i, (images, targets, paths, _) in progress_bar:
             ni = i + nb * epoch  # number integrated batches (since train start)
-            imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
+            images = images.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
             targets = targets.to(device)
 
-            # Plot images with bounding boxes
-            if ni < 1:
-                fname = "train_batch%g.png" % i  # filename
-                plot_images(imgs=imgs, targets=targets, paths=paths, fname=fname)
-                if tb_writer:
-                    tb_writer.add_image(fname, cv2.imread(fname)[:, :, ::-1], dataformats="HWC")
-
             # Multi-Scale training
-            if opt.multi_scale:
+            if args.multi_scale:
                 if ni / accumulate % 1 == 0:  #  adjust img_size (67% - 150%) every 1 batch
-                    img_size = random.randrange(img_sz_min, img_sz_max + 1) * 32
-                sf = img_size / max(imgs.shape[2:])  # scale factor
+                    image_size = random.randrange(img_sz_min, img_sz_max + 1) * 32
+                sf = image_size / max(images.shape[2:])  # scale factor
                 if sf != 1:
-                    ns = [math.ceil(x * sf / 32.) * 32 for x in imgs.shape[2:]]  # new shape (stretched to 32-multiple)
-                    imgs = F.interpolate(imgs, size=ns, mode="bilinear", align_corners=False)
+                    ns = [math.ceil(x * sf / 32.) * 32 for x in
+                          images.shape[2:]]  # new shape (stretched to 32-multiple)
+                    images = F.interpolate(images, size=ns, mode="bilinear", align_corners=False)
 
             # Run model
-            pred = model(imgs)
+            output = model(images)
 
             # Compute loss
-            loss, loss_items = compute_loss(pred, targets, model)
+            loss, loss_items = compute_loss(output, targets, model)
             if not torch.isfinite(loss):
-                print("WARNING: non-finite loss, ending training ", loss_items)
+                warnings.warn(f"WARNING: Non-finite loss, ending training {loss_items}")
                 return results
 
             # Scale loss by nominal batch_size of 64
@@ -287,25 +282,22 @@ def train():
                 optimizer.zero_grad()
 
             # Print batch results
-            mloss = (mloss * i + loss_items) / (i + 1)  # update mean losses
-            mem = "%.3gG" % (torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
-            s = ("%10s" * 2 + "%10.3g" * 6) % ("%g/%g" % (epoch, opt.epochs - 1), mem, *mloss, len(targets), img_size)
-            pbar.set_description(s)
-
-            # end batch ------------------------------------------------------------------------------------------------
+            mean_losses = (mean_losses * i + loss_items) / (i + 1)  # update mean losses
+            memory = f"{torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0:.2f}G"
+            s = ("%10s" * 2 + "%10.3g" * 6) % (
+                "%g/%g" % (epoch, args.epochs - 1), memory, *mean_losses, len(targets), image_size)
+            progress_bar.set_description(s)
 
         # Process epoch results
-        final_epoch = epoch + 1 == opt.epochs
-        if not opt.notest or final_epoch:  # Calculate mAP
-            results, maps = evaluate(cfg,
-                                     data,
-                                     batch_size=batch_size * 2,
-                                     img_size=img_size_test,
-                                     model=model,
-                                     conf_thres=0.001,  # 0.001 if opt.evolve or (final_epoch and is_coco) else 0.01,
-                                     iou_thres=0.6,
-                                     single_cls=opt.single_cls,
-                                     dataloader=testloader)
+        results, maps = evaluate(cfg,
+                                 data,
+                                 batch_size=batch_size * 2,
+                                 image_size=img_size_val,
+                                 model=model,
+                                 confidence_threshold=0.001,
+                                 iou_threshold=0.6,
+                                 single_cls=args.single_cls,
+                                 dataloader=testloader)
 
         # Update scheduler
         scheduler.step(epoch)
@@ -313,48 +305,40 @@ def train():
         # Write epoch results
         with open("results.txt", "a") as f:
             f.write(s + "%10.3g" * 7 % results + "\n")  # P, R, mAP, F1, test_losses=(GIoU, obj, cls)
-        if len(opt.name) and opt.bucket:
-            os.system("gsutil cp results.txt gs://%s/results/results%s.txt" % (opt.bucket, opt.name))
 
         # Write Tensorboard results
         if tb_writer:
-            x = list(mloss) + list(results)
+            x = list(mean_losses) + list(results)
             titles = ["GIoU", "Objectness", "Classification", "Train loss",
                       "Precision", "Recall", "mAP", "F1", "val GIoU", "val Objectness", "val Classification"]
             for xi, title in zip(x, titles):
                 tb_writer.add_scalar(title, xi, epoch)
 
         # Update best mAP
-        fi = fitness(np.array(results).reshape(1, -1))  # fitness_i = weighted combination of [P, R, mAP, F1]
-        if fi > best_fitness:
-            best_fitness = fi
+        fitness_i = fitness(np.array(results).reshape(1, -1))  # fitness_i = weighted combination of [P, R, mAP, F1]
+        if fitness_i > best_fitness:
+            best_fitness = fitness_i
 
         # Save training results
-        save = (not opt.nosave) or (final_epoch and not opt.evolve)
-        if save:
-            with open("results.txt", "r") as f:
-                # Create checkpoint
-                chkpt = {"epoch": epoch,
-                         "best_fitness": best_fitness,
-                         "training_results": f.read(),
-                         "model": model.module.state_dict() if type(
-                             model) is nn.parallel.DistributedDataParallel else model.state_dict(),
-                         "optimizer": None if final_epoch else optimizer.state_dict()}
+        with open("results.txt", "r") as f:
+            # Create checkpoint
+            state = {"epoch": epoch,
+                     "best_fitness": best_fitness,
+                     "training_results": f.read(),
+                     "model": model.module.state_dict() if type(model) is nn.parallel.DistributedDataParallel
+                     else model.state_dict(),
+                     "optimizer": optimizer.state_dict()}
 
-            # Save last checkpoint
-            torch.save(chkpt, "weights/checkpoint.pth")
+        # Save last checkpoint
+        torch.save(state, "weights/checkpoint.pth")
 
-            # Save best checkpoint
-            if best_fitness == fi:
-                torch.save(chkpt, "weights/model_best.pth")
+        # Save best checkpoint
+        if best_fitness == fitness_i:
+            torch.save(state, "weights/model_best.pth")
 
-            # Delete checkpoint
-            del chkpt
+        # Delete checkpoint
+        del state
 
-        # end epoch ----------------------------------------------------------------------------------------------------
-
-    if not opt.evolve:
-        plot_results()  # save as results.png
     dist.destroy_process_group() if torch.cuda.device_count() > 1 else None
     torch.cuda.empty_cache()
 
@@ -363,26 +347,34 @@ def train():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=273)  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument("--batch-size", type=int, default=16)  # effective bs = batch_size * accumulate = 16 * 4 = 64
+    parser.add_argument("--epochs", type=int, default=273, help="sssss")  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
+    parser.add_argument("--batch-size", type=int, default=16, help="sssssss")  # effective bs = batch_size * accumulate = 16 * 4 = 64
     parser.add_argument("--accumulate", type=int, default=4, help="batches to accumulate before optimizing")
-    parser.add_argument("--cfg", type=str, default="cfg/yolov3-spp.cfg", help="*.cfg path")
-    parser.add_argument("--data", type=str, default="cfg/coco2014.data", help="*.data path")
+    parser.add_argument("--cfg", type=str, default="cfg/yolov3.cfg",
+                        help="Neural network profile path. (default=cfg/yolov3.cfg)")
+    parser.add_argument("--data", type=str, default="data/coco2014.data",
+                        help="Dataload load path. (default=cfg/coco2014.data)")
+    parser.add_argument('--workers', default=4, type=int, metavar='N',
+                        help='Number of data loading workers (default: 4)')
     parser.add_argument("--multi-scale", action="store_true", help="adjust (67% - 150%) img_size every 10 batches")
-    parser.add_argument("--img-size", nargs="+", type=int, default=[416], help="train and test image-sizes")
+    parser.add_argument("--image-size", nargs='+', type=int, default=[608],
+                        help="Size of processing picture. (default=[608])")
     parser.add_argument("--rect", action="store_true", help="rectangular training")
     parser.add_argument("--resume", action="store_true", help="resume training from last.pth")
     parser.add_argument("--cache-images", action="store_true", help="cache images for faster training")
-    parser.add_argument("--weights", type=str, default="", help="pretrained weights path")
-    parser.add_argument("--arc", type=str, default="default", help="yolo architecture")  # default, uCE, uBCE
+    parser.add_argument("--weights", type=str, default="",
+                        help="Model file weight path. (default="")")
+    parser.add_argument("--arch", type=str, default="default", help="yolo architecture")  # default, uCE, uBCE
     parser.add_argument("--device", default="", help="device id (i.e. 0 or 0,1 or cpu)")
     parser.add_argument("--adam", action="store_true", help="use adam optimizer")
     parser.add_argument("--single-cls", action="store_true", help="train as single-class dataset")
-    opt = parser.parse_args()
-    if opt.resume:
-        opt.weights = opt.resume
-    print(opt)
-    device = select_device(opt.device, apex=mixed_precision, batch_size=opt.batch_size)
+    args = parser.parse_args()
+    print(args)
+
+    if args.resume:
+        args.weights = args.resume
+
+    device = select_device(args.device, apex=mixed_precision, batch_size=args.batch_size)
     if device.type == "cpu":
         mixed_precision = False
 

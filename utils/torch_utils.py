@@ -41,11 +41,11 @@ def select_device(device="", apex=False, batch_size=None):
         if gpu_count > 1 and batch_size:  # check that batch_size is compatible with device_count
             assert batch_size % gpu_count == 0, f"batch-size {batch_size} not multiple of GPU count {gpu_count}"
         x = [torch.cuda.get_device_properties(i) for i in range(gpu_count)]
-        s = "Using CUDA " + ("Apex " if apex else "cpu")
+        s = "Using CUDA " + ("Apex " if apex else "")
         for i in range(0, gpu_count):
             if i == 1:
                 s = " " * len(s)
-            print(f"{s}\n\t* device:{i} (name=`{x[i].name}`, total_memory={int(x[i].total_memory / c)}MB)")
+            print(f"{s}\n\t+ device:{i} (name=`{x[i].name}`, total_memory={int(x[i].total_memory / c)}MB)")
     else:
         print("Using CPU")
 
