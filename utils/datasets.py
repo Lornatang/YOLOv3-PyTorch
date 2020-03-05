@@ -597,11 +597,9 @@ def load_mosaic(self, index):
     # Concat/clip labels
     if len(labels4):
         labels4 = np.concatenate(labels4, 0)
-        # np.clip(labels4[:, 1:] - s / 2, 0, s, out=labels4[:, 1:])  # use with center crop
         np.clip(labels4[:, 1:], 0, 2 * s, out=labels4[:, 1:])  # use with random_affine
 
     # Augment
-    # img4 = img4[s // 2: int(s * 1.5), s // 2:int(s * 1.5)]  # center crop (WARNING, requires box pruning)
     img4, labels4 = random_affine(img4, labels4,
                                   degrees=self.hyp["degrees"] * 1,
                                   translate=self.hyp["translate"] * 1,
@@ -648,7 +646,6 @@ def letterbox(img, new_shape=(416, 416), color=(128, 128, 128),
 
 def random_affine(img, targets=(), degrees=10, translate=.1, scale=.1, shear=10, border=0):
     # torchvision.transforms.RandomAffine(degrees=(-10, 10), translate=(.1, .1), scale=(.9, 1.1), shear=(-10, 10))
-    # https://medium.com/uruvideo/dataset-augmentation-with-random-homographies-a8f4b44830d4
 
     if targets is None:  # targets = [cls, xyxy]
         targets = []
@@ -717,9 +714,8 @@ def random_affine(img, targets=(), degrees=10, translate=.1, scale=.1, shear=10,
 
 
 def cutout(image, labels):
-    # https://arxiv.org/abs/1708.04552
-    # https://github.com/hysts/pytorch_cutout/blob/master/dataloader.py
-    # https://towardsdatascience.com/when-conventional-wisdom-fails-revisiting-data-augmentation-for-self-driving-cars-4831998c5509
+    # Reference: https://arxiv.org/abs/1708.04552
+    # Reference: https://github.com/hysts/pytorch_cutout/blob/master/dataloader.py
     h, w = image.shape[:2]
 
     def bbox_ioa(box1, box2):
@@ -784,19 +780,16 @@ def reduce_img_size(path="../data/sm4/images", img_size=1024):  # from utils.dat
 def convert_images2bmp():  # from utils.datasets import *; convert_images2bmp()
     # Save images
     formats = [x.lower() for x in img_formats] + [x.upper() for x in img_formats]
-    # for path in ["../coco/images/val2014", "../coco/images/train2014"]:
     for path in ["../data/sm4/images", "../data/sm4/background"]:
         create_folder(path + "bmp")
-        for ext in formats:  # [".bmp", ".jpg", ".jpeg", ".png", ".tif", ".dng"]
+        for ext in formats:
             for f in tqdm(glob.glob("%s/*%s" % (path, ext)), desc="Converting %s" % ext):
                 cv2.imwrite(f.replace(ext.lower(), ".bmp").replace(path, path + "bmp"), cv2.imread(f))
 
     # Save labels
-    # for path in ["../coco/trainvalno5k.txt", "../coco/5k.txt"]:
     for file in ["../data/sm4/out_train.txt", "../data/sm4/out_test.txt"]:
         with open(file, "r") as f:
             lines = f.read()
-            # lines = f.read().replace("2014/", "2014bmp/")  # coco
             lines = lines.replace("/images", "/imagesbmp")
             lines = lines.replace("/background", "/backgroundbmp")
         for ext in formats:
