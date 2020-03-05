@@ -126,10 +126,6 @@ def evaluate(cfg,
                     stats.append((torch.zeros(0, niou, dtype=torch.bool), torch.Tensor(), torch.Tensor(), tcls))
                 continue
 
-            # Append to text file
-            # with open("test.txt", "a") as file:
-            #    [file.write("%11.5g" * 7 % tuple(x) + "\n") for x in pred]
-
             # Clip boxes to image bounds
             clip_coords(pred, (height, width))
 
@@ -200,16 +196,15 @@ if __name__ == "__main__":
     parser.add_argument("--img-size", type=int, default=416, help="inference size (pixels)")
     parser.add_argument("--conf-thres", type=float, default=0.001, help="object confidence threshold")
     parser.add_argument("--iou-thres", type=float, default=0.5, help="IOU threshold for NMS")
-    parser.add_argument("--save-json", action="store_true", help="save a cocoapi-compatible JSON results file")
-    parser.add_argument("--task", default="test", help="`test`, `study`, `benchmark`")
+    parser.add_argument("--task", default="eval", help="`eval`, `study`, `benchmark`")
     parser.add_argument("--device", default="", help="device id (i.e. 0 or 0,1) or cpu")
     parser.add_argument("--single-cls", action="store_true", help="train as single-class dataset")
     args = parser.parse_args()
-    args.save_json = args.save_json or any([x in args.data for x in ["coco2014.data", "coco2014.data", "coco2017.data"]])
+
     print(args)
 
-    # task = "test", "study", "benchmark"
-    if args.task == "test":  # (default) test normally
+    # task = "eval", "study", "benchmark"
+    if args.task == "eval":  # (default) eval normally
         evaluate(args.cfg,
                  args.data,
                  args.weights,
