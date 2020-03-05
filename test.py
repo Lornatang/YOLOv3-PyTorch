@@ -41,9 +41,9 @@ def evaluate(cfg,
              data,
              weights=None,
              batch_size=16,
-             img_size=416,
-             conf_thres=0.001,
-             iou_thres=0.6,  # for nms
+             image_size=416,
+             confidence_threshold=0.001,
+             iou_threshold=0.6,  # for nms
              single_cls=False,
              model=None,
              dataloader=None):
@@ -53,7 +53,7 @@ def evaluate(cfg,
         verbose = args.task == "eval"
 
         # Initialize model
-        model = Darknet(cfg, img_size).to(device)
+        model = Darknet(cfg, image_size).to(device)
 
         # Load weights
         if weights.endswith(".pth"):
@@ -78,7 +78,7 @@ def evaluate(cfg,
 
     # Dataloader
     if dataloader is None:
-        dataset = LoadImagesAndLabels(path, img_size, batch_size, rect=True)
+        dataset = LoadImagesAndLabels(path, image_size, batch_size, rect=True)
         batch_size = min(batch_size, len(dataset))
         dataloader = DataLoader(dataset,
                                 batch_size=batch_size,
@@ -108,7 +108,7 @@ def evaluate(cfg,
                 loss += compute_loss(train_out, targets, model)[1][:3].cpu()  # GIoU, obj, cls
 
             # Run NMS
-            output = non_max_suppression(inf_out, conf_thres=conf_thres, iou_thres=iou_thres)
+            output = non_max_suppression(inf_out, conf_thres=confidence_threshold, iou_thres=iou_threshold)
 
         # Statistics per image
         for si, pred in enumerate(output):
@@ -168,13 +168,13 @@ def evaluate(cfg,
         nt = torch.zeros(1)
 
     # Print results
-    pf = "%20s" + "%10.3g" * 6  # print format
-    print(pf % ("all", seen, nt.sum(), mp, mr, map, mf1))
+    context = "%20s" + "%10.3g" * 6  # print format
+    print(context % ("all", seen, nt.sum(), mp, mr, map, mf1))
 
     # Print results per class
     if verbose and nc > 1 and len(stats):
         for i, c in enumerate(ap_class):
-            print(pf % (names[c], seen, nt[c], p[i], r[i], ap[i], f1[i]))
+            print(context % (names[c], seen, nt[c], p[i], r[i], ap[i], f1[i]))
 
     # Return results
     maps = np.zeros(nc) + map
@@ -184,14 +184,21 @@ def evaluate(cfg,
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(prog="test.py")
-    parser.add_argument("--cfg", type=str, default="cfg/yolov3.cfg", help="*.cfg path")
-    parser.add_argument("--data", type=str, default="data/coco2014.data", help="*.data path")
-    parser.add_argument("--weights", type=str, default="weights/yolov3.weights", help="weights path")
-    parser.add_argument("--batch-size", type=int, default=32, help="size of each image batch")
-    parser.add_argument("--img-size", type=int, default=416, help="inference size (pixels)")
-    parser.add_argument("--conf-thres", type=float, default=0.001, help="object confidence threshold")
-    parser.add_argument("--iou-thres", type=float, default=0.5, help="IOU threshold for NMS")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cfg", type=str, default="cfg/yolov3.cfg",
+                        help="Neural network profile path. (default=cfg/yolov3.cfg)")
+    parser.add_argument("--data", type=str, default="data/coco2014.data",
+                        help="Dataload load path. (default=data/coco2014.data)")
+    parser.add_argument("--weights", type=str, default="weights/yolov3.pth",
+                        help="Model file weight path. (default=weights/yolov3.pth")
+    parser.add_argument("--batch-size", type=int, default=32,
+                        help="Size of each image batch. (default=32)")
+    parser.add_argument("--image-size", type=int, default=608,
+                        help="Size of processing picture. (default=608)")
+    parser.add_argument("--confidence-threshold", type=float, default=0.001,
+                        help="Object confidence threshold. (default=0.001)")
+    parser.add_argument("--iou-threshold", type=float, default=0.6,
+                        help="IOU threshold for NMS. (default=0.6)")
     parser.add_argument("--task", default="eval", help="`eval`, `study`, `benchmark`")
     parser.add_argument("--device", default="", help="device id (i.e. 0 or 0,1) or cpu")
     parser.add_argument("--single-cls", action="store_true", help="train as single-class dataset")
@@ -205,9 +212,9 @@ if __name__ == "__main__":
                  args.data,
                  args.weights,
                  args.batch_size,
-                 args.img_size,
-                 args.conf_thres,
-                 args.iou_thres,
+                 args.image_size,
+                 args.confidence_threshold,
+                 args.iou_threshold,
                  args.single_cls)
 
     elif args.task == "benchmark":  # mAPs at 320-608 at conf 0.5 and 0.7
@@ -215,7 +222,7 @@ if __name__ == "__main__":
         for i in [320, 416, 512, 608]:  # img-size
             for j in [0.5, 0.7]:  # iou-thres
                 t = time.time()
-                r = evaluate(args.cfg, args.data, args.weights, args.batch_size, i, args.conf_thres, j)[0]
+                r = evaluate(args.cfg, args.data, args.weights, args.batch_size, i, args.confidence_threshold, j)[0]
                 y.append(r + (time.time() - t,))
         np.savetxt("benchmark.txt", y, fmt="%10.4g")  # y = np.loadtxt("study.txt")
 
@@ -224,7 +231,7 @@ if __name__ == "__main__":
         x = np.arange(0.4, 0.9, 0.05)  # iou-thres
         for i in x:
             t = time.time()
-            r = evaluate(args.cfg, args.data, args.weights, args.batch_size, args.img_size, args.conf_thres, i)[0]
+            r = evaluate(args.cfg, args.data, args.weights, args.batch_size, args.image_size, args.confidence_threshold, i)[0]
             y.append(r + (time.time() - t,))
         np.savetxt("study.txt", y, fmt="%10.4g")  # y = np.loadtxt("study.txt")
 
@@ -239,6 +246,6 @@ if __name__ == "__main__":
         ax[2].set_ylabel("time (s)")
         for i in range(3):
             ax[i].legend()
-            ax[i].set_xlabel("iou_thr")
+            ax[i].set_xlabel("iou_threshold")
         fig.tight_layout()
         plt.savefig("study.jpg", dpi=200)
