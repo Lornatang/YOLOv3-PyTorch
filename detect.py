@@ -93,10 +93,10 @@ def detect(save_img=False):
     if camera:
         view_image = True
         cudnn.benchmark = True  # set True to speed up constant image size inference
-        dataset = LoadStreams(source, img_size=image_size)
+        dataset = LoadStreams(source, image_size=image_size)
     else:
         save_img = True
-        dataset = LoadImages(source, img_size=image_size)
+        dataset = LoadImages(source, image_size=image_size)
 
     # Get names and colors
     names = load_classes(args.names)
