@@ -15,6 +15,7 @@ import argparse
 import glob
 import os
 import random
+import time
 
 import math
 import numpy as np
@@ -76,7 +77,8 @@ if parameter_file:
 def train():
     cfg = args.cfg
     data = args.data
-    image_size, img_size_val = args.image_size if len(args.image_size) == 2 else args.image_size * 2  # train, test sizes
+    image_size, img_size_val = args.image_size if len(
+        args.image_size) == 2 else args.image_size * 2  # train, test sizes
     epochs = args.epochs  # 500200 batches at bs 64, 117263 images = 273 epochs
     batch_size = args.batch_size
     accumulate = args.accumulate  # effective bs = batch_size * accumulate = 16 * 4 = 64
@@ -113,15 +115,13 @@ def train():
         else:
             pg0 += [v]  # all else
 
-    if args.adam:
-        optimizer = torch.optim.Adam(pg0, lr=parameters["lr0"])
-    else:
-        optimizer = torch.optim.SGD(pg0, lr=parameters["lr0"], momentum=parameters["momentum"], nesterov=True)
+    optimizer = torch.optim.SGD(pg0, lr=parameters["lr0"], momentum=parameters["momentum"], nesterov=True)
     optimizer.add_param_group({"params": pg1, "weight_decay": parameters["weight_decay"]})  # add pg1 with weight_decay
     optimizer.add_param_group({"params": pg2})  # add pg2 (biases)
     optimizer.param_groups[2]["lr"] *= 2.0  # bias lr
     del pg0, pg1, pg2
 
+    epoch = 0
     start_epoch = 0
     best_fitness = 0.0
     if weights.endswith(".pth"):
@@ -212,6 +212,8 @@ def train():
     model_info(model, report="summary")  # "full" or "summary"
     print(f"Using {args.workers} dataloader workers.")
     print(f"Starting training for {args.epochs} epochs...")
+
+    start_time = time.time()
     for epoch in range(start_epoch, args.epochs):
         model.train()
         model.hyp['gr'] = 1 - (1 + math.cos(min(epoch * 2, epochs) * math.pi / epochs)) / 2  # GIoU <-> 1.0 loss ratio
@@ -339,6 +341,8 @@ def train():
         # Delete checkpoint
         del state
 
+    plot_results()
+    print(f"{epoch - start_epoch} epochs completed in {(time.time() - start_time) / 3600:.3f} hours.\n")
     dist.destroy_process_group() if torch.cuda.device_count() > 1 else None
     torch.cuda.empty_cache()
 
@@ -347,13 +351,16 @@ def train():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=273, help="sssss")  # 500200 batches at bs 16, 117263 COCO images = 273 epochs
-    parser.add_argument("--batch-size", type=int, default=16, help="sssssss")  # effective bs = batch_size * accumulate = 16 * 4 = 64
-    parser.add_argument("--accumulate", type=int, default=4, help="batches to accumulate before optimizing")
+    parser.add_argument("--epochs", type=int, default=273,
+                        help="Note: 500200 batches at bs 16, 117263 COCO images = 273 epochs. (default=273)")
+    parser.add_argument("--batch-size", type=int, default=16,
+                        help="Note: Effective bs = batch_size * accumulate = 16 * 4 = 64. (default=16)")
+    parser.add_argument("--accumulate", type=int, default=4,
+                        help="Batches to accumulate before optimizing. (default=4)")
     parser.add_argument("--cfg", type=str, default="cfg/yolov3.cfg",
-                        help="Neural network profile path. (default=cfg/yolov3.cfg)")
+                        help="Neural network profile path. (default=`cfg/yolov3.cfg`)")
     parser.add_argument("--data", type=str, default="data/coco2014.data",
-                        help="Dataload load path. (default=cfg/coco2014.data)")
+                        help="Dataload load path. (default=`cfg/coco2014.data`)")
     parser.add_argument('--workers', default=4, type=int, metavar='N',
                         help='Number of data loading workers (default: 4)')
     parser.add_argument("--multi-scale", action="store_true", help="adjust (67% - 150%) img_size every 10 batches")
@@ -363,10 +370,10 @@ if __name__ == "__main__":
     parser.add_argument("--resume", action="store_true", help="resume training from last.pth")
     parser.add_argument("--cache-images", action="store_true", help="cache images for faster training")
     parser.add_argument("--weights", type=str, default="",
-                        help="Model file weight path. (default="")")
-    parser.add_argument("--arch", type=str, default="default", help="yolo architecture")  # default, uCE, uBCE
+                        help="Model file weight path. (default=``)")
+    parser.add_argument("--arch", type=str, default="default",
+                        help="Yolo architecture. (default=`default`)")
     parser.add_argument("--device", default="", help="device id (i.e. 0 or 0,1 or cpu)")
-    parser.add_argument("--adam", action="store_true", help="use adam optimizer")
     parser.add_argument("--single-cls", action="store_true", help="train as single-class dataset")
     args = parser.parse_args()
     print(args)
