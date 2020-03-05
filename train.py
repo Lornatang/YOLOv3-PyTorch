@@ -95,7 +95,7 @@ def train():
     # Configure run
     data_dict = parse_data_cfg(data)
     train_path = data_dict["train"]
-    test_path = data_dict["valid"]
+    valid_path = data_dict["valid"]
     nc = 1 if args.single_cls else int(data_dict["classes"])  # number of classes
 
     # Remove previous results
@@ -173,40 +173,40 @@ def train():
         model.yolo_layers = model.module.yolo_layers  # move yolo layer indices to top level
 
     # Dataset
-    dataset = LoadImagesAndLabels(train_path, image_size, batch_size,
-                                  augment=True,
-                                  hyp=parameters,  # augmentation hyperparameters
-                                  rect=args.rect,  # rectangular training
-                                  cache_images=args.cache_images,
-                                  single_cls=args.single_cls)
+    train_dataset = LoadImagesAndLabels(train_path, image_size, batch_size,
+                                        augment=True,
+                                        hyp=parameters,  # augmentation hyperparameters
+                                        rect=args.rect,  # rectangular training
+                                        cache_images=args.cache_images,
+                                        single_cls=args.single_cls)
+    valid_dataset = LoadImagesAndLabels(valid_path, img_size_val, batch_size * 2,
+                                        augment=False,
+                                        hyp=parameters,  # no apply augmentation hyperparameters
+                                        rect=True,  # rectangular inference
+                                        cache_images=args.cache_images,
+                                        single_cls=args.single_cls)
 
     # Dataloader
-    batch_size = min(batch_size, len(dataset))
-    dataloader = torch.utils.data.DataLoader(dataset,
-                                             batch_size=batch_size,
-                                             num_workers=args.workers,
-                                             shuffle=not args.rect,  # Shuffle=True unless rectangular training is used
-                                             pin_memory=True,
-                                             collate_fn=dataset.collate_fn)
-
-    # Testloader
-    testloader = torch.utils.data.DataLoader(LoadImagesAndLabels(test_path, img_size_val, batch_size * 2,
-                                                                 hyp=parameters,
-                                                                 rect=True,
-                                                                 cache_images=args.cache_images,
-                                                                 single_cls=args.single_cls),
-                                             batch_size=batch_size * 2,
-                                             num_workers=args.workers,
-                                             pin_memory=True,
-                                             collate_fn=dataset.collate_fn)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset,
+                                                   batch_size=batch_size,
+                                                   num_workers=args.workers,
+                                                   shuffle=not args.rect,
+                                                   pin_memory=True,
+                                                   collate_fn=train_dataset.collate_fn)
+    valid_dataloader = torch.utils.data.DataLoader(valid_dataset,
+                                                   batch_size=batch_size * 2,
+                                                   num_workers=args.workers,
+                                                   shuffle=False,
+                                                   pin_memory=True,
+                                                   collate_fn=train_dataset.collate_fn)
 
     # Start training
-    nb = len(dataloader)
+    nb = len(train_dataloader)
     prebias = start_epoch == 0
     model.nc = nc  # attach number of classes to model
     model.arch = args.arch  # attach yolo architecture
     model.hyp = parameters  # attach hyperparameters to model
-    model.class_weights = labels_to_class_weights(dataset.labels, nc).to(device)  # attach class weights
+    model.class_weights = labels_to_class_weights(train_dataset.labels, nc).to(device)  # attach class weights
     maps = np.zeros(nc)  # mAP per class
     results = (0, 0, 0, 0, 0, 0, 0)  # "P", "R", "mAP", "F1", "val GIoU", "val Objectness", "val Classification"
     model_info(model, report="summary")  # "full" or "summary"
@@ -234,16 +234,16 @@ def train():
                 optimizer.param_groups[2]["momentum"] = ps[1]
 
         # Update image weights (optional)
-        if dataset.image_weights:
+        if train_dataset.image_weights:
             w = model.class_weights.cpu().numpy() * (1 - maps) ** 2  # class weights
-            image_weights = labels_to_image_weights(dataset.labels, nc=nc, class_weights=w)
+            image_weights = labels_to_image_weights(train_dataset.labels, nc=nc, class_weights=w)
             # rand weighted idx
-            dataset.indices = random.choices(range(dataset.image_files_num), weights=image_weights,
-                                             k=dataset.image_files_num)
+            train_dataset.indices = random.choices(range(train_dataset.image_files_num), weights=image_weights,
+                                                   k=train_dataset.image_files_num)
 
         mean_losses = torch.zeros(4).to(device)
         print(("\n" + "%10s" * 8) % ("Epoch", "memory", "GIoU", "obj", "cls", "total", "targets", "image_size"))
-        progress_bar = tqdm(enumerate(dataloader), total=nb)
+        progress_bar = tqdm(enumerate(train_dataloader), total=nb)
         for i, (images, targets, paths, _) in progress_bar:
             ni = i + nb * epoch  # number integrated batches (since train start)
             images = images.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
@@ -299,7 +299,7 @@ def train():
                                  confidence_threshold=0.001,
                                  iou_threshold=0.6,
                                  single_cls=args.single_cls,
-                                 dataloader=testloader)
+                                 dataloader=valid_dataloader)
 
         # Update scheduler
         scheduler.step(epoch)
