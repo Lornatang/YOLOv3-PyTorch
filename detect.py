@@ -39,7 +39,7 @@ from utils import select_device
 def detect(save_img=False):
     # (320, 192) or (416, 256) or (608, 352) for (height, width)
     image_size = (608, 352) if ONNX_EXPORT else args.image_size
-    out, source, weights, view_image, save_txt = args.output, args.source, args.weights, args.view_img, args.save_txt
+    out, source, weights, view_image, save_txt = args.output, args.source, args.weights, args.view_image, args.save_txt
     camera = source == "0" or source.startswith("http") or source.endswith(".txt")
 
     # Initialize
@@ -154,7 +154,7 @@ def detect(save_img=False):
             # Stream results
             if view_image:
                 cv2.imshow("camera", im0)
-                if cv2.waitKey(1) == ord("q"):  # q to quit
+                if cv2.waitKey(30) == ord("q"):  # q to quit
                     raise StopIteration
 
             # Print time (inference + NMS)
@@ -201,7 +201,7 @@ if __name__ == "__main__":
                         help="output video codec (verify ffmpeg support). (default=mp4v)")
     parser.add_argument("--device", default="",
                         help="device id (i.e. 0 or 0,1) or cpu. (default="")")
-    parser.add_argument("--view-img", action="store_true", help="Display results")
+    parser.add_argument("--view-image", action="store_true", help="Display results")
     parser.add_argument("--save-txt", action="store_true", help="Save results to *.txt")
     parser.add_argument("--classes", nargs="+", type=int, help="Filter by class")
     parser.add_argument("--agnostic-nms", action="store_true", help="Class-agnostic NMS")
