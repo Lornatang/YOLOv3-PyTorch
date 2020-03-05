@@ -46,7 +46,7 @@ from utils import select_device
 mixed_precision = True
 try:  # Mixed precision training https://github.com/NVIDIA/apex
     from apex import amp
-except:
+except ImportWarning:
     mixed_precision = False  # not installed
 
 hyp = {"giou": 3.54,  # giou loss gain
@@ -136,8 +136,7 @@ def train():
             chkpt["model"] = {k: v for k, v in chkpt["model"].items() if model.state_dict()[k].numel() == v.numel()}
             model.load_state_dict(chkpt["model"], strict=False)
         except KeyError as e:
-            s = "%s is not compatible with %s. Specify --weights "" or specify a --cfg compatible with %s. " \
-                "See https://github.com/ultralytics/yolov3/issues/657" % (opt.weights, opt.cfg, opt.weights)
+            s = f"{opt.weights} is not compatible with {opt.cfg}. Specify --weights "" or specify a --cfg compatible with {opt.weights}. "
             raise KeyError(s) from e
 
         # load optimizer
@@ -298,7 +297,6 @@ def train():
         # Process epoch results
         final_epoch = epoch + 1 == opt.epochs
         if not opt.notest or final_epoch:  # Calculate mAP
-            is_coco = any([x in data for x in ["coco2014.data", "coco2014.data", "coco2017.data"]]) and model.nc == 80
             results, maps = evaluate(cfg,
                                      data,
                                      batch_size=batch_size * 2,
@@ -374,17 +372,12 @@ if __name__ == "__main__":
     parser.add_argument("--img-size", nargs="+", type=int, default=[416], help="train and test image-sizes")
     parser.add_argument("--rect", action="store_true", help="rectangular training")
     parser.add_argument("--resume", action="store_true", help="resume training from last.pth")
-    parser.add_argument("--nosave", action="store_true", help="only save final checkpoint")
-    parser.add_argument("--notest", action="store_true", help="only test final epoch")
-    parser.add_argument("--evolve", action="store_true", help="evolve hyperparameters")
     parser.add_argument("--cache-images", action="store_true", help="cache images for faster training")
     parser.add_argument("--weights", type=str, default="", help="pretrained weights path")
     parser.add_argument("--arc", type=str, default="default", help="yolo architecture")  # default, uCE, uBCE
-    parser.add_argument("--name", default="", help="renames results.txt to results_name.txt if supplied")
     parser.add_argument("--device", default="", help="device id (i.e. 0 or 0,1 or cpu)")
     parser.add_argument("--adam", action="store_true", help="use adam optimizer")
     parser.add_argument("--single-cls", action="store_true", help="train as single-class dataset")
-    parser.add_argument("--var", type=float, help="debug variable")
     opt = parser.parse_args()
     if opt.resume:
         opt.weights = opt.resume
@@ -398,66 +391,12 @@ if __name__ == "__main__":
     except OSError:
         pass
 
-    tb_writer = None
-    if not opt.evolve:  # Train normally
-        try:
-            # Start Tensorboard with "tensorboard --logdir=runs", view at http://localhost:6006/
-            from torch.utils.tensorboard import SummaryWriter
+    try:
+        # Start Tensorboard with "tensorboard --logdir=runs", view at http://localhost:6006/
+        from torch.utils.tensorboard import SummaryWriter
+    except ImportWarning:
+        pass
 
-            tb_writer = SummaryWriter()
-        except OSError:
-            pass
+    tb_writer = SummaryWriter()
 
-        train()  # train normally
-
-    else:  # Evolve hyperparameters (optional)
-        opt.notest, opt.nosave = True, True  # only test/save final epoch
-        if opt.bucket:
-            os.system("gsutil cp gs://%s/evolve.txt ." % opt.bucket)  # download evolve.txt if exists
-
-        for _ in range(1):  # generations to evolve
-            if os.path.exists("evolve.txt"):  # if evolve.txt exists: select best hyps and mutate
-                # Select parent(s)
-                parent = "single"  # parent selection method: "single" or "weighted"
-                x = np.loadtxt("evolve.txt", ndmin=2)
-                n = min(5, len(x))  # number of previous results to consider
-                x = x[np.argsort(-fitness(x))][:n]  # top n mutations
-                w = fitness(x) - fitness(x).min()  # weights
-                if parent == "single" or len(x) == 1:
-                    # x = x[random.randint(0, n - 1)]  # random selection
-                    x = x[random.choices(range(n), weights=w)[0]]  # weighted selection
-                elif parent == "weighted":
-                    x = (x * w.reshape(n, 1)).sum(0) / w.sum()  # weighted combination
-
-                # Mutate
-                method, mp, s = 3, 0.9, 0.2  # method, mutation probability, sigma
-                npr = np.random
-                npr.seed(int(time.time()))
-                g = np.array([1, 1, 1, 1, 1, 1, 1, 0, .1, 1, 0, 1, 1, 1, 1, 1, 1, 1])  # gains
-                ng = len(g)
-                if method == 1:
-                    v = (npr.randn(ng) * npr.random() * g * s + 1) ** 2.0
-                elif method == 2:
-                    v = (npr.randn(ng) * npr.random(ng) * g * s + 1) ** 2.0
-                elif method == 3:
-                    v = np.ones(ng)
-                    while all(v == 1):  # mutate until a change occurs (prevent duplicates)
-                        # v = (g * (npr.random(ng) < mp) * npr.randn(ng) * s + 1) ** 2.0
-                        v = (g * (npr.random(ng) < mp) * npr.randn(ng) * npr.random() * s + 1).clip(0.3, 3.0)
-                for i, k in enumerate(hyp.keys()):  # plt.hist(v.ravel(), 300)
-                    hyp[k] = x[i + 7] * v[i]  # mutate
-
-            # Clip to limits
-            keys = ["lr0", "iou_t", "momentum", "weight_decay", "hsv_s", "hsv_v", "translate", "scale", "fl_gamma"]
-            limits = [(1e-5, 1e-2), (0.00, 0.70), (0.60, 0.98), (0, 0.001), (0, .9), (0, .9), (0, .9), (0, .9), (0, 3)]
-            for k, v in zip(keys, limits):
-                hyp[k] = np.clip(hyp[k], v[0], v[1])
-
-            # Train mutation
-            results = train()
-
-            # Write mutation results
-            print_mutation(hyp, results, opt.bucket)
-
-            # Plot results
-            # plot_evolution_results(hyp)
+    train()
