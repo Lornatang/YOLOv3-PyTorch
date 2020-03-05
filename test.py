@@ -50,24 +50,20 @@ def evaluate(cfg,
     # Initialize/load model and set device
     if model is None:
         device = select_device(args.device, batch_size=batch_size)
-        verbose = args.task == "test"
-
-        # Remove previous
-        for f in glob.glob("test_batch*.jpg"):
-            os.remove(f)
+        verbose = args.task == "eval"
 
         # Initialize model
         model = Darknet(cfg, img_size).to(device)
 
         # Load weights
-        if weights.endswith(".pth"):  # pytorch format
+        if weights.endswith(".pth"):
             model.load_state_dict(torch.load(weights, map_location=device)["model"])
-        else:  # darknet format
+        else:
             load_darknet_weights(model, weights)
 
         if torch.cuda.device_count() > 1:
             model = nn.DataParallel(model)
-    else:  # called by train.py
+    else:
         device = next(model.parameters()).device  # get model device
         verbose = False
 
