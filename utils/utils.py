@@ -874,7 +874,7 @@ def plot_results(start=0, stop=0):  # from utils.utils import *; plot_results()
     s = ['GIoU', 'Objectness', 'Classification', 'Precision', 'Recall',
          'val GIoU', 'val Objectness', 'val Classification', 'mAP@0.5', 'F1']
 
-    files = glob.glob('results*.txt') + glob.glob('../../Downloads/results*.txt')
+    files = glob.glob('results*.txt')
 
     for f in sorted(files):
         results = np.loadtxt(f, usecols=[2, 3, 4, 8, 9, 12, 13, 14, 10, 11], ndmin=2).T
