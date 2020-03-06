@@ -154,7 +154,7 @@ def detect(save_img=False):
             # Stream results
             if view_image:
                 cv2.imshow("camera", im0)
-                if cv2.waitKey(30) == ord("q"):  # q to quit
+                if cv2.waitKey(1) == ord("q"):  # q to quit
                     raise StopIteration
 
             # Print time (inference + NMS)

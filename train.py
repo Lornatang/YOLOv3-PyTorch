@@ -365,8 +365,8 @@ if __name__ == "__main__":
     parser.add_argument('--workers', default=4, type=int, metavar='N',
                         help='Number of data loading workers (default: 4)')
     parser.add_argument("--multi-scale", action="store_true", help="adjust (67% - 150%) img_size every 10 batches")
-    parser.add_argument("--image-size", nargs='+', type=int, default=[608],
-                        help="Size of processing picture. (default=[608])")
+    parser.add_argument("--image-size", nargs='+', type=int, default=[416],
+                        help="Size of processing picture. (default=[416])")
     parser.add_argument("--rect", action="store_true", help="rectangular training")
     parser.add_argument("--resume", action="store_true", help="resume training from last.pth")
     parser.add_argument("--cache-images", action="store_true", help="cache images for faster training")
