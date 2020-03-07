@@ -51,13 +51,13 @@ def exif_size(image):
     """
     size = image.size
     try:
-        rotation = dict(image.info.get("exif").items())[orientation]
+        rotation = dict(image._getexif().items())[orientation]
         # rotation = dict(img._getexif().items())[orientation]
         if rotation == 6:  # rotation 270
             size = (size[1], size[0])
         elif rotation == 8:  # rotation 90
             size = (size[1], size[0])
-    except RuntimeError:
+    except:
         pass
 
     return size
@@ -304,7 +304,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 with open(sp, "r") as f:  # read existing shapefile
                     s = [x.split() for x in f.read().splitlines()]
                     assert len(s) == self.image_files_num, "Shapefile out of sync"
-            except IOError:
+            except:
                 s = [exif_size(Image.open(f)) for f in tqdm(self.image_files, desc="Reading image shapes")]
                 np.savetxt(sp, s, fmt="%g")  # overwrites existing (if any)
 
