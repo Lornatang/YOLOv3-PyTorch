@@ -44,7 +44,7 @@ from utils import select_device
 mixed_precision = True
 try:  # Mixed precision training https://github.com/NVIDIA/apex
     from apex import amp
-except ImportWarning:
+except:
     mixed_precision = False  # not installed
 
 parameters = {"giou": 3.54,  # giou loss gain
