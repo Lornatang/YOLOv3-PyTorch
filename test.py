@@ -13,8 +13,10 @@
 # ==============================================================================
 import argparse
 import glob
+import json
 import os
 import time
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -29,12 +31,17 @@ from utils import LoadImagesAndLabels
 from utils import ap_per_class
 from utils import box_iou
 from utils import clip_coords
+from utils import coco80_to_coco91_class
 from utils import compute_loss
+from utils import floatn
 from utils import load_classes
 from utils import non_max_suppression
 from utils import parse_data_cfg
+from utils import scale_coords
 from utils import select_device
+from utils import time_synchronized
 from utils import xywh2xyxy
+from utils import xyxy2xywh
 
 
 def evaluate(cfg,
@@ -44,6 +51,7 @@ def evaluate(cfg,
              image_size=416,
              confidence_threshold=0.001,
              iou_threshold=0.6,  # for nms
+             save_json=False,
              single_cls=False,
              model=None,
              dataloader=None):
@@ -88,8 +96,9 @@ def evaluate(cfg,
 
     seen = 0
     model.eval()
-    s = ("%20s" + "%10s" * 6) % ("Class", "Images", "Targets", "P", "R", "mAP@0.5", "F1")
-    p, r, f1, mp, mr, map, mf1 = 0., 0., 0., 0., 0., 0., 0.
+    coco91class = coco80_to_coco91_class()
+    s = ('%20s' + '%10s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@0.5', 'F1')
+    p, r, f1, mp, mr, map, mf1, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     loss = torch.zeros(3)
     jdict, stats, ap, ap_class = [], [], [], []
     for batch_i, (imgs, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
@@ -101,7 +110,9 @@ def evaluate(cfg,
         # Disable gradients
         with torch.no_grad():
             # Run model
+            t = time_synchronized()
             inf_out, train_out = model(imgs)  # inference and training outputs
+            t0 += time_synchronized() - t
 
             # Compute loss
             if hasattr(model, "hyp"):  # if model has loss hyperparameters
@@ -124,6 +135,20 @@ def evaluate(cfg,
 
             # Clip boxes to image bounds
             clip_coords(pred, (height, width))
+
+            # Append to pycocotools JSON dictionary
+            if save_json:
+                # [{"image_id": 42, "category_id": 18, "bbox": [258.15, 41.29, 348.26, 243.78], "score": 0.236}, ...
+                image_id = int(Path(paths[si]).stem.split('_')[-1])
+                box = pred[:, :4].clone()  # xyxy
+                scale_coords(imgs[si].shape[1:], box, shapes[si][0], shapes[si][1])  # to original shape
+                box = xyxy2xywh(box)  # xywh
+                box[:, :2] -= box[:, 2:] / 2  # xy center to top-left corner
+                for di, d in enumerate(pred):
+                    jdict.append({'image_id': image_id,
+                                  'category_id': coco91class[int(d[5])],
+                                  'bbox': [floatn(x, 3) for x in box[di]],
+                                  'score': floatn(d[4], 5)})
 
             # Assign all predictions as incorrect
             correct = torch.zeros(len(pred), niou, dtype=torch.bool, device=device)
@@ -175,6 +200,35 @@ def evaluate(cfg,
     if verbose and nc > 1 and len(stats):
         for i, c in enumerate(ap_class):
             print(context % (names[c], seen, nt[c], p[i], r[i], ap[i], f1[i]))
+
+    # Print speeds
+    if verbose:
+        t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (image_size, image_size, batch_size)  # tuple
+        print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
+
+        # Save JSON
+        if save_json and map and len(jdict):
+            print('\nCOCO mAP with pycocotools...')
+            imgIds = [int(Path(x).stem.split('_')[-1]) for x in dataloader.dataset.img_files]
+            with open('results.json', 'w') as file:
+                json.dump(jdict, file)
+
+            try:
+                from pycocotools.coco import COCO
+                from pycocotools.cocoeval import COCOeval
+            except:
+                print('WARNING: missing pycocotools package, can not compute official COCO mAP. See requirements.txt.')
+
+            # https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocoEvalDemo.ipynb
+            cocoGt = COCO(glob.glob('../coco/annotations/instances_val*.json')[0])  # initialize COCO ground truth api
+            cocoDt = cocoGt.loadRes('results.json')  # initialize COCO pred api
+
+            cocoEval = COCOeval(cocoGt, cocoDt, 'bbox')
+            cocoEval.params.imgIds = imgIds  # [:32]  # only evaluate these images
+            cocoEval.evaluate()
+            cocoEval.accumulate()
+            cocoEval.summarize()
+            mf1, map = cocoEval.stats[:2]  # update to pycocotools results (mAP@0.5:0.95, mAP@0.5)
 
     # Return results
     maps = np.zeros(nc) + map
@@ -231,7 +285,8 @@ if __name__ == "__main__":
         x = np.arange(0.4, 0.9, 0.05)  # iou-thres
         for i in x:
             t = time.time()
-            r = evaluate(args.cfg, args.data, args.weights, args.batch_size, args.image_size, args.confidence_threshold, i)[0]
+            r = evaluate(args.cfg, args.data, args.weights, args.batch_size, args.image_size, args.confidence_threshold,
+                         i)[0]
             y.append(r + (time.time() - t,))
         np.savetxt("study.txt", y, fmt="%10.4g")  # y = np.loadtxt("study.txt")
 
