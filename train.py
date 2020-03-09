@@ -40,6 +40,7 @@ from utils import parse_data_cfg
 from utils import plot_results
 from utils import print_model_biases
 from utils import select_device
+from utils import print_mutation
 
 mixed_precision = True
 try:  # Mixed precision training https://github.com/NVIDIA/apex
@@ -77,8 +78,7 @@ if parameter_file:
 def train():
     cfg = args.cfg
     data = args.data
-    image_size, img_size_val = args.image_size if len(
-        args.image_size) == 2 else args.image_size * 2  # train, test sizes
+    image_size, img_size_val = args.image_size if len(args.image_size) == 2 else args.image_size * 2  # train, val sizes
     epochs = args.epochs  # 500200 batches at bs 64, 117263 images = 273 epochs
     batch_size = args.batch_size
     accumulate = args.accumulate  # effective bs = batch_size * accumulate = 16 * 4 = 64
@@ -290,19 +290,25 @@ def train():
                 "%g/%g" % (epoch, args.epochs - 1), memory, *mean_losses, len(targets), image_size)
             progress_bar.set_description(s)
 
-        # Process epoch results
-        results, maps = evaluate(cfg,
-                                 data,
-                                 batch_size=batch_size * 2,
-                                 image_size=img_size_val,
-                                 model=model,
-                                 confidence_threshold=0.001,
-                                 iou_threshold=0.6,
-                                 single_cls=args.single_cls,
-                                 dataloader=valid_dataloader)
-
         # Update scheduler
         scheduler.step(epoch)
+
+        # Process epoch results
+        final_epoch = epoch + 1 == epochs
+        if not args.notest or final_epoch:  # Calculate mAP
+            is_coco = any([x in data for x in ['coco.data', 'coco2014.data', 'coco2017.data']]) and model.nc == 80
+            results, maps = evaluate(cfg,
+                                     data,
+                                     batch_size=batch_size * 2,
+                                     image_size=img_size_val,
+                                     model=model,
+                                     confidence_threshold=0.001,
+                                     iou_threshold=0.6,
+                                     save_json=final_epoch and is_coco,
+                                     single_cls=args.single_cls,
+                                     dataloader=valid_dataloader)
+
+
 
         # Write epoch results
         with open("results.txt", "a") as f:
@@ -322,14 +328,16 @@ def train():
             best_fitness = fitness_i
 
         # Save training results
-        with open("results.txt", "r") as f:
-            # Create checkpoint
-            state = {"epoch": epoch,
-                     "best_fitness": best_fitness,
-                     "training_results": f.read(),
-                     "model": model.module.state_dict() if type(model) is nn.parallel.DistributedDataParallel
-                     else model.state_dict(),
-                     "optimizer": optimizer.state_dict()}
+        save = (not args.nosave) or (final_epoch and not args.evolve)
+        if save:
+            with open("results.txt", 'r') as f:
+                # Create checkpoint
+                state = {'epoch': epoch,
+                         'best_fitness': best_fitness,
+                         'training_results': f.read(),
+                         'model': model.module.state_dict() if type(
+                             model) is nn.parallel.DistributedDataParallel else model.state_dict(),
+                         'optimizer': None if final_epoch else optimizer.state_dict()}
 
         # Save last checkpoint
         torch.save(state, "weights/checkpoint.pth")
@@ -341,7 +349,8 @@ def train():
         # Delete checkpoint
         del state
 
-    plot_results()
+    if not args.evolve:
+        plot_results()  # save as results.png
     print(f"{epoch - start_epoch} epochs completed in {(time.time() - start_time) / 3600:.3f} hours.\n")
     dist.destroy_process_group() if torch.cuda.device_count() > 1 else None
     torch.cuda.empty_cache()
@@ -368,19 +377,21 @@ if __name__ == "__main__":
     parser.add_argument("--image-size", nargs='+', type=int, default=[416],
                         help="Size of processing picture. (default=[416])")
     parser.add_argument("--rect", action="store_true", help="rectangular training")
-    parser.add_argument("--resume", action="store_true", help="resume training from last.pth")
+    parser.add_argument("--resume", action="store_true", help="resume training from checkpoint.pth")
+    parser.add_argument('--nosave', action='store_true', help='only save final checkpoint')
+    parser.add_argument('--notest', action='store_true', help='only test final epoch')
+    parser.add_argument('--evolve', action='store_true', help='evolve hyperparameters')
     parser.add_argument("--cache-images", action="store_true", help="cache images for faster training")
-    parser.add_argument("--weights", type=str, default="",
+    parser.add_argument("--weights", type=str, default="weights/yolov3-spp.pth",
                         help="Model file weight path. (default=``)")
     parser.add_argument("--arch", type=str, default="default",
                         help="Yolo architecture. (default=`default`)")
     parser.add_argument("--device", default="", help="device id (i.e. 0 or 0,1 or cpu)")
     parser.add_argument("--single-cls", action="store_true", help="train as single-class dataset")
     args = parser.parse_args()
-    print(args)
+    args.weights = "weights/checkpoint.pth" if args.resume else args.weights
 
-    if args.resume:
-        args.weights = args.resume
+    print(args)
 
     device = select_device(args.device, apex=mixed_precision, batch_size=args.batch_size)
     if device.type == "cpu":
@@ -391,12 +402,62 @@ if __name__ == "__main__":
     except OSError:
         pass
 
-    try:
-        # Start Tensorboard with "tensorboard --logdir=runs", view at http://localhost:6006/
-        from torch.utils.tensorboard import SummaryWriter
-    except ImportWarning:
-        pass
+    tb_writer = None
+    if not args.evolve:  # Train normally
+        try:
+            # Start Tensorboard with "tensorboard --logdir=runs", view at http://localhost:6006/
+            from torch.utils.tensorboard import SummaryWriter
 
-    tb_writer = SummaryWriter()
+            tb_writer = SummaryWriter()
+        except:
+            pass
 
-    train()
+        train()
+
+    else:  # Evolve hyperparameters (optional)
+        args.notest, args.nosave = True, True  # only test/save final epoch
+
+        for _ in range(1):  # generations to evolve
+            if os.path.exists('evolve.txt'):  # if evolve.txt exists: select best hyps and mutate
+                # Select parent(s)
+                parent = 'single'  # parent selection method: 'single' or 'weighted'
+                x = np.loadtxt('evolve.txt', ndmin=2)
+                n = min(5, len(x))  # number of previous results to consider
+                x = x[np.argsort(-fitness(x))][:n]  # top n mutations
+                w = fitness(x) - fitness(x).min()  # weights
+                if parent == 'single' or len(x) == 1:
+                    x = x[random.choices(range(n), weights=w)[0]]  # weighted selection
+                elif parent == 'weighted':
+                    x = (x * w.reshape(n, 1)).sum(0) / w.sum()  # weighted combination
+
+                # Mutate
+                method, mp, s = 3, 0.9, 0.2  # method, mutation probability, sigma
+                npr = np.random
+                npr.seed(int(time.time()))
+                g = np.array([1, 1, 1, 1, 1, 1, 1, 0, .1, 1, 0, 1, 1, 1, 1, 1, 1, 1])  # gains
+                ng = len(g)
+                if method == 1:
+                    v = (npr.randn(ng) * npr.random() * g * s + 1) ** 2.0
+                elif method == 2:
+                    v = (npr.randn(ng) * npr.random(ng) * g * s + 1) ** 2.0
+                elif method == 3:
+                    v = np.ones(ng)
+                    while all(v == 1):  # mutate until a change occurs (prevent duplicates)
+                        v = (g * (npr.random(ng) < mp) * npr.randn(ng) * npr.random() * s + 1).clip(0.3, 3.0)
+                for i, k in enumerate(parameters.keys()):  # plt.hist(v.ravel(), 300)
+                    parameters[k] = x[i + 7] * v[i]  # mutate
+
+            # Clip to limits
+            keys = ['lr0', 'iou_t', 'momentum', 'weight_decay', 'hsv_s', 'hsv_v', 'translate', 'scale', 'fl_gamma']
+            limits = [(1e-5, 1e-2), (0.00, 0.70), (0.60, 0.98), (0, 0.001), (0, .9), (0, .9), (0, .9), (0, .9), (0, 3)]
+            for k, v in zip(keys, limits):
+                parameters[k] = np.clip(parameters[k], v[0], v[1])
+
+            # Train mutation
+            results = train()
+
+            # Write mutation results
+            print_mutation(parameters, results)
+
+            # Plot results
+            # plot_evolution_results(hyp)
