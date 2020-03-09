@@ -119,7 +119,9 @@ def evaluate(cfg,
                 loss += compute_loss(train_out, targets, model)[1][:3].cpu()  # GIoU, obj, cls
 
             # Run NMS
+            t = time_synchronized()
             output = non_max_suppression(inf_out, conf_thres=confidence_threshold, iou_thres=iou_threshold)
+            t1 += time_synchronized() - t
 
         # Statistics per image
         for si, pred in enumerate(output):
@@ -234,7 +236,7 @@ def evaluate(cfg,
     maps = np.zeros(nc) + map
     for i, c in enumerate(ap_class):
         maps[c] = ap[i]
-    return (mp, mr, map, mf1, *(loss / len(dataloader)).tolist()), maps
+    return (mp, mr, map, mf1, *(loss.cpu() / len(dataloader)).tolist()), maps
 
 
 if __name__ == "__main__":
