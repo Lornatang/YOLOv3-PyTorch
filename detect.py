@@ -148,7 +148,7 @@ def detect(save_img=False):
                             files.write(("%e " * 6 + "\n") % (*xyxy, classes, confidence))
 
                     if save_img or view_image:  # Add bbox to image
-                        label = f"{names[int(classes)]} {confidence:.2f}"
+                        label = f"{names[int(classes)]} {confidence * 100:.2f}%"
                         plot_one_box(xyxy, im0, label=label, color=colors[int(classes)])
 
             # Stream results
