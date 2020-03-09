@@ -242,7 +242,7 @@ def train():
                                                    k=train_dataset.image_files_num)
 
         mean_losses = torch.zeros(4).to(device)
-        print(("\n" + "%10s" * 8) % ("Epoch", "memory", "GIoU", "obj", "cls", "total", "targets", "image_size"))
+        print(("\n" + "%10s" * 8) % ("Epoch", "memory", "GIoU", "obj", "cls", "total", "targets", " image_size"))
         progress_bar = tqdm(enumerate(train_dataloader), total=nb)
         for i, (images, targets, paths, _) in progress_bar:
             ni = i + nb * epoch  # number integrated batches (since train start)
@@ -307,8 +307,6 @@ def train():
                                      save_json=final_epoch and is_coco,
                                      single_cls=args.single_cls,
                                      dataloader=valid_dataloader)
-
-
 
         # Write epoch results
         with open("results.txt", "a") as f:
@@ -383,7 +381,7 @@ if __name__ == "__main__":
     parser.add_argument('--evolve', action='store_true', help='evolve hyperparameters')
     parser.add_argument("--cache-images", action="store_true", help="cache images for faster training")
     parser.add_argument("--weights", type=str, default="weights/yolov3-spp.pth",
-                        help="Model file weight path. (default=``)")
+                        help="Model file weight path. (default=`weights/yolov3-spp.pth`)")
     parser.add_argument("--arch", type=str, default="default",
                         help="Yolo architecture. (default=`default`)")
     parser.add_argument("--device", default="", help="device id (i.e. 0 or 0,1 or cpu)")
