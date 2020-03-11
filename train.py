@@ -374,12 +374,12 @@ if __name__ == "__main__":
     parser.add_argument("--multi-scale", action="store_true", help="adjust (67% - 150%) img_size every 10 batches")
     parser.add_argument("--image-size", nargs='+', type=int, default=[416],
                         help="Size of processing picture. (default=[416])")
-    parser.add_argument("--rect", action="store_true", help="rectangular training")
+    parser.add_argument("--rect", action="store_true", help="rectangular training for faster training.")
     parser.add_argument("--resume", action="store_true", help="resume training from checkpoint.pth")
     parser.add_argument('--nosave', action='store_true', help='only save final checkpoint')
     parser.add_argument('--notest', action='store_true', help='only test final epoch')
     parser.add_argument('--evolve', action='store_true', help='evolve hyperparameters')
-    parser.add_argument("--cache-images", action="store_true", help="cache images for faster training")
+    parser.add_argument("--cache-images", action="store_true", help="cache images for faster training.")
     parser.add_argument("--weights", type=str, default="weights/yolov3-spp.pth",
                         help="Model file weight path. (default=`weights/yolov3-spp.pth`)")
     parser.add_argument("--arch", type=str, default="default",
