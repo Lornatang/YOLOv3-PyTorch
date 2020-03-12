@@ -207,7 +207,7 @@ Namespace(batch_size=32, cfg='yolov3-spp', conf_thres=0.001, data='data/coco2014
 Using CUDA device0 _CudaDeviceProperties(name='Tesla P100-PCIE-16GB', total_memory=16280MB)
 
                Class    Images   Targets         P         R   mAP@0.5        F1: 100% 157/157 [03:12<00:00,  1.50it/s]
-                 all     5e+03  3.51e+04    0.0573     0.871     0.611     0.106
+                 all     5e+03  3.51e+04      0.51     0.667     0.611     0.574
  Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.419
  Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.618
  Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.448

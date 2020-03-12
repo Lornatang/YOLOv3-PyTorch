@@ -293,6 +293,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         self.hyp = hyp
         self.image_weights = image_weights
         self.rect = False if image_weights else rect
+        self.mosaic = self.augment and not self.rect  # load 4 images at a time into a mosaic (only during training)
 
         # Define labels
         self.label_files = [x.replace("images", "labels").replace(os.path.splitext(x)[-1], ".txt")
@@ -388,6 +389,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                             b[[1, 3]] = np.clip(b[[1, 3]], 0, h)
                             assert cv2.imwrite(f, img[b[1]:b[3], b[0]:b[2]]), "Failure extracting classifier boxes"
                 else:
+                    print(file)
                     ne += 1  # print("empty labels for image %s" % self.img_files[i])  # file empty
                     # os.system("rm "%s" "%s"" % (self.img_files[i], self.label_files[i]))  # remove
 
@@ -432,8 +434,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         label_path = self.label_files[index]
 
         hyp = self.hyp
-        mosaic = True and self.augment  # load 4 images at a time into a mosaic (only during training)
-        if mosaic:
+        if self.mosaic:
             # Load mosaic
             img, labels = load_mosaic(self, index)
             shapes = None
@@ -465,7 +466,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
 
         if self.augment:
             # Augment imagespace
-            if not mosaic:
+            if not self.mosaic:
                 img, labels = random_affine(img, labels,
                                             degrees=hyp["degrees"],
                                             translate=hyp["translate"],

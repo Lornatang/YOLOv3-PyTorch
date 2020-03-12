@@ -34,6 +34,7 @@ from utils import non_max_suppression
 from utils import plot_one_box
 from utils import scale_coords
 from utils import select_device
+from utils import time_synchronized
 
 
 def detect(save_img=False):
@@ -105,7 +106,6 @@ def detect(save_img=False):
     # Run inference
     start_time = time.time()
     for image_path, image, im0s, video_capture in dataset:
-        t = time.time()
         image = torch.from_numpy(image).to(device)
         image = image.float()  # uint8 to fp16/32
         image /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -113,7 +113,9 @@ def detect(save_img=False):
             image = image.unsqueeze(0)
 
         # Inference
+        t1 = time_synchronized()
         predict = model(image)[0]
+        t2 = time_synchronized()
 
         # Apply NMS
         predict = non_max_suppression(predict, args.confidence_threshold, args.iou_threshold, classes=args.classes,
@@ -158,7 +160,7 @@ def detect(save_img=False):
                     raise StopIteration
 
             # Print time (inference + NMS)
-            print(f"{context}Done. {time.time() - t:.3f}s")
+            print(f"{context}Done. {t2 - t1:.3f}s")
 
             # Save results (image with detections)
             if save_img:

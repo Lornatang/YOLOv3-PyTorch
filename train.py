@@ -62,10 +62,10 @@ parameters = {"giou": 3.54,  # giou loss gain
               "hsv_h": 0.0138,  # image HSV-Hue augmentation (fraction)
               "hsv_s": 0.678,  # image HSV-Saturation augmentation (fraction)
               "hsv_v": 0.36,  # image HSV-Value augmentation (fraction)
-              "degrees": 1.98,  # image rotation (+/- deg)
-              "translate": 0.05,  # image translation (+/- fraction)
-              "scale": 0.05,  # image scale (+/- gain)
-              "shear": 0.641}  # image shear (+/- deg)
+              'degrees': 1.98 * 0,  # image rotation (+/- deg)
+              'translate': 0.05 * 0,  # image translation (+/- fraction)
+              'scale': 0.05 * 0,  # image scale (+/- gain)
+              'shear': 0.641 * 0}  # image shear (+/- deg)
 
 # Overwrite hyp with hyp*.txt
 parameter_file = glob.glob("hyp*.txt")
@@ -159,9 +159,10 @@ def train():
     if mixed_precision:
         model, optimizer = amp.initialize(model, optimizer, opt_level="O1", verbosity=0)
 
+    # Scheduler https://github.com/ultralytics/yolov3/issues/238
     lf = lambda x: (1 + math.cos(x * math.pi / epochs)) / 2 * 0.99 + 0.01  # cosine https://arxiv.org/pdf/1812.01187.pdf
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
-    scheduler.last_epoch = start_epoch
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf, last_epoch=start_epoch - 1)
+    # scheduler = lr_scheduler.MultiStepLR(optimizer, [round(epochs * x) for x in [0.8, 0.9]], 0.1, start_epoch - 1)
 
     # Initialize distributed training
     if device.type != "cpu" and torch.cuda.device_count() > 1 and torch.distributed.is_available():
@@ -202,7 +203,7 @@ def train():
 
     # Start training
     nb = len(train_dataloader)
-    prebias = start_epoch == 0
+    prebias = False
     model.nc = nc  # attach number of classes to model
     model.arch = args.arch  # attach yolo architecture
     model.hyp = parameters  # attach hyperparameters to model
@@ -216,7 +217,7 @@ def train():
     start_time = time.time()
     for epoch in range(start_epoch, args.epochs):
         model.train()
-        model.hyp['gr'] = 1 - (1 + math.cos(min(epoch * 2, epochs) * math.pi / epochs)) / 2  # GIoU <-> 1.0 loss ratio
+        model.gr = 1 - (1 + math.cos(min(epoch * 1, epochs) * math.pi / epochs)) / 2  # GIoU <-> 1.0 loss ratio
 
         # Prebias
         if prebias:
@@ -248,6 +249,16 @@ def train():
             ni = i + nb * epoch  # number integrated batches (since train start)
             images = images.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
             targets = targets.to(device)
+
+            # Hyperparameter Burn-in
+            n_burn = 200  # number of burn-in batches
+            if ni <= n_burn:
+                g = ni / n_burn  # gain
+                for x in model.named_modules():
+                    if x[0].endswith('BatchNorm2d'):
+                        x[1].track_running_stats = ni == n_burn
+                for x in optimizer.param_groups:
+                    x['lr'] = x['initial_lr'] * lf(epoch) * g  # gain rises from 0 - 1
 
             # Multi-Scale training
             if args.multi_scale:
@@ -343,6 +354,15 @@ def train():
         # Save best checkpoint
         if best_fitness == fitness_i:
             torch.save(state, "weights/model_best.pth")
+
+        if final_epoch:
+            state = {'epoch': None,
+                     'best_fitness': None,
+                     'training_results': None,
+                     'model': model.module.state_dict() if type(
+                         model) is nn.parallel.DistributedDataParallel else model.state_dict(),
+                     'optimizer': None}
+            torch.save(state, "weights/model.pth")
 
         # Delete checkpoint
         del state
