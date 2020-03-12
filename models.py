@@ -137,7 +137,7 @@ class WeightFeatureFusion(nn.Module):  # weighted sum of 2 or more layers https:
         self.weight = weight  # apply weights boolean
         self.n = len(layers) + 1  # number of layers
         if weight:
-            self.w = torch.nn.Parameter(torch.zeros(self.n))  # layer weights
+            self.w = torch.nn.Parameter(torch.zeros(self.n), requires_grad=True)  # layer weights
 
     def forward(self, x, outputs):
         # Weights
@@ -248,11 +248,11 @@ class YOLOLayer(nn.Module):
 class Darknet(nn.Module):
     # YOLOv3 object detection model
 
-    def __init__(self, cfg, img_size=(416, 416), arc='default'):
+    def __init__(self, cfg, img_size=(416, 416), arch='default'):
         super(Darknet, self).__init__()
 
         self.module_defs = parse_model_cfg(cfg)
-        self.module_list, self.routs = create_modules(self.module_defs, img_size, arc)
+        self.module_list, self.routs = create_modules(self.module_defs, img_size, arch)
         self.yolo_layers = get_yolo_layers(self)
 
         # Darknet Header https://github.com/AlexeyAB/darknet/issues/2914#issuecomment-496675346
