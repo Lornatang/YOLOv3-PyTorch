@@ -356,15 +356,6 @@ def train():
         if best_fitness == fitness_i:
             torch.save(state, "weights/model_best.pth")
 
-        if final_epoch:
-            state = {'epoch': None,
-                     'best_fitness': None,
-                     'training_results': None,
-                     'model': model.module.state_dict() if type(
-                         model) is nn.parallel.DistributedDataParallel else model.state_dict(),
-                     'optimizer': None}
-            torch.save(state, "weights/model.pth")
-
         # Delete checkpoint
         del state
 
