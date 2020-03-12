@@ -243,7 +243,8 @@ def train():
                                                    k=train_dataset.image_files_num)
 
         mean_losses = torch.zeros(4).to(device)
-        print(("\n" + "%10s" * 8) % ("Epoch", "memory", "GIoU", "obj", "cls", "total", "targets", " image_size"))
+        print("\n")
+        print(("%10s" * 8) % ("Epoch", "memory", "GIoU", "obj", "cls", "total", "targets", " image_size"))
         progress_bar = tqdm(enumerate(train_dataloader), total=nb)
         for i, (images, targets, paths, _) in progress_bar:
             ni = i + nb * epoch  # number integrated batches (since train start)
