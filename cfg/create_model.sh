@@ -605,14 +605,14 @@ activation = leaky
 size = 1
 stride = 1
 pad = 1
-filters = 255
+filters = $(expr 3 \* $(expr ${NUM_CLASSES} \+ 5))
 activation = linear
 
 
 [yolo]
 mask = 6,7,8
 anchors = 10,13,  16,30,  33,23,  30,61,  62,45,  59,119,  116,90,  156,198,  373,326
-classes = 80
+classes = $NUM_CLASSES
 num = 9
 jitter = .3
 ignore_thresh = .7
