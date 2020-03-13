@@ -20,7 +20,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from utils import fuse_conv_and_bn
-from utils import parse_model_cfg
+from utils import parse_model_config
 
 ONNX_EXPORT = False
 
@@ -251,7 +251,7 @@ class Darknet(nn.Module):
     def __init__(self, cfg, img_size=(416, 416), arch='default'):
         super(Darknet, self).__init__()
 
-        self.module_defs = parse_model_cfg(cfg)
+        self.module_defs = parse_model_config(cfg)
         self.module_list, self.routs = create_modules(self.module_defs, img_size, arch)
         self.yolo_layers = get_yolo_layers(self)
 
