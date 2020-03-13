@@ -53,7 +53,7 @@ def convert_annotation(xml_path, image_index):
     except ValueError:
         pass
     else:
-        path = os.path.join(os.getcwd(), "images", image_index + ".jpg")
+        path = os.path.join(os.getcwd(), "JPEGImages", image_index + ".jpg")
         img = Image.open(path)
         w, h = img.size
 
@@ -73,12 +73,11 @@ def convert_annotation(xml_path, image_index):
 def main(args):
     try:
         os.makedirs("labels")
-        os.makedirs("Main")
     except OSError:
         pass
 
     for image_set in sets:
-        image_indexs = open(f"Main/{image_set}.txt").read().strip().split()
+        image_indexs = open(f"ImageSets/Main/{image_set}.txt").read().strip().split()
         list_file = open(f"{image_set}.txt", "w")
         for image_index in image_indexs:
             list_file.write(f"data/{args.dataroot}/images/{image_index}.jpg\n")

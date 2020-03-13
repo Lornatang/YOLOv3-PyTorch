@@ -1,7 +1,5 @@
 classes=20
-train=data/voc2012/trainval.txt
-valid=data/voc2012/val.txt
 test=data/voc2007_test/test.txt
 names=data/voc.names
 backup=backup/
-eval=voc20012
+eval=voc2007_test
