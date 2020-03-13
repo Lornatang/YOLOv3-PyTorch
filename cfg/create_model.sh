@@ -691,8 +691,9 @@ activation = leaky
 size = 1
 stride = 1
 pad = 1
-filters = 255
+filters = $(expr 3 \* $(expr ${NUM_CLASSES} \+ 5))
 activation = linear
+
 
 [yolo]
 mask = 3,4,5
@@ -703,6 +704,7 @@ jitter = .3
 ignore_thresh = .7
 truth_thresh = 1
 random = 1
+
 
 
 [route]
@@ -778,6 +780,7 @@ stride = 1
 pad = 1
 filters = $(expr 3 \* $(expr ${NUM_CLASSES} \+ 5))
 activation = linear
+
 
 [yolo]
 mask = 0,1,2

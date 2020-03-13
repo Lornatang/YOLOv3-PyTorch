@@ -38,13 +38,16 @@ from .torch_utils import init_seeds
 from .torch_utils import load_classifier
 from .torch_utils import model_info
 from .torch_utils import select_device
+from .torch_utils import time_synchronized
 from .utils import ap_per_class
 from .utils import apply_classifier
 from .utils import box_iou
 from .utils import clip_coords
+from .utils import coco80_to_coco91_class
 from .utils import compute_ap
 from .utils import compute_loss
 from .utils import fitness
+from .utils import floatn
 from .utils import labels_to_class_weights
 from .utils import labels_to_image_weights
 from .utils import load_classes
@@ -57,6 +60,3 @@ from .utils import print_mutation
 from .utils import scale_coords
 from .utils import xywh2xyxy
 from .utils import xyxy2xywh
-from .utils import coco80_to_coco91_class
-from .torch_utils import time_synchronized
-from .utils import floatn
