@@ -8,6 +8,7 @@ tqdm
 pillow
 scikit-image
 tensorboard
+pycocotools
 
 # -------------------------------------------------------------- #
 #                          optional                              #
