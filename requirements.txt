@@ -2,6 +2,7 @@
 numpy
 opencv-python
 torch
+torchvision
 onnx
 matplotlib
 tqdm
