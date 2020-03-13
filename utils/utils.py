@@ -12,11 +12,11 @@
 # limitations under the License.
 # ==============================================================================
 import glob
+import math
 import random
 from pathlib import Path
 
 import cv2
-import math
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -24,32 +24,24 @@ import torch
 import torch.nn as nn
 import torchvision
 
-from . import torch_utils  #
-
-matplotlib.rc('font', **{'size': 11})
+matplotlib.rc("font", **{"size": 11})
 
 # Set printoptions
-torch.set_printoptions(linewidth=320, precision=5, profile='long')
-np.set_printoptions(linewidth=320, formatter={'float_kind': '{:11.5g}'.format})  # format short g, %precision=5
+torch.set_printoptions(linewidth=320, precision=5, profile="long")
+np.set_printoptions(linewidth=320, formatter={"float_kind": "{:11.5g}".format})  # format short g, %precision=5
 
 # Prevent OpenCV from multithreading (to use PyTorch DataLoader)
 cv2.setNumThreads(0)
 
 
 def floatn(x, n=3):  # format floats to n decimals
-    return float(format(x, '.%gf' % n))
-
-
-def init_seeds(seed=0):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch_utils.init_seeds(seed=seed)
+    return float(format(x, ".%gf" % n))
 
 
 def load_classes(path):
-    # Loads *.names file at 'path'
-    with open(path, 'r') as f:
-        names = f.read().split('\n')
+    # Loads *.names file at "path"
+    with open(path, "r") as f:
+        names = f.read().split("\n")
     return list(filter(None, names))  # filter removes empty strings (such as last line)
 
 
@@ -89,16 +81,16 @@ def coco_class_weights():  # frequency of each class in coco train2014
          1877, 17630, 4337, 4624, 1075, 3468, 135, 1380]
     weights = 1 / torch.Tensor(n)
     weights /= weights.sum()
-    # with open('data/coco.names', 'r') as f:
+    # with open("data/coco.names", "r") as f:
     #     for k, v in zip(f.read().splitlines(), n):
-    #         print('%20s: %g' % (k, v))
+    #         print("%20s: %g" % (k, v))
     return weights
 
 
 def coco80_to_coco91_class():  # converts 80-index (val2014) to 91-index (paper)
     # https://tech.amikelive.com/node-718/what-object-categories-labels-are-in-coco-dataset/
-    # a = np.loadtxt('data/coco.names', dtype='str', delimiter='\n')
-    # b = np.loadtxt('data/coco_paper.names', dtype='str', delimiter='\n')
+    # a = np.loadtxt("data/coco.names", dtype="str", delimiter="\n")
+    # b = np.loadtxt("data/coco_paper.names", dtype="str", delimiter="\n")
     # x1 = [list(a[i] == b).index(True) + 1 for i in range(80)]  # darknet to coco
     # x2 = [list(b[i] == a).index(True) if any(b[i] == a) else None for i in range(91)]  # coco to darknet
     x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 31, 32, 33, 34,
@@ -109,9 +101,9 @@ def coco80_to_coco91_class():  # converts 80-index (val2014) to 91-index (paper)
 
 def weights_init_normal(m):
     classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
+    if classname.find("Conv") != -1:
         torch.nn.init.normal_(m.weight.data, 0.0, 0.03)
-    elif classname.find('BatchNorm2d') != -1:
+    elif classname.find("BatchNorm2d") != -1:
         torch.nn.init.normal_(m.weight.data, 1.0, 0.03)
         torch.nn.init.constant_(m.bias.data, 0.0)
 
@@ -228,17 +220,17 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
             # Plot
             # fig, ax = plt.subplots(1, 1, figsize=(4, 4))
             # ax.plot(recall, precision)
-            # ax.set_xlabel('Recall')
-            # ax.set_ylabel('Precision')
+            # ax.set_xlabel("Recall")
+            # ax.set_ylabel("Precision")
             # ax.set_xlim(0, 1.01)
             # ax.set_ylim(0, 1.01)
             # fig.tight_layout()
-            # fig.savefig('PR_curve.png', dpi=300)
+            # fig.savefig("PR_curve.png", dpi=300)
 
     # Compute F1 score (harmonic mean of precision and recall)
     f1 = 2 * p * r / (p + r + 1e-16)
 
-    return p, r, ap, f1, unique_classes.astype('int32')
+    return p, r, ap, f1, unique_classes.astype("int32")
 
 
 def compute_ap(recall, precision):
@@ -259,11 +251,11 @@ def compute_ap(recall, precision):
     mpre = np.flip(np.maximum.accumulate(np.flip(mpre)))
 
     # Integrate area under curve
-    method = 'interp'  # methods: 'continuous', 'interp'
-    if method == 'interp':
+    method = "interp"  # methods: "continuous", "interp"
+    if method == "interp":
         x = np.linspace(0, 1, 101)  # 101-point interp (COCO)
         ap = np.trapz(np.interp(x, mrec, mpre), x)  # integrate
-    else:  # 'continuous'
+    else:  # "continuous"
         i = np.where(mrec[1:] != mrec[:-1])[0]  # points where x axis (recall) changes
         ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])  # area under curve
 
@@ -360,17 +352,17 @@ class FocalLoss(nn.Module):
         self.gamma = gamma
         self.alpha = alpha
         self.reduction = loss_fcn.reduction
-        self.loss_fcn.reduction = 'none'  # required to apply FL to each element
+        self.loss_fcn.reduction = "none"  # required to apply FL to each element
 
     def forward(self, input, target):
         loss = self.loss_fcn(input, target)
         loss *= self.alpha * (1.000001 - torch.exp(-loss)) ** self.gamma  # non-zero power for gradient stability
 
-        if self.reduction == 'mean':
+        if self.reduction == "mean":
             return loss.mean()
-        elif self.reduction == 'sum':
+        elif self.reduction == "sum":
             return loss.sum()
-        else:  # 'none'
+        else:  # "none"
             return loss
 
 
@@ -385,19 +377,19 @@ def compute_loss(p, targets, model, giou_flag=True):  # predictions, targets, mo
     tcls, tbox, indices, anchor_vec = build_targets(model, targets)
     h = model.hyp  # hyperparameters
     arch = model.arch  # # (default, uCE, uBCE) detection architectures
-    red = 'mean'  # Loss reduction (sum or mean)
+    red = "mean"  # Loss reduction (sum or mean)
 
     # Define criteria
-    BCEcls = nn.BCEWithLogitsLoss(pos_weight=ft([h['cls_pw']]), reduction=red)
-    BCEobj = nn.BCEWithLogitsLoss(pos_weight=ft([h['obj_pw']]), reduction=red)
+    BCEcls = nn.BCEWithLogitsLoss(pos_weight=ft([h["cls_pw"]]), reduction=red)
+    BCEobj = nn.BCEWithLogitsLoss(pos_weight=ft([h["obj_pw"]]), reduction=red)
     BCE = nn.BCEWithLogitsLoss(reduction=red)
     CE = nn.CrossEntropyLoss(reduction=red)  # weight=model.class_weights
 
     # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
     cp, cn = smooth_BCE(eps=0.0)
 
-    if 'F' in arch:  # add focal loss
-        g = h['fl_gamma']
+    if "F" in arch:  # add focal loss
+        g = h["fl_gamma"]
         BCEcls, BCEobj, BCE, CE = FocalLoss(BCEcls, g), FocalLoss(BCEobj, g), FocalLoss(BCE, g), FocalLoss(CE, g)
 
     # Compute losses
@@ -419,38 +411,38 @@ def compute_loss(p, targets, model, giou_flag=True):  # predictions, targets, mo
             pwh = torch.exp(ps[:, 2:4]).clamp(max=1E3) * anchor_vec[i]
             pbox = torch.cat((pxy, pwh), 1)  # predicted box
             giou = bbox_iou(pbox.t(), tbox[i], x1y1x2y2=False, GIoU=True)  # giou computation
-            lbox += (1.0 - giou).sum() if red == 'sum' else (1.0 - giou).mean()  # giou loss
+            lbox += (1.0 - giou).sum() if red == "sum" else (1.0 - giou).mean()  # giou loss
             tobj[b, a, gj, gi] = (1.0 - model.gr) + model.gr * giou.detach().clamp(0).type(tobj.dtype)  # giou ratio
 
-            if 'default' in arch and model.nc > 1:  # cls loss (only if multiple classes)
+            if "default" in arch and model.nc > 1:  # cls loss (only if multiple classes)
                 t = torch.zeros_like(ps[:, 5:]) + cn  # targets
                 t[range(nb), tcls[i]] = cp
                 lcls += BCEcls(ps[:, 5:], t)  # BCE
                 # lcls += CE(ps[:, 5:], tcls[i])  # CE
 
             # Append targets to text file
-            # with open('targets.txt', 'a') as file:
-            #     [file.write('%11.5g ' * 4 % tuple(x) + '\n') for x in torch.cat((txy[i], twh[i]), 1)]
+            # with open("targets.txt", "a") as file:
+            #     [file.write("%11.5g " * 4 % tuple(x) + "\n") for x in torch.cat((txy[i], twh[i]), 1)]
 
-        if 'default' in arch:  # separate obj and cls
+        if "default" in arch:  # separate obj and cls
             lobj += BCEobj(pi[..., 4], tobj)  # obj loss
 
-        elif 'BCE' in arch:  # unified BCE (80 classes)
+        elif "BCE" in arch:  # unified BCE (80 classes)
             t = torch.zeros_like(pi[..., 5:])  # targets
             if nb:
                 t[b, a, gj, gi, tcls[i]] = 1.0
             lobj += BCE(pi[..., 5:], t)
 
-        elif 'CE' in arch:  # unified CE (1 background + 80 classes)
+        elif "CE" in arch:  # unified CE (1 background + 80 classes)
             t = torch.zeros_like(pi[..., 0], dtype=torch.long)  # targets
             if nb:
                 t[b, a, gj, gi] = tcls[i] + 1
             lcls += CE(pi[..., 4:].view(-1, model.nc + 1), t.view(-1))
 
-    lbox *= h['giou']
-    lobj *= h['obj']
-    lcls *= h['cls']
-    if red == 'sum':
+    lbox *= h["giou"]
+    lobj *= h["obj"]
+    lcls *= h["cls"]
+    if red == "sum":
         bs = tobj.shape[0]  # batch size
         lobj *= 3 / (6300 * bs) * 2  # 3 / np * 2
         if ng:
@@ -491,7 +483,7 @@ def build_targets(model, targets):
 
             # reject anchors below iou_thres (OPTIONAL, increases P, lowers R)
             if reject:
-                j = iou.view(-1) > model.hyp['iou_t']  # iou threshold hyperparameter
+                j = iou.view(-1) > model.hyp["iou_t"]  # iou threshold hyperparameter
                 t, a, gwh = t[j], a[j], gwh[j]
 
         # Indices
@@ -508,7 +500,7 @@ def build_targets(model, targets):
         # Class
         tcls.append(c)
         if c.shape[0]:  # if any targets
-            assert c.max() < model.nc, 'Model accepts %g classes labeled from 0-%g, however you labelled a class %g. ' % (
+            assert c.max() < model.nc, "Model accepts %g classes labeled from 0-%g, however you labelled a class %g. " % (
                 model.nc, model.nc - 1, c.max())
 
     return tcls, tbox, indices, av
@@ -516,7 +508,7 @@ def build_targets(model, targets):
 
 def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, multi_label=True, classes=None, agnostic=False):
     """
-    Removes detections with lower object confidence score than 'conf_thres'
+    Removes detections with lower object confidence score than "conf_thres"
     Non-Maximum Suppression to further filter detections.
     Returns detections with shape:
         (x1, y1, x2, y2, object_conf, conf, class)
@@ -525,8 +517,8 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, multi_label=T
     # Box constraints
     min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
 
-    method = 'vision_batch'
-    batched = 'batch' in method  # run once per image, all classes simultaneously
+    method = "vision_batch"
+    batched = "batch" in method  # run once per image, all classes simultaneously
     nc = prediction[0].shape[1] - 5  # number of classes
     multi_label &= nc > 1  # multiple labels per box
     output = [None] * len(prediction)
@@ -568,16 +560,16 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, multi_label=T
             continue
 
         # Sort by confidence
-        if not method.startswith('vision'):
+        if not method.startswith("vision"):
             pred = pred[pred[:, 4].argsort(descending=True)]
 
         # Batched NMS
         if batched:
             c = pred[:, 5] * 0 if agnostic else pred[:, 5]  # class-agnostic NMS
             boxes, scores = pred[:, :4].clone(), pred[:, 4]
-            if method == 'vision_batch':
+            if method == "vision_batch":
                 i = torchvision.ops.boxes.batched_nms(boxes, scores, c, iou_thres)
-            elif method == 'fast_batch':  # FastNMS from https://github.com/dbolya/yolact
+            elif method == "fast_batch":  # FastNMS from https://github.com/dbolya/yolact
                 boxes += c.view(-1, 1) * max_wh
                 iou = box_iou(boxes, boxes).triu_(diagonal=1)  # upper triangular iou matrix
                 i = iou.max(dim=0)[0] < iou_thres
@@ -597,25 +589,25 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, multi_label=T
             elif n > 500:
                 dc = dc[:500]
 
-            if method == 'vision':
+            if method == "vision":
                 det_max.append(dc[torchvision.ops.boxes.nms(dc[:, :4], dc[:, 4], iou_thres)])
 
-            elif method == 'or':  # default
+            elif method == "or":  # default
                 while dc.shape[0]:
                     det_max.append(dc[:1])  # save highest conf detection
-                    if len(dc) == 1:  # Stop if we're at the last detection
+                    if len(dc) == 1:  # Stop if we"re at the last detection
                         break
                     iou = bbox_iou(dc[0], dc[1:])  # iou with other boxes
                     dc = dc[1:][iou < iou_thres]  # remove ious > threshold
 
-            elif method == 'and':  # requires overlap, single boxes erased
+            elif method == "and":  # requires overlap, single boxes erased
                 while len(dc) > 1:
                     iou = bbox_iou(dc[0], dc[1:])  # iou with other boxes
                     if iou.max() > 0.5:
                         det_max.append(dc[:1])
                     dc = dc[1:][iou < iou_thres]  # remove ious > threshold
 
-            elif method == 'merge':  # weighted mixture box
+            elif method == "merge":  # weighted mixture box
                 while len(dc):
                     if len(dc) == 1:
                         det_max.append(dc)
@@ -626,7 +618,7 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, multi_label=T
                     det_max.append(dc[:1])
                     dc = dc[i == 0]
 
-            elif method == 'soft':  # soft-NMS https://arxiv.org/abs/1704.04503
+            elif method == "soft":  # soft-NMS https://arxiv.org/abs/1704.04503
                 sigma = 0.5  # soft-nms sigma parameter
                 while len(dc):
                     if len(dc) == 1:
@@ -647,7 +639,7 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, multi_label=T
 
 def print_model_biases(model):
     # prints the bias neurons preceding each yolo layer
-    print('\nModel Bias Summary: %8s%18s%18s%18s' % ('layer', 'regression', 'objectness', 'classification'))
+    print("\nModel Bias Summary: %8s%18s%18s%18s" % ("layer", "regression", "objectness", "classification"))
     multi_gpu = type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
     for l in model.yolo_layers:  # print pretrained biases
         try:
@@ -657,47 +649,47 @@ def print_model_biases(model):
             else:
                 na = model.module_list[l].na
                 b = model.module_list[l - 1][0].bias.view(na, -1)  # bias 3x85
-            print(' ' * 20 + '%8g %18s%18s%18s' % (l, '%5.2f+/-%-5.2f' % (b[:, :4].mean(), b[:, :4].std()),
-                                                   '%5.2f+/-%-5.2f' % (b[:, 4].mean(), b[:, 4].std()),
-                                                   '%5.2f+/-%-5.2f' % (b[:, 5:].mean(), b[:, 5:].std())))
+            print(" " * 20 + "%8g %18s%18s%18s" % (l, "%5.2f+/-%-5.2f" % (b[:, :4].mean(), b[:, :4].std()),
+                                                   "%5.2f+/-%-5.2f" % (b[:, 4].mean(), b[:, 4].std()),
+                                                   "%5.2f+/-%-5.2f" % (b[:, 5:].mean(), b[:, 5:].std())))
         except:
             pass
 
 
-def strip_optimizer(f='weights/checkpoint.pth'):  # from utils.utils import *; strip_optimizer()
+def strip_optimizer(f="weights/checkpoint.pth"):  # from utils.utils import *; strip_optimizer()
     # Strip optimizer from *.pt files for lighter files (reduced by 2/3 size)
-    x = torch.load(f, map_location=torch.device('cpu'))
-    x['optimizer'] = None
-    # x['training_results'] = None  # uncomment to create a backbone
-    # x['epoch'] = -1  # uncomment to create a backbone
+    x = torch.load(f, map_location=torch.device("cpu"))
+    x["optimizer"] = None
+    # x["training_results"] = None  # uncomment to create a backbone
+    # x["epoch"] = -1  # uncomment to create a backbone
     torch.save(x, f)
 
 
-def create_backbone(f='weights/checkpoint.pth'):  # from utils.utils import *; create_backbone()
+def create_backbone(f="weights/checkpoint.pth"):  # from utils.utils import *; create_backbone()
     # create a backbone from a *.pt file
-    x = torch.load(f, map_location=torch.device('cpu'))
-    x['optimizer'] = None
-    x['training_results'] = None
-    x['epoch'] = -1
-    for p in x['model'].values():
+    x = torch.load(f, map_location=torch.device("cpu"))
+    x["optimizer"] = None
+    x["training_results"] = None
+    x["epoch"] = -1
+    for p in x["model"].values():
         try:
             p.requires_grad = True
         except ValueError:
             pass
-    torch.save(x, 'weights/checkpoint.pth')
+    torch.save(x, "weights/checkpoint.pth")
 
 
 def print_mutation(hyp, results):
     # Print mutation results to evolve.txt (for use with train.py --evolve)
-    a = '%10s' * len(hyp) % tuple(hyp.keys())  # hyperparam keys
-    b = '%10.3g' * len(hyp) % tuple(hyp.values())  # hyperparam values
-    c = '%10.4g' * len(results) % results  # results (P, R, mAP, F1, test_loss)
-    print('\n%s\n%s\nEvolved fitness: %s\n' % (a, b, c))
+    a = "%10s" * len(hyp) % tuple(hyp.keys())  # hyperparam keys
+    b = "%10.3g" * len(hyp) % tuple(hyp.values())  # hyperparam values
+    c = "%10.4g" * len(results) % results  # results (P, R, mAP, F1, test_loss)
+    print("\n%s\n%s\nEvolved fitness: %s\n" % (a, b, c))
 
-    with open('evolve.txt', 'a') as f:  # append result
-        f.write(c + b + '\n')
-    x = np.unique(np.loadtxt('evolve.txt', ndmin=2), axis=0)  # load unique rows
-    np.savetxt('evolve.txt', x[np.argsort(-fitness(x))], '%10.3g')  # save sort by fitness
+    with open("evolve.txt", "a") as f:  # append result
+        f.write(c + b + "\n")
+    x = np.unique(np.loadtxt("evolve.txt", ndmin=2), axis=0)  # load unique rows
+    np.savetxt("evolve.txt", x[np.argsort(-fitness(x))], "%10.3g")  # save sort by fitness
 
 
 def apply_classifier(x, model, img, im0):
@@ -722,7 +714,7 @@ def apply_classifier(x, model, img, im0):
             for j, a in enumerate(d):  # per item
                 cutout = im0[i][int(a[1]):int(a[3]), int(a[0]):int(a[2])]
                 im = cv2.resize(cutout, (224, 224))  # BGR
-                # cv2.imwrite('test%i.jpg' % j, cutout)
+                # cv2.imwrite("test%i.jpg" % j, cutout)
 
                 im = im[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
                 im = np.ascontiguousarray(im, dtype=np.float32)  # uint8 to float32
@@ -763,19 +755,19 @@ def plot_wh_methods():  # from utils.utils import *; plot_wh_methods()
     yb = torch.sigmoid(torch.from_numpy(x)).numpy() * 2
 
     fig = plt.figure(figsize=(6, 3), dpi=150)
-    plt.plot(x, ya, '.-', label='yolo method')
-    plt.plot(x, yb ** 2, '.-', label='^2 power method')
-    plt.plot(x, yb ** 2.5, '.-', label='^2.5 power method')
+    plt.plot(x, ya, ".-", label="yolo method")
+    plt.plot(x, yb ** 2, ".-", label="^2 power method")
+    plt.plot(x, yb ** 2.5, ".-", label="^2.5 power method")
     plt.xlim(left=-4, right=4)
     plt.ylim(bottom=0, top=6)
-    plt.xlabel('input')
-    plt.ylabel('output')
+    plt.xlabel("input")
+    plt.ylabel("output")
     plt.legend()
     fig.tight_layout()
-    fig.savefig('comparison.png', dpi=200)
+    fig.savefig("comparison.png", dpi=200)
 
 
-def plot_images(imgs, targets, paths=None, fname='images.png'):
+def plot_images(imgs, targets, paths=None, fname="images.png"):
     # Plots training images overlaid with targets
     imgs = imgs.cpu().numpy()
     targets = targets.cpu().numpy()
@@ -791,11 +783,11 @@ def plot_images(imgs, targets, paths=None, fname='images.png'):
         boxes[[0, 2]] *= w
         boxes[[1, 3]] *= h
         plt.subplot(ns, ns, i + 1).imshow(imgs[i].transpose(1, 2, 0))
-        plt.plot(boxes[[0, 2, 2, 0, 0]], boxes[[1, 1, 3, 3, 1]], '.-')
-        plt.axis('off')
+        plt.plot(boxes[[0, 2, 2, 0, 0]], boxes[[1, 1, 3, 3, 1]], ".-")
+        plt.axis("off")
         if paths is not None:
             s = Path(paths[i]).name
-            plt.title(s[:min(len(s), 40)], fontdict={'size': 8})  # limit to 40 characters
+            plt.title(s[:min(len(s), 40)], fontdict={"size": 8})  # limit to 40 characters
     fig.tight_layout()
     fig.savefig(fname, dpi=200)
     plt.close()
@@ -803,62 +795,62 @@ def plot_images(imgs, targets, paths=None, fname='images.png'):
 
 def plot_test_txt():  # from utils.utils import *; plot_test()
     # Plot test.txt histograms
-    x = np.loadtxt('test.txt', dtype=np.float32)
+    x = np.loadtxt("test.txt", dtype=np.float32)
     box = xyxy2xywh(x[:, :4])
     cx, cy = box[:, 0], box[:, 1]
 
     fig, ax = plt.subplots(1, 1, figsize=(6, 6))
     ax.hist2d(cx, cy, bins=600, cmax=10, cmin=0)
-    ax.set_aspect('equal')
+    ax.set_aspect("equal")
     fig.tight_layout()
-    plt.savefig('hist2d.png', dpi=300)
+    plt.savefig("hist2d.png", dpi=300)
 
     fig, ax = plt.subplots(1, 2, figsize=(12, 6))
     ax[0].hist(cx, bins=600)
     ax[1].hist(cy, bins=600)
     fig.tight_layout()
-    plt.savefig('hist1d.png', dpi=200)
+    plt.savefig("hist1d.png", dpi=200)
 
 
 def plot_targets_txt():  # from utils.utils import *; plot_targets_txt()
     # Plot test.txt histograms
-    x = np.loadtxt('targets.txt', dtype=np.float32)
+    x = np.loadtxt("targets.txt", dtype=np.float32)
     x = x.T
 
-    s = ['x targets', 'y targets', 'width targets', 'height targets']
+    s = ["x targets", "y targets", "width targets", "height targets"]
     fig, ax = plt.subplots(2, 2, figsize=(8, 8))
     ax = ax.ravel()
     for i in range(4):
-        ax[i].hist(x[i], bins=100, label='%.3g +/- %.3g' % (x[i].mean(), x[i].std()))
+        ax[i].hist(x[i], bins=100, label="%.3g +/- %.3g" % (x[i].mean(), x[i].std()))
         ax[i].legend()
         ax[i].set_title(s[i])
     fig.tight_layout()
-    plt.savefig('targets.jpg', dpi=200)
+    plt.savefig("targets.jpg", dpi=200)
 
 
 def plot_evolution_results(hyp):  # from utils.utils import *; plot_evolution_results(hyp)
     # Plot hyperparameter evolution results in evolve.txt
-    x = np.loadtxt('evolve.txt', ndmin=2)
+    x = np.loadtxt("evolve.txt", ndmin=2)
     f = fitness(x)
     fig = plt.figure(figsize=(12, 10))
-    matplotlib.rc('font', **{'size': 8})
+    matplotlib.rc("font", **{"size": 8})
     for i, (k, v) in enumerate(hyp.items()):
         y = x[:, i + 7]
         mu = y[f.argmax()]  # best single result
         plt.subplot(4, 5, i + 1)
-        plt.plot(mu, f.max(), 'o', markersize=10)
-        plt.plot(y, f, '.')
-        plt.title('%s = %.3g' % (k, mu), fontdict={'size': 9})  # limit to 40 characters
-        print('%15s: %.3g' % (k, mu))
+        plt.plot(mu, f.max(), "o", markersize=10)
+        plt.plot(y, f, ".")
+        plt.title("%s = %.3g" % (k, mu), fontdict={"size": 9})  # limit to 40 characters
+        print("%15s: %.3g" % (k, mu))
     fig.tight_layout()
-    plt.savefig('evolve.png', dpi=200)
+    plt.savefig("evolve.png", dpi=200)
 
 
 def plot_results_overlay(start=0, stop=0):  # from utils.utils import *; plot_results_overlay()
-    # Plot training results files 'results*.txt', overlaying train and val losses
-    s = ['train', 'train', 'train', 'Precision', 'mAP@0.5', 'val', 'val', 'val', 'Recall', 'F1']  # legends
-    t = ['GIoU', 'Objectness', 'Classification', 'P-R', 'mAP-F1']  # titles
-    for f in sorted(glob.glob('results*.txt') + glob.glob('../../Downloads/results*.txt')):
+    # Plot training results files "results*.txt", overlaying train and val losses
+    s = ["train", "train", "train", "Precision", "mAP@0.5", "val", "val", "val", "Recall", "F1"]  # legends
+    t = ["GIoU", "Objectness", "Classification", "P-R", "mAP-F1"]  # titles
+    for f in sorted(glob.glob("results*.txt") + glob.glob("../../Downloads/results*.txt")):
         results = np.loadtxt(f, usecols=[2, 3, 4, 8, 9, 12, 13, 14, 10, 11], ndmin=2).T
         n = results.shape[1]  # number of rows
         x = range(start, min(stop, n) if stop else n)
@@ -869,22 +861,22 @@ def plot_results_overlay(start=0, stop=0):  # from utils.utils import *; plot_re
                 y = results[j, x]
                 if i in [0, 1, 2]:
                     y[y == 0] = np.nan  # dont show zero loss values
-                ax[i].plot(x, y, marker='.', label=s[j])
+                ax[i].plot(x, y, marker=".", label=s[j])
             ax[i].set_title(t[i])
             ax[i].legend()
             ax[i].set_ylabel(f) if i == 0 else None  # add filename
         fig.tight_layout()
-        fig.savefig(f.replace('.txt', '.png'), dpi=200)
+        fig.savefig(f.replace(".txt", ".png"), dpi=200)
 
 
 def plot_results(start=0, stop=0):  # from utils.utils import *; plot_results()
-    # Plot training results files 'results*.txt'
+    # Plot training results files "results*.txt"
     fig, ax = plt.subplots(2, 5, figsize=(12, 6))
     ax = ax.ravel()
-    s = ['GIoU', 'Objectness', 'Classification', 'Precision', 'Recall',
-         'val GIoU', 'val Objectness', 'val Classification', 'mAP@0.5', 'F1']
+    s = ["GIoU", "Objectness", "Classification", "Precision", "Recall",
+         "val GIoU", "val Objectness", "val Classification", "mAP@0.5", "F1"]
 
-    files = glob.glob('results*.txt')
+    files = glob.glob("results*.txt")
 
     for f in sorted(files):
         results = np.loadtxt(f, usecols=[2, 3, 4, 8, 9, 12, 13, 14, 10, 11], ndmin=2).T
@@ -894,11 +886,11 @@ def plot_results(start=0, stop=0):  # from utils.utils import *; plot_results()
             y = results[i, x]
             if i in [0, 1, 2, 5, 6, 7]:
                 y[y == 0] = np.nan  # dont show zero loss values
-            ax[i].plot(x, y, marker='.', label=Path(f).stem, linewidth=2, markersize=8)
+            ax[i].plot(x, y, marker=".", label=Path(f).stem, linewidth=2, markersize=8)
             ax[i].set_title(s[i])
             if i in [5, 6, 7]:  # share train and val loss y axes
                 ax[i].get_shared_y_axes().join(ax[i], ax[i - 5])
 
     fig.tight_layout()
     ax[1].legend()
-    fig.savefig('results.png', dpi=200)
+    fig.savefig("results.png", dpi=200)
