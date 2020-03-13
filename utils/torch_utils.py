@@ -20,7 +20,7 @@ import torchvision.models as models
 
 
 def fuse_conv_and_bn(conv, bn):
-    # https://tehnokv.com/posts/fusing-batchnorm-and-conv/
+    # source from https://tehnokv.com/posts/fusing-batchnorm-and-conv/
     with torch.no_grad():
         # init
         fusedconv = torch.nn.Conv2d(conv.in_channels,
@@ -59,7 +59,6 @@ def load_classifier(name="resnet101", n=2):
     # Loads a pretrained model reshaped to n-class output
 
     model = models.__dict__[name](pretrained=True)
-    # model = pretrainedmodels.__dict__[name](num_classes=1000, pretrained="imagenet")
 
     # Display model properties
     input_size = [3, 224, 224]
