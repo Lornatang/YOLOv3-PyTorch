@@ -66,13 +66,13 @@ usage: train.py [-h] [--epochs EPOCHS] [--batch-size BATCH_SIZE] [--accumulate A
 ##### Example (COCO2014)
 To train on COCO2014 using a Darknet-53 backend pretrained on ImageNet run: 
 ```bash
-$ python3 train.py --cfg cfg/yolov3.cfg  --data cfg/coco2014.data --weights weights/darknet53.conv.74
+$ python3 train.py --cfg cfg/yolov3.cfg  --data cfg/coco2014.data --weights weights/darknet53.conv.74 --multi-scale
 ```
 
 ##### Example (VOC2012)
 To train on VOC2012:
 ```bash
-$ python3 train.py --cfg cfg/voc.cfg  --data cfg/voc2012.data --multi-scale
+$ python3 train.py --cfg cfg/yolov3-voc.cfg  --data cfg/voc2012.data --weights weights/darknet53.conv.74 --multi-scale
 ```
 
 ##### Other training methods
@@ -171,7 +171,7 @@ Add `--weights weights/darknet53.conv.74` to train using a backend pretrained on
 ### Darknet Conversion
 
 ```bash
-$ git clone https://github.com/ultralytics/yolov3 && cd yolov3
+$ git clone https://github.com/Lornatang/YOLOv3-PyTorch && cd YOLOv3-PyTorch
 
 # convert darknet cfg/weights to pytorch model
 $ python3  -c "from models import *; convert('cfg/yolov3-spp.cfg', 'weights/yolov3-spp.weights')"
@@ -203,8 +203,8 @@ $ python3 test.py --cfg yolov3-spp.cfg --weights yolov3-spp.pth --img 608
 ```
 
 ```text
-Namespace(batch_size=32, cfg='yolov3-spp', conf_thres=0.001, data='data/coco2014.data', device='', img_size=608, iou_thres=0.6, save_json=True, single_cls=False, task='test', weights='last82.pt')
-Using CUDA device0 _CudaDeviceProperties(name='Tesla P100-PCIE-16GB', total_memory=16280MB)
+Namespace(batch_size=16, cfg='yolov3-spp', conf_thres=0.001, data='data/coco2014.data', device='', img_size=608, iou_thres=0.6, save_json=True, single_cls=False, task='test', weights='last82.pt')
+Using CUDA device0 _CudaDeviceProperties(name='TITAN RTX', total_memory=24190MB)
 
                Class    Images   Targets         P         R   mAP@0.5        F1: 100% 157/157 [03:12<00:00,  1.50it/s]
                  all     5e+03  3.51e+04      0.51     0.667     0.611     0.574
