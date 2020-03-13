@@ -126,7 +126,7 @@ output/
 data/coco2014
 data/voc
 data/voc2007
-data/voc2010
+data/voc2007_test
 data/voc2012
 data/masks
 weights/*.weights

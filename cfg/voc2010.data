@@ -1,6 +1,0 @@
-classes=20
-train=data/voc2010/train.txt
-valid=data/voc2010/valid.txt
-names=data/voc.names
-backup=backup/
-eval=voc2010
