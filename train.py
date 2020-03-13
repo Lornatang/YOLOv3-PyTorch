@@ -36,7 +36,7 @@ from utils import init_seeds
 from utils import labels_to_class_weights
 from utils import labels_to_image_weights
 from utils import model_info
-from utils import parse_data_cfg
+from utils import parse_data_config
 from utils import plot_results
 from utils import print_model_biases
 from utils import select_device
@@ -93,7 +93,7 @@ def train():
         print(f"Using multi-scale {img_sz_min * 32} - {image_size}")
 
     # Configure run
-    data_dict = parse_data_cfg(data)
+    data_dict = parse_data_config(data)
     train_path = data_dict["train"]
     valid_path = data_dict["valid"]
     nc = 1 if args.single_cls else int(data_dict["classes"])  # number of classes

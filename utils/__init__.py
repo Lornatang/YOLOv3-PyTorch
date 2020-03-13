@@ -31,8 +31,8 @@ from .datasets import random_affine
 from .datasets import recursive_dataset2bmp
 from .datasets import recursive_dataset2bmp
 from .datasets import reduce_img_size
-from .parse_config import parse_data_cfg
-from .parse_config import parse_model_cfg
+from .parse_config import parse_data_config
+from .parse_config import parse_model_config
 from .torch_utils import fuse_conv_and_bn
 from .torch_utils import init_seeds
 from .torch_utils import load_classifier

@@ -36,7 +36,7 @@ from utils import compute_loss
 from utils import floatn
 from utils import load_classes
 from utils import non_max_suppression
-from utils import parse_data_cfg
+from utils import parse_data_config
 from utils import scale_coords
 from utils import select_device
 from utils import time_synchronized
@@ -76,7 +76,7 @@ def evaluate(cfg,
         verbose = False
 
     # Configure run
-    data = parse_data_cfg(data)
+    data = parse_data_config(data)
     nc = 1 if single_cls else int(data["classes"])  # number of classes
     path = data["valid"]  # path to test images
     names = load_classes(data["names"])  # class names
@@ -90,7 +90,7 @@ def evaluate(cfg,
         batch_size = min(batch_size, len(dataset))
         dataloader = DataLoader(dataset,
                                 batch_size=batch_size,
-                                num_workers=min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8]),
+                                num_workers=4,
                                 pin_memory=True,
                                 collate_fn=dataset.collate_fn)
 
