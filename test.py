@@ -14,7 +14,6 @@
 import argparse
 import glob
 import json
-import os
 import time
 from pathlib import Path
 
@@ -33,7 +32,6 @@ from utils import box_iou
 from utils import clip_coords
 from utils import coco80_to_coco91_class
 from utils import compute_loss
-from utils import floatn
 from utils import load_classes
 from utils import non_max_suppression
 from utils import parse_data_config
@@ -100,7 +98,7 @@ def evaluate(cfg,
     s = ('%20s' + '%10s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@0.5', 'F1')
     p, r, f1, mp, mr, map, mf1, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     loss = torch.zeros(3)
-    jdict, stats, ap, ap_class = [], [], [], []
+    json_dict, stats, ap, ap_class = [], [], [], []
     for batch_i, (imgs, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
         imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
         targets = targets.to(device)
@@ -147,10 +145,10 @@ def evaluate(cfg,
                 box = xyxy2xywh(box)  # xywh
                 box[:, :2] -= box[:, 2:] / 2  # xy center to top-left corner
                 for di, d in enumerate(pred):
-                    jdict.append({'image_id': image_id,
-                                  'category_id': coco91class[int(d[5])],
-                                  'bbox': [floatn(x, 3) for x in box[di]],
-                                  'score': floatn(d[4], 5)})
+                    json_dict.append({'image_id': image_id,
+                                      'category_id': coco91class[int(d[5])],
+                                      'bbox': [round(x, 3) for x in box[di]],
+                                      'score': round(d[4], 5)})
 
             # Assign all predictions as incorrect
             correct = torch.zeros(len(pred), niou, dtype=torch.bool, device=device)
@@ -209,11 +207,11 @@ def evaluate(cfg,
         print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
 
         # Save JSON
-        if save_json and map and len(jdict):
+        if save_json and map and len(json_dict):
             print('\nCOCO mAP with pycocotools...')
             imgIds = [int(Path(x).stem.split('_')[-1]) for x in dataloader.dataset.img_files]
             with open('results.json', 'w') as file:
-                json.dump(jdict, file)
+                json.dump(json_dict, file)
 
             try:
                 from pycocotools.coco import COCO

@@ -47,7 +47,6 @@ from .utils import coco80_to_coco91_class
 from .utils import compute_ap
 from .utils import compute_loss
 from .utils import fitness
-from .utils import floatn
 from .utils import labels_to_class_weights
 from .utils import labels_to_image_weights
 from .utils import load_classes
