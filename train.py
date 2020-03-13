@@ -392,8 +392,8 @@ if __name__ == "__main__":
     parser.add_argument('--notest', action='store_true', help='only test final epoch')
     parser.add_argument('--evolve', action='store_true', help='evolve hyperparameters')
     parser.add_argument("--cache-images", action="store_true", help="cache images for faster training.")
-    parser.add_argument("--weights", type=str, default="weights/darknet53.conv.74",
-                        help="Model file weight path. (default=`weights/darknet53.conv.74`)")
+    parser.add_argument("--weights", type=str, default="",
+                        help="Model file weight path. (default=``)")
     parser.add_argument("--arch", type=str, default="default",
                         help="Yolo architecture. (default=`default`)")
     parser.add_argument("--device", default="", help="device id (i.e. 0 or 0,1 or cpu)")
