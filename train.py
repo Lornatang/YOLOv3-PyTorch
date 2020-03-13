@@ -79,7 +79,7 @@ def train():
     cfg = args.cfg
     data = args.data
     image_size, img_size_val = args.image_size if len(args.image_size) == 2 else args.image_size * 2  # train, val sizes
-    epochs = args.epochs  # 500200 batches at bs 64, 117263 images = 273 epochs
+    epochs = args.epochs  # 500200 batches at batch size 64, 117263 images = 273 epochs
     batch_size = args.batch_size
     accumulate = args.accumulate  # effective bs = batch_size * accumulate = 16 * 4 = 64
     weights = args.weights  # initial training weights
