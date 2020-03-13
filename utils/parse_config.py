@@ -18,50 +18,50 @@ import numpy as np
 
 def parse_data_config(path):
     # Parses the data configuration file
-    if not os.path.exists(path) and os.path.exists('data' + os.sep + path):  # add data/ prefix if omitted
-        path = 'data' + os.sep + path
+    if not os.path.exists(path) and os.path.exists("data" + os.sep + path):  # add data/ prefix if omitted
+        path = "data" + os.sep + path
 
-    with open(path, 'r') as f:
+    with open(path, "r") as f:
         lines = f.readlines()
 
     parameters = dict()
     for line in lines:
         line = line.strip()
         # skip notes
-        if line == '' or line.startswith('#'):
+        if line == "" or line.startswith("#"):
             continue
-        key, value = line.split('=')
+        key, value = line.split("=")
         parameters[key.strip()] = value.strip()
 
     return parameters
 
 
 def parse_model_config(path):
-    # Parse the yolo *.cfg file and return module definitions path may be 'cfg/yolov3.cfg', 'yolov3.cfg', or 'yolov3'
-    if not path.endswith('.cfg'):  # add .cfg suffix if omitted
-        path += '.cfg'
-    if not os.path.exists(path) and os.path.exists('cfg' + os.sep + path):  # add cfg/ prefix if omitted
-        path = 'cfg' + os.sep + path
+    # Parse the yolo *.cfg file and return module definitions path may be "cfg/yolov3.cfg", "yolov3.cfg", or "yolov3"
+    if not path.endswith(".cfg"):  # add .cfg suffix if omitted
+        path += ".cfg"
+    if not os.path.exists(path) and os.path.exists("cfg" + os.sep + path):  # add cfg/ prefix if omitted
+        path = "cfg" + os.sep + path
 
-    with open(path, 'r') as f:
-        lines = f.read().split('\n')
-    lines = [x for x in lines if x and not x.startswith('#')]
+    with open(path, "r") as f:
+        lines = f.read().split("\n")
+    lines = [x for x in lines if x and not x.startswith("#")]
     lines = [x.rstrip().lstrip() for x in lines]  # get rid of fringe whitespaces
     modules = []
     for line in lines:
-        if line.startswith('['):  # This marks the start of a new block
+        if line.startswith("["):  # This marks the start of a new block
             modules.append({})
-            modules[-1]['type'] = line[1:-1].rstrip()
-            if modules[-1]['type'] == 'convolutional':
-                modules[-1]['batch_normalize'] = 0  # pre-populate with zeros (may be overwritten later)
+            modules[-1]["type"] = line[1:-1].rstrip()
+            if modules[-1]["type"] == "convolutional":
+                modules[-1]["batch_normalize"] = 0  # pre-populate with zeros (may be overwritten later)
         else:
             key, value = line.split("=")
             key = key.rstrip()
 
-            if key == 'anchors':  # return nparray
-                modules[-1][key] = np.array([float(x) for x in value.split(',')]).reshape((-1, 2))  # np anchors
-            elif key in ['from', 'layers', 'mask']:  # return array
-                modules[-1][key] = [int(x) for x in value.split(',')]
+            if key == "anchors":  # return numpy array
+                modules[-1][key] = np.array([float(x) for x in value.split(",")]).reshape((-1, 2))  # np anchors
+            elif key in ["from", "layers", "mask"]:  # return array
+                modules[-1][key] = [int(x) for x in value.split(",")]
             else:
                 value = value.strip()
                 if value.isnumeric():  # return int or float
@@ -70,10 +70,10 @@ def parse_model_config(path):
                     modules[-1][key] = value  # return string
 
     # Check all fields are supported
-    supported = ['type', 'batch_normalize', 'filters', 'size', 'stride', 'pad', 'activation', 'layers', 'groups',
-                 'from', 'mask', 'anchors', 'classes', 'num', 'jitter', 'ignore_thresh', 'truth_thresh', 'random',
-                 'stride_x', 'stride_y', 'weights_type', 'weights_normalization', 'scale_x_y', 'beta_nms', 'nms_kind',
-                 'iou_loss', 'iou_normalizer', 'cls_normalizer', 'iou_thresh']
+    supported = ["type", "batch_normalize", "filters", "size", "stride", "pad", "activation", "layers", "groups",
+                 "from", "mask", "anchors", "classes", "num", "jitter", "ignore_thresh", "truth_thresh", "random",
+                 "stride_x", "stride_y", "weights_type", "weights_normalization", "scale_x_y", "beta_nms", "nms_kind",
+                 "iou_loss", "iou_normalizer", "cls_normalizer", "iou_thresh"]
 
     f = []  # fields
     for x in modules[1:]:
