@@ -124,7 +124,7 @@ def train():
     start_epoch = 0
     best_fitness = 0.0
     if weights.endswith(".pth"):
-        # possible weights are "*.pth", "yolov3-spp.pth", "yolov3-tiny.pth" etc.
+        # possible weights are "yolov3.pth", "yolov3-spp.pth", "yolov3-tiny.pth" etc.
         state = torch.load(weights, map_location=device)
 
         # load model
@@ -132,8 +132,9 @@ def train():
             state["model"] = {k: v for k, v in state["model"].items() if model.state_dict()[k].numel() == v.numel()}
             model.load_state_dict(state["model"], strict=False)
         except KeyError as e:
-            s = f"{args.weights} is not compatible with {args.cfg}. Specify --weights `` or specify a --cfg compatible with {args.weights}. "
-            raise KeyError(s) from e
+            error_msg = f"{args.weights} is not compatible with {args.cfg}. "
+            error_msg += f"Specify --weights `` or specify a --cfg compatible with {args.weights}. "
+            raise KeyError(error_msg) from e
 
         # load optimizer
         if state["optimizer"] is not None:
@@ -158,10 +159,8 @@ def train():
     if mixed_precision:
         model, optimizer = amp.initialize(model, optimizer, opt_level="O1", verbosity=0)
 
-    # Scheduler https://github.com/ultralytics/yolov3/issues/238
     lf = lambda x: (1 + math.cos(x * math.pi / epochs)) / 2  # cosine https://arxiv.org/pdf/1812.01187.pdf
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf, last_epoch=start_epoch - 1)
-    # scheduler = lr_scheduler.MultiStepLR(optimizer, [round(epochs * x) for x in [0.8, 0.9]], 0.1, start_epoch - 1)
 
     # Initialize distributed training
     if device.type != "cpu" and torch.cuda.device_count() > 1 and torch.distributed.is_available():
@@ -357,7 +356,7 @@ def train():
 
         # Save best checkpoint
         if best_fitness == fitness_i:
-            torch.save(model.state_dict(), "weights/model_best.pth")
+            torch.save(state, "weights/model_best.pth")
 
         # Delete checkpoint
         del state
@@ -402,7 +401,7 @@ if __name__ == "__main__":
     parser.add_argument("--device", default="", help="device id (i.e. 0 or 0,1 or cpu)")
     parser.add_argument("--single-cls", action="store_true", help="train as single-class dataset")
     args = parser.parse_args()
-    args.weights = "weights/model_best.pth" if args.resume else args.weights
+    args.weights = "weights/checkpoint.pth" if args.resume else args.weights
 
     print(args)
 
