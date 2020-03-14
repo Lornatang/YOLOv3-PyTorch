@@ -356,6 +356,11 @@ def train():
 
         # Save best checkpoint
         if best_fitness == fitness_i:
+            state = {'epoch': None,
+                     'best_fitness': None,
+                     'training_results': None,
+                     'model': model.state_dict(),
+                     'optimizer': None}
             torch.save(state, "weights/model_best.pth")
 
         # Delete checkpoint
