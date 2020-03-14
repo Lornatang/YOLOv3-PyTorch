@@ -400,7 +400,6 @@ def compute_loss(p, targets, model):  # predictions, targets, model
         if nb:  # number of targets
             ng += nb
             ps = pi[b, a, gj, gi]  # prediction subset corresponding to targets
-            # ps[:, 2:4] = torch.sigmoid(ps[:, 2:4])  # wh power loss (uncomment)
 
             # GIoU
             pxy = torch.sigmoid(ps[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
@@ -414,11 +413,7 @@ def compute_loss(p, targets, model):  # predictions, targets, model
                 t = torch.zeros_like(ps[:, 5:]) + cn  # targets
                 t[range(nb), tcls[i]] = cp
                 lcls += BCEcls(ps[:, 5:], t)  # BCE
-                # lcls += CE(ps[:, 5:], tcls[i])  # CE
 
-            # Append targets to text file
-            # with open("targets.txt", "a") as file:
-            #     [file.write("%11.5g " * 4 % tuple(x) + "\n") for x in torch.cat((txy[i], twh[i]), 1)]
 
         if "default" in arch:  # separate obj and cls
             lobj += BCEobj(pi[..., 4], tobj)  # obj loss
