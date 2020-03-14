@@ -8,7 +8,6 @@ matplotlib
 tqdm
 pillow
 scikit-image
-tensorboard
 pycocotools
 
 # -------------------------------------------------------------- #
@@ -19,8 +18,8 @@ pycocotools
 # git clone https://github.com/NVIDIA/apex && cd apex && pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" . --user && cd .. && rm -rf apex
 
 # ------------------- Tensorboard ------------------------------
-tb-nightly
-future
+# tb-nightly
+# future
 
 # ------------------ If use anconda -----------------------------
 # conda update -yn base -c defaults conda
