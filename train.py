@@ -200,13 +200,19 @@ def train():
                                                    pin_memory=True,
                                                    collate_fn=train_dataset.collate_fn)
 
-    # Start training
-    batches_num = len(train_dataloader)
-    prebias = start_epoch == 0
+    # Model parameters
     model.nc = nc  # attach number of classes to model
     model.arch = args.arch  # attach yolo architecture
     model.hyp = parameters  # attach hyperparameters to model
+    model.gr = 0.0  # giou loss ratio (obj_loss = 1.0 or giou)
     model.class_weights = labels_to_class_weights(train_dataset.labels, nc).to(device)  # attach class weights
+
+    # Model EMA
+    # ema = ModelEMA(model, decay=0.9997)
+
+    # Start training
+    batches_num = len(train_dataloader)  # number of batches
+    prebias = start_epoch == 0
     maps = np.zeros(nc)  # mAP per class
     results = (0, 0, 0, 0, 0, 0, 0)  # "P", "R", "mAP", "F1", "val GIoU", "val Objectness", "val Classification"
     model_info(model, report="summary")  # "full" or "summary"
