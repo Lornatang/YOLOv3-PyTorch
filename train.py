@@ -347,11 +347,11 @@ def train():
                          'optimizer': None if final_epoch else optimizer.state_dict()}
 
         # Save last checkpoint
-        torch.save(state, "weights/yolov3-tiny-voc-checkpoint.pth")
+        torch.save(state, "weights/checkpoint.pth")
 
         # Save best checkpoint
         if best_fitness == fitness_i:
-            torch.save(model.state_dict(), "weights/yolov3-tiny-voc-model_best.pth")
+            torch.save(model.state_dict(), "weights/model_best.pth")
 
         # Delete checkpoint
         del state
