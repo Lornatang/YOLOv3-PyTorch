@@ -63,7 +63,12 @@ def evaluate(cfg,
 
         # Load weights
         if weights.endswith(".pth"):
-            model.load_state_dict(torch.load(weights, map_location=device)["model"])
+            state = torch.load(weights, map_location=device)
+
+            if state["model"]:
+                model.load_state_dict(state["model"])
+            else:
+                model.load_state_dict(state)
         else:
             load_darknet_weights(model, weights)
 
