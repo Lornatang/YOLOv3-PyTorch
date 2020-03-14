@@ -144,11 +144,11 @@ def evaluate(cfg,
                 scale_coords(imgs[si].shape[1:], box, shapes[si][0], shapes[si][1])  # to original shape
                 box = xyxy2xywh(box)  # xywh
                 box[:, :2] -= box[:, 2:] / 2  # xy center to top-left corner
-                for di, d in enumerate(pred):
+                for p, b in zip(pred.tolist(), box.tolist()):
                     json_dict.append({'image_id': image_id,
-                                      'category_id': coco91class[int(d[5])],
-                                      'bbox': [round(x, 3) for x in box[di]],
-                                      'score': round(d[4], 5)})
+                                      'category_id': coco91class[int(p[5])],
+                                      'bbox': [round(x, 3) for x in b],
+                                      'score': round(p[4], 5)})
 
             # Assign all predictions as incorrect
             correct = torch.zeros(len(pred), niou, dtype=torch.bool, device=device)

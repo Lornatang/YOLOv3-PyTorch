@@ -58,7 +58,7 @@ parameters = {"giou": 3.54,  # giou loss gain
               "lrf": -4.,  # final LambdaLR learning rate = lr0 * (10 ** lrf)
               "momentum": 0.937,  # SGD momentum
               "weight_decay": 0.000484,  # optimizer weight decay
-              "fl_gamma": 0.5,  # focal loss gamma
+              'fl_gamma': 1.5,  # focal loss gamma
               "hsv_h": 0.0138,  # image HSV-Hue augmentation (fraction)
               "hsv_s": 0.678,  # image HSV-Saturation augmentation (fraction)
               "hsv_v": 0.36,  # image HSV-Value augmentation (fraction)
@@ -118,7 +118,6 @@ def train():
     optimizer = torch.optim.SGD(pg0, lr=parameters["lr0"], momentum=parameters["momentum"], nesterov=True)
     optimizer.add_param_group({"params": pg1, "weight_decay": parameters["weight_decay"]})  # add pg1 with weight_decay
     optimizer.add_param_group({"params": pg2})  # add pg2 (biases)
-    optimizer.param_groups[2]["lr"] *= 2.0  # bias lr
     del pg0, pg1, pg2
 
     epoch = 0
@@ -133,7 +132,7 @@ def train():
             state["model"] = {k: v for k, v in state["model"].items() if model.state_dict()[k].numel() == v.numel()}
             model.load_state_dict(state["model"], strict=False)
         except KeyError as e:
-            s = f"{args.weights} is not compatible with {args.cfg}. Specify --weights "" or specify a --cfg compatible with {args.weights}. "
+            s = f"{args.weights} is not compatible with {args.cfg}. Specify --weights `` or specify a --cfg compatible with {args.weights}. "
             raise KeyError(s) from e
 
         # load optimizer
@@ -160,7 +159,7 @@ def train():
         model, optimizer = amp.initialize(model, optimizer, opt_level="O1", verbosity=0)
 
     # Scheduler https://github.com/ultralytics/yolov3/issues/238
-    lf = lambda x: (1 + math.cos(x * math.pi / epochs)) / 2 * 0.99 + 0.01  # cosine https://arxiv.org/pdf/1812.01187.pdf
+    lf = lambda x: (1 + math.cos(x * math.pi / epochs)) / 2  # cosine https://arxiv.org/pdf/1812.01187.pdf
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf, last_epoch=start_epoch - 1)
     # scheduler = lr_scheduler.MultiStepLR(optimizer, [round(epochs * x) for x in [0.8, 0.9]], 0.1, start_epoch - 1)
 
@@ -202,8 +201,8 @@ def train():
                                                    collate_fn=train_dataset.collate_fn)
 
     # Start training
-    nb = len(train_dataloader)
-    prebias = False
+    batches_num = len(train_dataloader)
+    prebias = start_epoch == 0
     model.nc = nc  # attach number of classes to model
     model.arch = args.arch  # attach yolo architecture
     model.hyp = parameters  # attach hyperparameters to model
@@ -217,15 +216,16 @@ def train():
     start_time = time.time()
     for epoch in range(start_epoch, args.epochs):
         model.train()
-        model.gr = 1 - (1 + math.cos(min(epoch * 1, epochs) * math.pi / epochs)) / 2  # GIoU <-> 1.0 loss ratio
 
         # Prebias
         if prebias:
-            ne = max(round(30 / nb), 3)  # number of prebias epochs
-            # prebias settings (lr=0.1, momentum=0.9)
-            ps = np.interp(epoch, [0, ne], [0.1, parameters["lr0"] * 2]), np.interp(epoch, [0, ne],
-                                                                                    [0.9, parameters["momentum"]])
+            ne = 3  # number of prebias epochs
+            ps = 0.1, 0.9  # prebias settings (lr=0.1, momentum=0.9)
+            model.gr = 0.0  # giou loss ratio (obj_loss = 1.0)
+
             if epoch == ne:
+                ps = parameters['lr0'], parameters['momentum']  # normal training settings
+                model.gr = 1.0  # giou loss ratio (obj_loss = giou)
                 print_model_biases(model)
                 prebias = False
 
@@ -245,21 +245,18 @@ def train():
         mean_losses = torch.zeros(4).to(device)
         print("\n")
         print(("%10s" * 8) % ("Epoch", "memory", "GIoU", "obj", "cls", "total", "targets", " image_size"))
-        progress_bar = tqdm(enumerate(train_dataloader), total=nb)
+        progress_bar = tqdm(enumerate(train_dataloader), total=batches_num)
         for i, (images, targets, paths, _) in progress_bar:
-            ni = i + nb * epoch  # number integrated batches (since train start)
+            ni = i + batches_num * epoch  # number integrated batches (since train start)
             images = images.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
             targets = targets.to(device)
 
             # Hyperparameter Burn-in
             n_burn = 200  # number of burn-in batches
             if ni <= n_burn:
-                g = ni / n_burn  # gain
-                for x in model.named_modules():
+                for x in model.named_modules():  # initial stats may be poor, wait to track
                     if x[0].endswith('BatchNorm2d'):
                         x[1].track_running_stats = ni == n_burn
-                for x in optimizer.param_groups:
-                    x['lr'] = x['initial_lr'] * lf(epoch) * g  # gain rises from 0 - 1
 
             # Multi-Scale training
             if args.multi_scale:
@@ -314,7 +311,7 @@ def train():
                                      batch_size=batch_size * 2,
                                      image_size=img_size_val,
                                      model=model,
-                                     confidence_threshold=0.001,
+                                     confidence_threshold=0.001 if final_epoch else 0.01,
                                      iou_threshold=0.6,
                                      save_json=final_epoch and is_coco,
                                      single_cls=args.single_cls,
@@ -350,11 +347,11 @@ def train():
                          'optimizer': None if final_epoch else optimizer.state_dict()}
 
         # Save last checkpoint
-        torch.save(state, "weights/checkpoint.pth")
+        torch.save(state, "weights/yolov3-tiny-voc-checkpoint.pth")
 
         # Save best checkpoint
         if best_fitness == fitness_i:
-            torch.save(state, "weights/model_best.pth")
+            torch.save(model.state_dict(), "weights/yolov3-tiny-voc-model_best.pth")
 
         # Delete checkpoint
         del state
@@ -399,7 +396,7 @@ if __name__ == "__main__":
     parser.add_argument("--device", default="", help="device id (i.e. 0 or 0,1 or cpu)")
     parser.add_argument("--single-cls", action="store_true", help="train as single-class dataset")
     args = parser.parse_args()
-    args.weights = "weights/checkpoint.pth" if args.resume else args.weights
+    args.weights = "weights/model_best.pth" if args.resume else args.weights
 
     print(args)
 
