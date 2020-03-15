@@ -356,7 +356,7 @@ def train():
 
         # Save best checkpoint
         if best_fitness == fitness_i:
-            state = {'epoch': None,
+            state = {'epoch': -1,
                      'best_fitness': None,
                      'training_results': None,
                      'model': model.state_dict(),
