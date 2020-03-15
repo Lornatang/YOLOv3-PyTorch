@@ -12,7 +12,7 @@
 # limitations under the License.
 # ==============================================================================
 
-""" Load dataset.py all function method names."""
+""" Load all function method names."""
 from .datasets import LoadImages
 from .datasets import LoadImagesAndLabels
 from .datasets import LoadStreams
