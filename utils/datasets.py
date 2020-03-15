@@ -66,7 +66,13 @@ class LoadImages:
     """ Use only in the inference phase"""
 
     def __init__(self, path, image_size=416):
-        path = str(Path(path))  # os-agnostic
+        """ Load the pictures in the directory and convert them to the corresponding format.
+
+        Args:
+            path (str): Source address of the file.
+            image_size (int): Size of loaded pictures. default:416
+        """
+        path = str(Path(path))
         files = []
         if os.path.isdir(path):
             files = sorted(glob.glob(os.path.join(path, "*.*")))
@@ -83,7 +89,7 @@ class LoadImages:
         self.video_flag = [False] * image_num + [True] * video_num
         self.mode = "images"
         if any(videos):
-            self.new_video(videos[0])  # new video
+            self.new_video(videos[0])
         else:
             self.capture = None
         assert self.files_num > 0, "No images or videos found in `" + path + "`"
@@ -139,7 +145,7 @@ class LoadImages:
         return self.files_num
 
 
-class LoadWebcam:
+class LoadCamera:
     """ Use only in the inference phase"""
 
     def __init__(self, pipe=0, image_size=416):
