@@ -214,7 +214,6 @@ def train():
     prebias = start_epoch == 0
     maps = np.zeros(nc)  # mAP per class
     results = (0, 0, 0, 0, 0, 0, 0)  # 'P', 'R', 'mAP', 'F1', 'val GIoU', 'val Objectness', 'val Classification'
-    t0 = time.time()
     print(f"Using {args.workers} dataloader workers.")
     print(f"Starting training for {args.epochs} epochs...")
 
