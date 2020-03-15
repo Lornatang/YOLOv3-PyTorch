@@ -131,6 +131,8 @@ data/voc2012
 data/masks
 weights/*.weights
 weights/darknet53.conv.74
+weights/yolov3-tiny.conv.15
+weights/*.onnx
 weights/*.pth
 runs
 results.txt
