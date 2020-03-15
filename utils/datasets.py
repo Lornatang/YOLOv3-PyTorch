@@ -56,7 +56,7 @@ def exif_size(image):
             size = (size[1], size[0])
         elif rotation == 8:  # rotation 90
             size = (size[1], size[0])
-    except RuntimeWarning:
+    except:
         pass
 
     return size
