@@ -31,8 +31,8 @@ from tqdm import tqdm
 from utils.utils import xyxy2xywh, xywh2xyxy
 
 help_url = "https://github.com/Lornatang/YOLOv3-PyTorch#train-on-custom-dataset"
-img_formats = [".bmp", ".jpg", ".jpeg", ".png", ".tif", ".dng"]
-vid_formats = [".mov", ".avi", ".mp4"]
+image_formats = [".bmp", ".jpg", ".jpeg", ".png", ".tif", ".dng"]
+video_formats = [".mov", ".avi", ".mp4"]
 
 # Get orientation exif tag
 for orientation in ExifTags.TAGS.keys():
@@ -52,12 +52,11 @@ def exif_size(image):
     size = image.size
     try:
         rotation = dict(image._getexif().items())[orientation]
-        # rotation = dict(img._getexif().items())[orientation]
         if rotation == 6:  # rotation 270
             size = (size[1], size[0])
         elif rotation == 8:  # rotation 90
             size = (size[1], size[0])
-    except:
+    except RuntimeWarning:
         pass
 
     return size
@@ -74,8 +73,8 @@ class LoadImages:
         elif os.path.isfile(path):
             files = [path]
 
-        images = [x for x in files if os.path.splitext(x)[-1].lower() in img_formats]
-        videos = [x for x in files if os.path.splitext(x)[-1].lower() in vid_formats]
+        images = [x for x in files if os.path.splitext(x)[-1].lower() in image_formats]
+        videos = [x for x in files if os.path.splitext(x)[-1].lower() in video_formats]
         image_num, video_num = len(images), len(videos)
 
         self.image_size = image_size
@@ -279,7 +278,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         assert os.path.isfile(path), f"File not found {path}. See {help_url}"
         with open(path, "r") as f:
             self.image_files = [x.replace("/", os.sep) for x in f.read().splitlines()  # os-agnostic
-                                if os.path.splitext(x)[-1].lower() in img_formats]
+                                if os.path.splitext(x)[-1].lower() in image_formats]
 
         image_files_num = len(self.image_files)
         assert image_files_num > 0, f"No images found in {path}. See {help_url}"
@@ -779,7 +778,7 @@ def reduce_img_size(path="../data/sm4/images", img_size=1024):  # from utils.dat
 
 def convert_images2bmp():  # from utils.datasets import *; convert_images2bmp()
     # Save images
-    formats = [x.lower() for x in img_formats] + [x.upper() for x in img_formats]
+    formats = [x.lower() for x in image_formats] + [x.upper() for x in image_formats]
     for path in ["../data/sm4/images", "../data/sm4/background"]:
         create_folder(path + "bmp")
         for ext in formats:
@@ -800,7 +799,7 @@ def convert_images2bmp():  # from utils.datasets import *; convert_images2bmp()
 
 def recursive_dataset2bmp(dataset="../data/sm4_bmp"):  # from utils.datasets import *; recursive_dataset2bmp()
     # Converts dataset to bmp (for faster training)
-    formats = [x.lower() for x in img_formats] + [x.upper() for x in img_formats]
+    formats = [x.lower() for x in image_formats] + [x.upper() for x in image_formats]
     for a, b, files in os.walk(dataset):
         for file in tqdm(files, desc=a):
             p = a + "/" + file
