@@ -57,11 +57,16 @@ class ModelEMA:
                 msd, esd = model.module.state_dict(), self.ema.module.state_dict()
             else:
                 msd, esd = model.state_dict(), self.ema.state_dict()
+            for k, v in esd.items():
+                if v.dtype.is_floating_point:
+                    v *= d
+                    v += (1. - d) * msd[k].detach()
 
-            for k in msd.keys():
-                if esd[k].dtype.is_floating_point:
-                    esd[k] *= d
-                    esd[k] += (1. - d) * msd[k].detach()
+    def update_attr(self, model):
+        # Assign attributes (which may change during training)
+        for k in model.__dict__.keys():
+            if not k.startswith('_'):
+                setattr(model, k, getattr(model, k))
 
 
 def fuse_conv_and_bn(conv, bn):
@@ -122,11 +127,11 @@ def load_classifier(name="resnet101", n=2):
     return model
 
 
-def model_info(model, report="summary"):
+def model_info(model, verbose=False):
     # Plots a line-by-line description of a PyTorch model
     n_p = sum(x.numel() for x in model.parameters())  # number parameters
     n_g = sum(x.numel() for x in model.parameters() if x.requires_grad)  # number gradients
-    if report == "full":
+    if verbose:
         print("%5s %40s %9s %12s %20s %10s %10s" % ("layer", "name", "gradient", "parameters", "shape", "mu", "sigma"))
         for i, (name, p) in enumerate(model.named_parameters()):
             name = name.replace("module_list.", "")
