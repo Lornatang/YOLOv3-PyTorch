@@ -11,15 +11,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import math
 from pathlib import Path
 
-import math
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from utils import fuse_conv_and_bn
+from utils import model_info
 from utils import parse_model_config
 
 ONNX_EXPORT = False
@@ -52,7 +53,7 @@ def create_modules(module_defs, img_size, arc):
                                                    groups=mdef['groups'] if 'groups' in mdef else 1,
                                                    bias=not bn))
             if bn:
-                modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.1))
+                modules.add_module('BatchNorm2d', nn.BatchNorm2d(filters, momentum=0.003, eps=1E-4))
             else:
                 routs.append(i)  # detection output (goes into yolo layer)
 
@@ -209,7 +210,27 @@ class YOLOLayer(nn.Module):
             create_grids(self, img_size, (nx, ny))
 
     def forward(self, p, img_size, out):
-        if ONNX_EXPORT:
+        ASFF = False  # https://arxiv.org/abs/1911.09516
+        if ASFF:
+            i, n = self.index, self.nl  # index in layers, number of layers
+            p = out[self.layers[i]]
+            bs, _, ny, nx = p.shape  # bs, 255, 13, 13
+            if (self.nx, self.ny) != (nx, ny):
+                create_grids(self, img_size, (nx, ny), p.device, p.dtype)
+
+            # outputs and weights
+            # w = F.softmax(p[:, -n:], 1)  # normalized weights
+            w = torch.sigmoid(p[:, -n:]) * (2 / n)  # sigmoid weights (faster)
+            # w = w / w.sum(1).unsqueeze(1)  # normalize across layer dimension
+
+            # weighted ASFF sum
+            p = out[self.layers[i]][:, :-n] * w[:, i:i + 1]
+            for j in range(n):
+                if j != i:
+                    p += w[:, j:j + 1] * \
+                         F.interpolate(out[self.layers[j]][:, :-n], size=[ny, nx], mode='bilinear', align_corners=False)
+
+        elif ONNX_EXPORT:
             bs = 1  # batch size
         else:
             bs, _, ny, nx = p.shape  # bs, 255, 13, 13
@@ -258,6 +279,7 @@ class Darknet(nn.Module):
         # Darknet Header https://github.com/AlexeyAB/darknet/issues/2914#issuecomment-496675346
         self.version = np.array([0, 2, 5], dtype=np.int32)  # (int32) version info: major, minor, revision
         self.seen = np.array([0], dtype=np.int64)  # (int64) number of images seen during training
+        self.info()  # print model description
 
     def forward(self, x, verbose=False):
         img_size = x.shape[-2:]
@@ -309,6 +331,7 @@ class Darknet(nn.Module):
 
     def fuse(self):
         # Fuse Conv2d + BatchNorm2d layers throughout model
+        print('Fusing Conv2d() and BatchNorm2d() layers...')
         fused_list = nn.ModuleList()
         for a in list(self.children())[0]:
             if isinstance(a, nn.Sequential):
@@ -321,7 +344,10 @@ class Darknet(nn.Module):
                         break
             fused_list.append(a)
         self.module_list = fused_list
-        # model_info(self)  # yolov3-spp reduced from 225 to 152 layers
+        self.info()  # yolov3-spp reduced from 225 to 152 layers
+
+    def info(self, verbose=False):
+        model_info(self, verbose)
 
 
 def get_yolo_layers(model):
