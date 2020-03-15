@@ -207,14 +207,14 @@ def train():
     model.class_weights = labels_to_class_weights(train_dataset.labels, nc).to(device)  # attach class weights
 
     # Model EMA
-    # ema = ModelEMA(model, decay=0.9997)
+    # ema = ModelEMA(model, decay=0.9998)
 
     # Start training
     batches_num = len(train_dataloader)  # number of batches
     prebias = start_epoch == 0
     maps = np.zeros(nc)  # mAP per class
-    results = (0, 0, 0, 0, 0, 0, 0)  # "P", "R", "mAP", "F1", "val GIoU", "val Objectness", "val Classification"
-    model_info(model, report="summary")  # "full" or "summary"
+    results = (0, 0, 0, 0, 0, 0, 0)  # 'P', 'R', 'mAP', 'F1', 'val GIoU', 'val Objectness', 'val Classification'
+    t0 = time.time()
     print(f"Using {args.workers} dataloader workers.")
     print(f"Starting training for {args.epochs} epochs...")
 
@@ -226,7 +226,6 @@ def train():
         if prebias:
             ne = 3  # number of prebias epochs
             ps = 0.1, 0.9  # prebias settings (lr=0.1, momentum=0.9)
-            model.gr = 0.0  # giou loss ratio (obj_loss = 1.0)
 
             if epoch == ne:
                 ps = parameters['lr0'], parameters['momentum']  # normal training settings
@@ -296,6 +295,7 @@ def train():
             if ni % accumulate == 0:
                 optimizer.step()
                 optimizer.zero_grad()
+                # ema.update(model)
 
             # Print batch results
             mean_losses = (mean_losses * i + loss_items) / (i + 1)  # update mean losses
@@ -308,6 +308,7 @@ def train():
         scheduler.step(epoch)
 
         # Process epoch results
+        # ema.update_attr(model)
         final_epoch = epoch + 1 == epochs
         if not args.notest or final_epoch:  # Calculate mAP
             is_coco = any([x in data for x in ['coco.data', 'coco2014.data', 'coco2017.data']]) and model.nc == 80
@@ -347,8 +348,7 @@ def train():
                 state = {'epoch': epoch,
                          'best_fitness': best_fitness,
                          'training_results': f.read(),
-                         'model': model.module.state_dict() if type(
-                             model) is nn.parallel.DistributedDataParallel else model.state_dict(),
+                         'model': model.module.state_dict() if hasattr(model, 'module') else model.state_dict(),
                          'optimizer': None if final_epoch else optimizer.state_dict()}
 
         # Save last checkpoint
