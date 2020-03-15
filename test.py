@@ -247,8 +247,8 @@ if __name__ == "__main__":
                         help="Model file weight path. (default=weights/yolov3.pth")
     parser.add_argument("--batch-size", type=int, default=32,
                         help="Size of each image batch. (default=32)")
-    parser.add_argument("--image-size", type=int, default=608,
-                        help="Size of processing picture. (default=608)")
+    parser.add_argument("--image-size", type=int, default=416,
+                        help="Size of processing picture. (default=416)")
     parser.add_argument("--confidence-threshold", type=float, default=0.001,
                         help="Object confidence threshold. (default=0.001)")
     parser.add_argument("--iou-threshold", type=float, default=0.6,
