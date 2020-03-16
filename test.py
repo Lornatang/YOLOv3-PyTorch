@@ -47,6 +47,7 @@ def evaluate(cfg,
              data,
              weights=None,
              batch_size=16,
+             workers=4,
              image_size=416,
              confidence_threshold=0.001,
              iou_threshold=0.6,  # for nms
@@ -89,7 +90,7 @@ def evaluate(cfg,
         batch_size = min(batch_size, len(dataset))
         dataloader = DataLoader(dataset,
                                 batch_size=batch_size,
-                                num_workers=4,
+                                num_workers=workers,
                                 pin_memory=True,
                                 collate_fn=dataset.collate_fn)
 
@@ -98,7 +99,7 @@ def evaluate(cfg,
     coco91class = coco80_to_coco91_class()
     s = ('%20s' + '%10s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@0.5', 'F1')
     p, r, f1, mp, mr, map, mf1, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
-    loss = torch.zeros(3)
+    loss = torch.zeros(3, device=device)
     json_dict, stats, ap, ap_class = [], [], [], []
     for batch_i, (images, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
         images = images.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
@@ -218,9 +219,9 @@ def evaluate(cfg,
         print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
 
     # Save JSON
-    if save_json and len(json_dict):
+    if save_json and map and len(json_dict):
         print('\nCOCO mAP with pycocotools...')
-        imgIds = [int(Path(x).stem.split('_')[-1]) for x in dataloader.dataset.img_files]
+        imgIds = [int(Path(x).stem.split('_')[-1]) for x in dataloader.dataset.image_files]
         with open('results.json', 'w') as file:
             json.dump(json_dict, file)
 
@@ -231,7 +232,7 @@ def evaluate(cfg,
             print('WARNING: missing pycocotools package, can not compute official COCO mAP. See requirements.txt.')
 
         # https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocoEvalDemo.ipynb
-        cocoGt = COCO(glob.glob('../coco/annotations/instances_val*.json')[0])  # initialize COCO ground truth api
+        cocoGt = COCO(glob.glob('data/coco2014/annotations/instances_val*.json')[0])  # initialize COCO ground truth api
         cocoDt = cocoGt.loadRes('results.json')  # initialize COCO pred api
 
         cocoEval = COCOeval(cocoGt, cocoDt, 'bbox')
@@ -258,6 +259,8 @@ if __name__ == "__main__":
                         help="Model file weight path. (default=weights/yolov3.pth")
     parser.add_argument("--batch-size", type=int, default=32,
                         help="Size of each image batch. (default=32)")
+    parser.add_argument('--workers', default=4, type=int, metavar='N',
+                        help='Number of data loading workers (default: 4)')
     parser.add_argument("--image-size", type=int, default=416,
                         help="Size of processing picture. (default=416)")
     parser.add_argument("--confidence-threshold", type=float, default=0.001,
@@ -278,6 +281,7 @@ if __name__ == "__main__":
                  args.data,
                  args.weights,
                  args.batch_size,
+                 args.workers,
                  args.image_size,
                  args.confidence_threshold,
                  args.iou_threshold,
