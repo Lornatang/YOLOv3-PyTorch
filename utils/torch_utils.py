@@ -19,6 +19,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import torchvision.models as models
+import torch.nn.functional as F
 
 
 class ModelEMA:
@@ -138,6 +139,15 @@ def model_info(model, verbose=False):
             print("%5g %40s %9s %12g %20s %10.3g %10.3g" %
                   (i, name, p.requires_grad, p.numel(), list(p.shape), p.mean(), p.std()))
     print("Model Summary: %g layers, %g parameters, %g gradients" % (len(list(model.parameters())), n_p, n_g))
+
+
+def scale_image(image, ratio=1.0):  # image(16,3,256,416), ratio=1.0
+    # scales a batch of pytorch images while retaining same input shape (cropped or grey-padded)
+    height, width = image.shape[2:]
+    size = (int(height * ratio), int(width * ratio))  # new size
+    p = height - size[0], width - size[1]  # pad/crop pixels
+    image = F.interpolate(image, size=size, mode='bilinear', align_corners=False)  # resize
+    return F.pad(image, [0, p[1], 0, p[0]], value=0.5) if ratio < 1.0 else image[:, :, :p[0], :p[1]]  # pad/crop
 
 
 def select_device(device="", apex=False, batch_size=None):
