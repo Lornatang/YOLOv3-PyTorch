@@ -50,7 +50,7 @@ def evaluate(cfg,
              image_size=416,
              confidence_threshold=0.001,
              iou_threshold=0.6,  # for nms
-             save_json=False,
+             save_json=True,
              single_cls=False,
              model=None,
              dataloader=None):
@@ -103,7 +103,7 @@ def evaluate(cfg,
     for batch_i, (images, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
         images = images.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
         targets = targets.to(device)
-        nb, _, height, width = images.shape  # batch size, channels, height, width
+        batch_size, _, height, width = images.shape  # batch size, channels, height, width
         whwh = torch.Tensor([width, height, width, height]).to(device)
 
         # Disable gradients
@@ -118,7 +118,7 @@ def evaluate(cfg,
             t0 += time_synchronized() - t
 
             if augment:
-                x = torch.split(inference_outputs, nb, dim=0)
+                x = torch.split(inference_outputs, batch_size, dim=0)
                 x[1][..., 0] = width - x[1][..., 0]  # flip lr
                 x[2][..., :4] /= 0.7  # scale
                 inference_outputs = torch.cat(x, 1)
@@ -217,29 +217,29 @@ def evaluate(cfg,
         t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (image_size, image_size, batch_size)  # tuple
         print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
 
-        # Save JSON
-        if save_json and map and len(json_dict):
-            print('\nCOCO mAP with pycocotools...')
-            imgIds = [int(Path(x).stem.split('_')[-1]) for x in dataloader.dataset.img_files]
-            with open('results.json', 'w') as file:
-                json.dump(json_dict, file)
+    # Save JSON
+    if save_json and len(json_dict):
+        print('\nCOCO mAP with pycocotools...')
+        imgIds = [int(Path(x).stem.split('_')[-1]) for x in dataloader.dataset.img_files]
+        with open('results.json', 'w') as file:
+            json.dump(json_dict, file)
 
-            try:
-                from pycocotools.coco import COCO
-                from pycocotools.cocoeval import COCOeval
-            except:
-                print('WARNING: missing pycocotools package, can not compute official COCO mAP. See requirements.txt.')
+        try:
+            from pycocotools.coco import COCO
+            from pycocotools.cocoeval import COCOeval
+        except:
+            print('WARNING: missing pycocotools package, can not compute official COCO mAP. See requirements.txt.')
 
-            # https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocoEvalDemo.ipynb
-            cocoGt = COCO(glob.glob('../coco/annotations/instances_val*.json')[0])  # initialize COCO ground truth api
-            cocoDt = cocoGt.loadRes('results.json')  # initialize COCO pred api
+        # https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocoEvalDemo.ipynb
+        cocoGt = COCO(glob.glob('../coco/annotations/instances_val*.json')[0])  # initialize COCO ground truth api
+        cocoDt = cocoGt.loadRes('results.json')  # initialize COCO pred api
 
-            cocoEval = COCOeval(cocoGt, cocoDt, 'bbox')
-            cocoEval.params.imgIds = imgIds  # [:32]  # only evaluate these images
-            cocoEval.evaluate()
-            cocoEval.accumulate()
-            cocoEval.summarize()
-            mf1, map = cocoEval.stats[:2]  # update to pycocotools results (mAP@0.5:0.95, mAP@0.5)
+        cocoEval = COCOeval(cocoGt, cocoDt, 'bbox')
+        cocoEval.params.imgIds = imgIds  # [:32]  # only evaluate these images
+        cocoEval.evaluate()
+        cocoEval.accumulate()
+        cocoEval.summarize()
+        mf1, map = cocoEval.stats[:2]  # update to pycocotools results (mAP@0.5:0.95, mAP@0.5)
 
     # Return results
     maps = np.zeros(classes_num) + map
@@ -252,7 +252,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--cfg", type=str, default="cfg/yolov3.cfg",
                         help="Neural network profile path. (default=cfg/yolov3.cfg)")
-    parser.add_argument("--data", type=str, default="data/coco2014.data",
+    parser.add_argument("--data", type=str, default="cfg/coco2014.data",
                         help="Dataload load path. (default=data/coco2014.data)")
     parser.add_argument("--weights", type=str, default="weights/yolov3.pth",
                         help="Model file weight path. (default=weights/yolov3.pth")
@@ -266,6 +266,7 @@ if __name__ == "__main__":
                         help="IOU threshold for NMS. (default=0.6)")
     parser.add_argument("--task", default="eval", help="`eval`, `study`, `benchmark`")
     parser.add_argument("--device", default="", help="device id (i.e. 0 or 0,1) or cpu")
+    parser.add_argument('--save-json', action='store_true', help='save a cocoapi-compatible JSON results file')
     parser.add_argument("--single-cls", action="store_true", help="train as single-class dataset")
     args = parser.parse_args()
 
@@ -280,6 +281,7 @@ if __name__ == "__main__":
                  args.image_size,
                  args.confidence_threshold,
                  args.iou_threshold,
+                 args.save_json,
                  args.single_cls)
 
     elif args.task == "benchmark":  # mAPs at 320-608 at conf 0.5 and 0.7

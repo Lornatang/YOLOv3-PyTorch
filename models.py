@@ -495,5 +495,5 @@ def calculate(cfg="cfg/yolov3.cfg", image_size=320):
     model = Darknet(cfg)
     inputs = torch.randn(1, 3, image_size, image_size)
     flops, params = profile(model, inputs=(inputs,))
-    print(f"FLOPs: {flops / 1000000000:.2f}G")
-    print(f"Parameters: {params / 1000000:.2f}M")
+    print(f"FLOPs: {flops / 1e9:.2f}G")
+    print(f"Parameters: {params / 1e6:.2f}M")
