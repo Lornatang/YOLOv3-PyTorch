@@ -293,7 +293,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
 
         self.image_files_num = image_files_num
         self.batch = batch_index  # batch index of image
-        self.img_size = image_size
+        self.image_size = image_size
         self.augment = augment
         self.hyp = hyp
         self.image_weights = image_weights
@@ -349,7 +349,8 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                     with open(file, "r") as f:
                         l = np.array([x.split() for x in f.read().splitlines()], dtype=np.float32)
                 except:
-                    nm += 1  # print("missing labels for image %s" % self.img_files[i])  # file missing
+                    nm += 1
+                    # print("missing labels for image %s" % self.image_files[i])  # file missing
                     continue
 
                 if l.shape[0]:
@@ -395,7 +396,6 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                             assert cv2.imwrite(f, img[b[1]:b[3], b[0]:b[2]]), "Failure extracting classifier boxes"
                 else:
                     ne += 1  # print("empty labels for image %s" % self.img_files[i])  # file empty
-                    # os.system("rm "%s" "%s"" % (self.img_files[i], self.label_files[i]))  # remove
 
                 pbar.desc = "Caching labels (%g found, %g missing, %g empty, %g duplicate, for %g images)" % (
                     nf, nm, ne, nd, self.image_files_num)
@@ -424,12 +424,6 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
     def __len__(self):
         return len(self.image_files)
 
-    # def __iter__(self):
-    #     self.count = -1
-    #     print("ran dataset iter")
-    #     #self.shuffled_vector = np.random.permutation(self.nF) if self.augment else np.arange(self.nF)
-    #     return self
-
     def __getitem__(self, index):
         if self.image_weights:
             index = self.indices[index]
@@ -448,7 +442,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             img, (h0, w0), (h, w) = load_image(self, index)
 
             # Letterbox
-            shape = self.batch_shapes[self.batch[index]] if self.rect else self.img_size  # final letterboxed shape
+            shape = self.batch_shapes[self.batch[index]] if self.rect else self.image_size  # final letterboxed shape
             img, ratio, pad = letterbox(img, shape, auto=False, scaleup=self.augment)
             shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
 
@@ -534,7 +528,7 @@ def load_image(self, index):
         image = cv2.imread(img_path)  # BGR
         assert image is not None, "Image Not Found " + img_path
         h0, w0 = image.shape[:2]  # orig hw
-        r = self.img_size / max(h0, w0)  # resize image to img_size
+        r = self.image_size / max(h0, w0)  # resize image to img_size
         if r < 1 or (self.augment and (r != 1)):  # always resize down, only resize up if training with augmentation
             interp = cv2.INTER_LINEAR if self.augment else cv2.INTER_AREA  # LINEAR for training, AREA for testing
             image = cv2.resize(image, (int(w0 * r), int(h0 * r)), interpolation=interp)
@@ -617,7 +611,6 @@ def load_mosaic(self, index):
 
 def letterbox(img, new_shape=(416, 416), color=(128, 128, 128),
               auto=True, scaleFill=False, scaleup=True, interp=cv2.INTER_AREA):
-    # Resize image to a 32-pixel-multiple rectangle https://github.com/ultralytics/yolov3/issues/232
     shape = img.shape[:2]  # current shape [height, width]
     if isinstance(new_shape, int):
         new_shape = (new_shape, new_shape)
@@ -692,15 +685,6 @@ def random_affine(img, targets=(), degrees=10, translate=.1, scale=.1, shear=10,
         x = xy[:, [0, 2, 4, 6]]
         y = xy[:, [1, 3, 5, 7]]
         xy = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).T
-
-        # # apply angle-based reduction of bounding boxes
-        # radians = a * math.pi / 180
-        # reduction = max(abs(math.sin(radians)), abs(math.cos(radians))) ** 0.5
-        # x = (xy[:, 2] + xy[:, 0]) / 2
-        # y = (xy[:, 3] + xy[:, 1]) / 2
-        # w = (xy[:, 2] - xy[:, 0]) * reduction
-        # h = (xy[:, 3] - xy[:, 1]) * reduction
-        # xy = np.concatenate((x - w / 2, y - h / 2, x + w / 2, y + h / 2)).reshape(4, n).T
 
         # reject warped points outside of image
         xy[:, [0, 2]] = xy[:, [0, 2]].clip(0, width)
