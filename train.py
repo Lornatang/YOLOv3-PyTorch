@@ -13,17 +13,17 @@
 # ==============================================================================
 import argparse
 import glob
+import math
 import os
 import random
 import time
+import warnings
 
-import math
 import numpy as np
 import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data
-import warnings
 from tqdm import tqdm
 
 from models import Darknet
@@ -35,12 +35,11 @@ from utils import fitness
 from utils import init_seeds
 from utils import labels_to_class_weights
 from utils import labels_to_image_weights
-from utils import model_info
 from utils import parse_data_config
 from utils import plot_results
 from utils import print_model_biases
-from utils import select_device
 from utils import print_mutation
+from utils import select_device
 
 mixed_precision = True
 try:  # Mixed precision training https://github.com/NVIDIA/apex

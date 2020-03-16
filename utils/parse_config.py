@@ -78,7 +78,7 @@ def parse_model_config(path):
     f = []  # fields
     for x in modules[1:]:
         [f.append(k) for k in x if k not in f]
-    u = [x for x in f if x not in supported]  # unsupported fields
-    assert not any(u), "Unsupported fields %s in %s." % (u, path)
+    unsupported_field_list = [x for x in f if x not in supported]
+    assert not any(unsupported_field_list), f"Unsupported fields {unsupported_field_list} in {path}."
 
     return modules
