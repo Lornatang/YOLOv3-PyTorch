@@ -13,10 +13,10 @@
 # ==============================================================================
 
 """ Load all function method names."""
+from .datasets import LoadCamera
 from .datasets import LoadImages
 from .datasets import LoadImagesAndLabels
 from .datasets import LoadStreams
-from .datasets import LoadCamera
 from .datasets import augment_hsv
 from .datasets import convert_images2bmp
 from .datasets import create_folder
@@ -38,6 +38,7 @@ from .torch_utils import fuse_conv_and_bn
 from .torch_utils import init_seeds
 from .torch_utils import load_classifier
 from .torch_utils import model_info
+from .torch_utils import scale_image
 from .torch_utils import select_device
 from .torch_utils import time_synchronized
 from .utils import ap_per_class

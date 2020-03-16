@@ -36,6 +36,7 @@ from utils import load_classes
 from utils import non_max_suppression
 from utils import parse_data_config
 from utils import scale_coords
+from utils import scale_image
 from utils import select_device
 from utils import time_synchronized
 from utils import xywh2xyxy
@@ -75,8 +76,8 @@ def evaluate(cfg,
 
     # Configure run
     data = parse_data_config(data)
-    nc = 1 if single_cls else int(data["classes"])  # number of classes
-    path = data["valid"]  # path to test images
+    classes_num = 1 if single_cls else int(data["classes"])
+    path = data["valid"]  # path to valid images
     names = load_classes(data["names"])  # class names
     iouv = torch.linspace(0.5, 0.95, 10).to(device)  # iou vector for mAP@0.5:0.95
     iouv = iouv[0].view(1)  # comment for mAP@0.5:0.95
@@ -99,38 +100,48 @@ def evaluate(cfg,
     p, r, f1, mp, mr, map, mf1, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     loss = torch.zeros(3)
     json_dict, stats, ap, ap_class = [], [], [], []
-    for batch_i, (imgs, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
-        imgs = imgs.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
+    for batch_i, (images, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
+        images = images.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
         targets = targets.to(device)
-        _, _, height, width = imgs.shape  # batch size, channels, height, width
+        nb, _, height, width = images.shape  # batch size, channels, height, width
         whwh = torch.Tensor([width, height, width, height]).to(device)
 
         # Disable gradients
         with torch.no_grad():
+            augment = False  # augment https://github.com/ultralytics/yolov3/issues/931
+            if augment:
+                images = torch.cat((images, images.flip(3), scale_image(images, 0.7),), 0)
+
             # Run model
             t = time_synchronized()
-            inf_out, train_out = model(imgs)  # inference and training outputs
+            inference_outputs, training_outputs = model(images)
             t0 += time_synchronized() - t
+
+            if augment:
+                x = torch.split(inference_outputs, nb, dim=0)
+                x[1][..., 0] = width - x[1][..., 0]  # flip lr
+                x[2][..., :4] /= 0.7  # scale
+                inference_outputs = torch.cat(x, 1)
 
             # Compute loss
             if hasattr(model, "hyp"):  # if model has loss hyperparameters
-                loss += compute_loss(train_out, targets, model)[1][:3].cpu()  # GIoU, obj, cls
+                loss += compute_loss(training_outputs, targets, model)[1][:3].cpu()  # GIoU, obj, cls
 
             # Run NMS
             t = time_synchronized()
-            output = non_max_suppression(inf_out, conf_thres=confidence_threshold, iou_thres=iou_threshold)
+            output = non_max_suppression(inference_outputs, conf_thres=confidence_threshold, iou_thres=iou_threshold)
             t1 += time_synchronized() - t
 
         # Statistics per image
         for si, pred in enumerate(output):
             labels = targets[targets[:, 0] == si, 1:]
-            nl = len(labels)
-            tcls = labels[:, 0].tolist() if nl else []  # target class
+            label_num = len(labels)
+            target_class = labels[:, 0].tolist() if label_num else []
             seen += 1
 
             if pred is None:
-                if nl:
-                    stats.append((torch.zeros(0, niou, dtype=torch.bool), torch.Tensor(), torch.Tensor(), tcls))
+                if label_num:
+                    stats.append((torch.zeros(0, niou, dtype=torch.bool), torch.Tensor(), torch.Tensor(), target_class))
                 continue
 
             # Clip boxes to image bounds
@@ -141,7 +152,7 @@ def evaluate(cfg,
                 # [{"image_id": 42, "category_id": 18, "bbox": [258.15, 41.29, 348.26, 243.78], "score": 0.236}, ...
                 image_id = int(Path(paths[si]).stem.split('_')[-1])
                 box = pred[:, :4].clone()  # xyxy
-                scale_coords(imgs[si].shape[1:], box, shapes[si][0], shapes[si][1])  # to original shape
+                scale_coords(images[si].shape[1:], box, shapes[si][0], shapes[si][1])  # to original shape
                 box = xyxy2xywh(box)  # xywh
                 box[:, :2] -= box[:, 2:] / 2  # xy center to top-left corner
                 for p, b in zip(pred.tolist(), box.tolist()):
@@ -152,7 +163,7 @@ def evaluate(cfg,
 
             # Assign all predictions as incorrect
             correct = torch.zeros(len(pred), niou, dtype=torch.bool, device=device)
-            if nl:
+            if label_num:
                 detected = []  # target indices
                 tcls_tensor = labels[:, 0]
 
@@ -175,11 +186,11 @@ def evaluate(cfg,
                             if d not in detected:
                                 detected.append(d)
                                 correct[pi[j]] = ious[j] > iouv  # iou_thres is 1xn
-                                if len(detected) == nl:  # all targets already located in image
+                                if len(detected) == label_num:  # all targets already located in image
                                     break
 
             # Append statistics (correct, conf, pcls, tcls)
-            stats.append((correct.cpu(), pred[:, 4].cpu(), pred[:, 5].cpu(), tcls))
+            stats.append((correct.cpu(), pred[:, 4].cpu(), pred[:, 5].cpu(), target_class))
 
     # Compute statistics
     stats = [np.concatenate(x, 0) for x in zip(*stats)]  # to numpy
@@ -188,7 +199,7 @@ def evaluate(cfg,
         if niou > 1:
             p, r, ap, f1 = p[:, 0], r[:, 0], ap.mean(1), ap[:, 0]  # [P, R, AP@0.5:0.95, AP@0.5]
         mp, mr, map, mf1 = p.mean(), r.mean(), ap.mean(), f1.mean()
-        nt = np.bincount(stats[3].astype(np.int64), minlength=nc)  # number of targets per class
+        nt = np.bincount(stats[3].astype(np.int64), minlength=classes_num)  # number of targets per class
     else:
         nt = torch.zeros(1)
 
@@ -197,7 +208,7 @@ def evaluate(cfg,
     print(context % ("all", seen, nt.sum(), mp, mr, map, mf1))
 
     # Print results per class
-    if verbose and nc > 1 and len(stats):
+    if verbose and classes_num > 1 and len(stats):
         for i, c in enumerate(ap_class):
             print(context % (names[c], seen, nt[c], p[i], r[i], ap[i], f1[i]))
 
@@ -231,7 +242,7 @@ def evaluate(cfg,
             mf1, map = cocoEval.stats[:2]  # update to pycocotools results (mAP@0.5:0.95, mAP@0.5)
 
     # Return results
-    maps = np.zeros(nc) + map
+    maps = np.zeros(classes_num) + map
     for i, c in enumerate(ap_class):
         maps[c] = ap[i]
     return (mp, mr, map, mf1, *(loss.cpu() / len(dataloader)).tolist()), maps
