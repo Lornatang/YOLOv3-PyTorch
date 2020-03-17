@@ -67,7 +67,7 @@ class ModelEMA:
         # Assign attributes (which may change during training)
         for k in model.__dict__.keys():
             if not k.startswith('_'):
-                setattr(model, k, getattr(model, k))
+                setattr(self.ema, k, getattr(model, k))
 
 
 def fuse_conv_and_bn(conv, bn):
