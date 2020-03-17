@@ -29,8 +29,7 @@ from .datasets import load_mosaic
 from .datasets import load_mosaic
 from .datasets import random_affine
 from .datasets import recursive_dataset2bmp
-from .datasets import recursive_dataset2bmp
-from .datasets import reduce_img_size
+from .datasets import reduce_image_size
 from .parse_config import parse_data_config
 from .parse_config import parse_model_config
 from .torch_utils import ModelEMA
