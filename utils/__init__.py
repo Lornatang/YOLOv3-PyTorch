@@ -47,7 +47,6 @@ from .utils import labels_to_class_weights
 from .utils import labels_to_image_weights
 from .utils import load_classes
 from .utils import non_max_suppression
-from .utils import plot_images
 from .utils import plot_one_box
 from .utils import plot_results
 from .utils import print_model_biases
