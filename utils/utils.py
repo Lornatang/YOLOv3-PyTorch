@@ -340,19 +340,24 @@ def wh_iou(wh1, wh2):
 
 
 class FocalLoss(nn.Module):
-    # Wraps focal loss around existing loss_fcn() https://arxiv.org/pdf/1708.02002.pdf
-    # i.e. criteria = FocalLoss(nn.BCEWithLogitsLoss(), gamma=2.5)
+    # Wraps focal loss around existing loss_fcn(), i.e. criteria = FocalLoss(nn.BCEWithLogitsLoss(), gamma=1.5)
     def __init__(self, loss_fcn, gamma=1.5, alpha=0.25):
         super(FocalLoss, self).__init__()
-        self.loss_fcn = loss_fcn
+        self.loss_fcn = loss_fcn  # must be nn.BCEWithLogitsLoss()
         self.gamma = gamma
         self.alpha = alpha
         self.reduction = loss_fcn.reduction
         self.loss_fcn.reduction = "none"  # required to apply FL to each element
 
-    def forward(self, input, target):
-        loss = self.loss_fcn(input, target)
-        loss *= self.alpha * (1.000001 - torch.exp(-loss)) ** self.gamma  # non-zero power for gradient stability
+    def forward(self, pred, true):
+        loss = self.loss_fcn(pred, true)
+
+        # TF implementation https://github.com/tensorflow/addons/blob/v0.7.1/tensorflow_addons/losses/focal_loss.py
+        pred_prob = torch.sigmoid(pred)  # prob from logits
+        p_t = true * pred_prob + (1 - true) * (1 - pred_prob)
+        alpha_factor = true * self.alpha + (1 - true) * (1 - self.alpha)
+        modulating_factor = (1.0 - p_t) ** self.gamma
+        loss = alpha_factor * modulating_factor * loss
 
         if self.reduction == "mean":
             return loss.mean()
@@ -372,21 +377,19 @@ def compute_loss(p, targets, model):  # predictions, targets, model
     lcls, lbox, lobj = ft([0]), ft([0]), ft([0])
     tcls, tbox, indices, anchor_vec = build_targets(model, targets)
     h = model.hyp  # hyperparameters
-    arch = model.arch  # # (default, uCE, uBCE) detection architectures
+    arch = model.arch  # architecture
     red = "mean"  # Loss reduction (sum or mean)
 
     # Define criteria
     BCEcls = nn.BCEWithLogitsLoss(pos_weight=ft([h["cls_pw"]]), reduction=red)
     BCEobj = nn.BCEWithLogitsLoss(pos_weight=ft([h["obj_pw"]]), reduction=red)
-    BCE = nn.BCEWithLogitsLoss(reduction=red)
-    CE = nn.CrossEntropyLoss(reduction=red)  # weight=model.class_weights
 
     # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
     cp, cn = smooth_BCE(eps=0.0)
 
-    if "F" in arch:  # add focal loss
-        g = h["fl_gamma"]
-        BCEcls, BCEobj, BCE, CE = FocalLoss(BCEcls, g), FocalLoss(BCEobj, g), FocalLoss(BCE, g), FocalLoss(CE, g)
+    # focal loss
+    if "F" in arch:
+        BCEcls, BCEobj = FocalLoss(BCEcls, h["fl_gamma"]), FocalLoss(BCEobj, h["fl_gamma"])
 
     # Compute losses
     np, ng = 0, 0  # number grid points, targets
@@ -400,6 +403,7 @@ def compute_loss(p, targets, model):  # predictions, targets, model
         if nb:  # number of targets
             ng += nb
             ps = pi[b, a, gj, gi]  # prediction subset corresponding to targets
+            # ps[:, 2:4] = torch.sigmoid(ps[:, 2:4])  # wh power loss (uncomment)
 
             # GIoU
             pxy = torch.sigmoid(ps[:, 0:2])  # pxy = pxy * s - (s - 1) / 2,  s = 1.5  (scale_xy)
@@ -409,26 +413,12 @@ def compute_loss(p, targets, model):  # predictions, targets, model
             lbox += (1.0 - giou).sum() if red == "sum" else (1.0 - giou).mean()  # giou loss
             tobj[b, a, gj, gi] = (1.0 - model.gr) + model.gr * giou.detach().type(tobj.dtype)  # giou ratio
 
-            if "default" in arch and model.nc > 1:  # cls loss (only if multiple classes)
-                t = torch.zeros_like(ps[:, 5:]) + cn  # targets
+            if model.nc > 1:  # cls loss (only if multiple classes)
+                t = torch.full_like(ps[:, 5:], cn)  # targets
                 t[range(nb), tcls[i]] = cp
                 lcls += BCEcls(ps[:, 5:], t)  # BCE
 
-
-        if "default" in arch:  # separate obj and cls
-            lobj += BCEobj(pi[..., 4], tobj)  # obj loss
-
-        elif "BCE" in arch:  # unified BCE (80 classes)
-            t = torch.zeros_like(pi[..., 5:])  # targets
-            if nb:
-                t[b, a, gj, gi, tcls[i]] = 1.0
-            lobj += BCE(pi[..., 5:], t)
-
-        elif "CE" in arch:  # unified CE (1 background + 80 classes)
-            t = torch.zeros_like(pi[..., 0], dtype=torch.long)  # targets
-            if nb:
-                t[b, a, gj, gi] = tcls[i] + 1
-            lcls += CE(pi[..., 4:].view(-1, model.nc + 1), t.view(-1))
+        lobj += BCEobj(pi[..., 4], tobj)  # obj loss
 
     lbox *= h["giou"]
     lobj *= h["obj"]
