@@ -50,10 +50,6 @@ def labels_to_class_weights(labels, nc=80):
     classes = labels[:, 0].astype(np.int)  # labels = [class xywh]
     weights = np.bincount(classes, minlength=nc)  # occurences per class
 
-    # Prepend gridpoint count (for uCE trianing)
-    # gpi = ((320 / 32 * np.array([1, 2, 4])) ** 2 * 3).sum()  # gridpoints per image
-    # weights = np.hstack([gpi * len(labels)  - weights.sum() * 9, weights * 9]) ** 0.5  # prepend gridpoints to start
-
     weights[weights == 0] = 1  # replace empty bins with 1
     weights = 1 / weights  # number of targets per class
     weights /= weights.sum()  # normalize
@@ -69,39 +65,12 @@ def labels_to_image_weights(labels, nc=80, class_weights=np.ones(80)):
     return image_weights
 
 
-def coco_class_weights():  # frequency of each class in coco train2014
-    n = [187437, 4955, 30920, 6033, 3838, 4332, 3160, 7051, 7677, 9167, 1316, 1372, 833, 6757, 7355, 3302, 3776, 4671,
-         6769, 5706, 3908, 903, 3686, 3596, 6200, 7920, 8779, 4505, 4272, 1862, 4698, 1962, 4403, 6659, 2402, 2689,
-         4012, 4175, 3411, 17048, 5637, 14553, 3923, 5539, 4289, 10084, 7018, 4314, 3099, 4638, 4939, 5543, 2038, 4004,
-         5053, 4578, 27292, 4113, 5931, 2905, 11174, 2873, 4036, 3415, 1517, 4122, 1980, 4464, 1190, 2302, 156, 3933,
-         1877, 17630, 4337, 4624, 1075, 3468, 135, 1380]
-    weights = 1 / torch.Tensor(n)
-    weights /= weights.sum()
-    # with open("data/coco.names", "r") as f:
-    #     for k, v in zip(f.read().splitlines(), n):
-    #         print("%20s: %g" % (k, v))
-    return weights
-
-
 def coco80_to_coco91_class():  # converts 80-index (val2014) to 91-index (paper)
     # https://tech.amikelive.com/node-718/what-object-categories-labels-are-in-coco-dataset/
-    # a = np.loadtxt("data/coco.names", dtype="str", delimiter="\n")
-    # b = np.loadtxt("data/coco_paper.names", dtype="str", delimiter="\n")
-    # x1 = [list(a[i] == b).index(True) + 1 for i in range(80)]  # darknet to coco
-    # x2 = [list(b[i] == a).index(True) if any(b[i] == a) else None for i in range(91)]  # coco to darknet
     x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 31, 32, 33, 34,
          35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
          64, 65, 67, 70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87, 88, 89, 90]
     return x
-
-
-def weights_init_normal(m):
-    classname = m.__class__.__name__
-    if classname.find("Conv") != -1:
-        torch.nn.init.normal_(m.weight.data, 0.0, 0.03)
-    elif classname.find("BatchNorm2d") != -1:
-        torch.nn.init.normal_(m.weight.data, 1.0, 0.03)
-        torch.nn.init.constant_(m.bias.data, 0.0)
 
 
 def xyxy2xywh(x):
@@ -122,26 +91,6 @@ def xywh2xyxy(x):
     y[:, 2] = x[:, 0] + x[:, 2] / 2  # bottom right x
     y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y
     return y
-
-
-# def xywh2xyxy(box):
-#     # Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2]
-#     if isinstance(box, torch.Tensor):
-#         x, y, w, h = box.t()
-#         return torch.stack((x - w / 2, y - h / 2, x + w / 2, y + h / 2)).t()
-#     else:  # numpy
-#         x, y, w, h = box.T
-#         return np.stack((x - w / 2, y - h / 2, x + w / 2, y + h / 2)).T
-#
-#
-# def xyxy2xywh(box):
-#     # Convert nx4 boxes from [x1, y1, x2, y2] to [x, y, w, h]
-#     if isinstance(box, torch.Tensor):
-#         x1, y1, x2, y2 = box.t()
-#         return torch.stack(((x1 + x2) / 2, (y1 + y2) / 2, x2 - x1, y2 - y1)).t()
-#     else:  # numpy
-#         x1, y1, x2, y2 = box.T
-#         return np.stack(((x1 + x2) / 2, (y1 + y2) / 2, x2 - x1, y2 - y1)).T
 
 
 def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
@@ -168,13 +117,16 @@ def clip_coords(boxes, img_shape):
 
 def ap_per_class(tp, conf, pred_cls, target_cls):
     """ Compute the average precision, given the recall and precision curves.
+
     Source: https://github.com/rafaelpadilla/Object-Detection-Metrics.
-    # Arguments
+
+    Args:
         tp:    True positives (nparray, nx1 or nx10).
         conf:  Objectness value from 0-1 (nparray).
         pred_cls: Predicted object classes (nparray).
         target_cls: True object classes (nparray).
-    # Returns
+
+    Returns:
         The average precision as computed in py-faster-rcnn.
     """
 
@@ -213,16 +165,6 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
             for j in range(tp.shape[1]):
                 ap[ci, j] = compute_ap(recall[:, j], precision[:, j])
 
-            # Plot
-            # fig, ax = plt.subplots(1, 1, figsize=(4, 4))
-            # ax.plot(recall, precision)
-            # ax.set_xlabel("Recall")
-            # ax.set_ylabel("Precision")
-            # ax.set_xlim(0, 1.01)
-            # ax.set_ylim(0, 1.01)
-            # fig.tight_layout()
-            # fig.savefig("PR_curve.png", dpi=300)
-
     # Compute F1 score (harmonic mean of precision and recall)
     f1 = 2 * p * r / (p + r + 1e-16)
 
@@ -231,11 +173,14 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
 
 def compute_ap(recall, precision):
     """ Compute the average precision, given the recall and precision curves.
+
     Source: https://github.com/rbgirshick/py-faster-rcnn.
-    # Arguments
-        recall:    The recall curve (list).
-        precision: The precision curve (list).
-    # Returns
+
+    Args:
+        recall (list): The recall curve.
+        precision (list): The precision curve.
+
+    Returns:
         The average precision as computed in py-faster-rcnn.
     """
 
@@ -304,14 +249,16 @@ def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False):
     return iou
 
 
+# Source: https://github.com/pytorch/vision/blob/master/torchvision/ops/boxes.py
 def box_iou(boxes1, boxes2):
-    # https://github.com/pytorch/vision/blob/master/torchvision/ops/boxes.py
-    """
-    Return intersection-over-union (Jaccard index) of boxes.
+    """ Return intersection-over-union (Jaccard index) of boxes.
+
     Both sets of boxes are expected to be in (x1, y1, x2, y2) format.
-    Arguments:
+
+    Args:
         boxes1 (Tensor[N, 4])
         boxes2 (Tensor[M, 4])
+
     Returns:
         iou (Tensor[N, M]): the NxM matrix containing the pairwise
             IoU values for every element in boxes1 and boxes2
@@ -637,27 +584,6 @@ def print_model_biases(model):
             pass
 
 
-def strip_optimizer(f="weights/checkpoint.pth"):  # from utils.utils import *; strip_optimizer()
-    # Strip optimizer from *.pt files for lighter files (reduced by 2/3 size)
-    x = torch.load(f, map_location=torch.device("cpu"))
-    x["optimizer"] = None
-    torch.save(x, f)
-
-
-def create_backbone(f="weights/checkpoint.pth"):  # from utils.utils import *; create_backbone()
-    # create a backbone from a *.pt file
-    x = torch.load(f, map_location=torch.device("cpu"))
-    x["optimizer"] = None
-    x["training_results"] = None
-    x["epoch"] = -1
-    for p in x["model"].values():
-        try:
-            p.requires_grad = True
-        except ValueError:
-            pass
-    torch.save(x, "weights/checkpoint.pth")
-
-
 def print_mutation(hyp, results):
     # Print mutation results to evolve.txt (for use with train.py --evolve)
     a = "%10s" * len(hyp) % tuple(hyp.keys())  # hyperparam keys
@@ -693,7 +619,6 @@ def apply_classifier(x, model, img, im0):
             for j, a in enumerate(d):  # per item
                 cutout = im0[i][int(a[1]):int(a[3]), int(a[0]):int(a[2])]
                 im = cv2.resize(cutout, (224, 224))  # BGR
-                # cv2.imwrite("test%i.jpg" % j, cutout)
 
                 im = im[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
                 im = np.ascontiguousarray(im, dtype=np.float32)  # uint8 to float32
@@ -712,7 +637,6 @@ def fitness(x):
     return (x[:, :4] * w).sum(1)
 
 
-# Plotting functions ---------------------------------------------------------------------------------------------------
 def plot_one_box(x, img, color=None, label=None, line_thickness=None):
     # Plots one bounding box on image img
     tl = line_thickness or round(0.002 * (img.shape[0] + img.shape[1]) / 2) + 1  # line thickness
@@ -725,104 +649,6 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
         c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
         cv2.rectangle(img, c1, c2, color, -1)  # filled
         cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
-
-
-def plot_wh_methods():  # from utils.utils import *; plot_wh_methods()
-    # Compares the two methods for width-height anchor multiplication
-    x = np.arange(-4.0, 4.0, .1)
-    ya = np.exp(x)
-    yb = torch.sigmoid(torch.from_numpy(x)).numpy() * 2
-
-    fig = plt.figure(figsize=(6, 3), dpi=150)
-    plt.plot(x, ya, ".-", label="yolo method")
-    plt.plot(x, yb ** 2, ".-", label="^2 power method")
-    plt.plot(x, yb ** 2.5, ".-", label="^2.5 power method")
-    plt.xlim(left=-4, right=4)
-    plt.ylim(bottom=0, top=6)
-    plt.xlabel("input")
-    plt.ylabel("output")
-    plt.legend()
-    fig.tight_layout()
-    fig.savefig("comparison.png", dpi=200)
-
-
-def plot_images(imgs, targets, paths=None, fname="images.png"):
-    # Plots training images overlaid with targets
-    imgs = imgs.cpu().numpy()
-    targets = targets.cpu().numpy()
-    # targets = targets[targets[:, 1] == 21]  # plot only one class
-
-    fig = plt.figure(figsize=(10, 10))
-    bs, _, h, w = imgs.shape  # batch size, _, height, width
-    bs = min(bs, 16)  # limit plot to 16 images
-    ns = np.ceil(bs ** 0.5)  # number of subplots
-
-    for i in range(bs):
-        boxes = xywh2xyxy(targets[targets[:, 0] == i, 2:6]).T
-        boxes[[0, 2]] *= w
-        boxes[[1, 3]] *= h
-        plt.subplot(ns, ns, i + 1).imshow(imgs[i].transpose(1, 2, 0))
-        plt.plot(boxes[[0, 2, 2, 0, 0]], boxes[[1, 1, 3, 3, 1]], ".-")
-        plt.axis("off")
-        if paths is not None:
-            s = Path(paths[i]).name
-            plt.title(s[:min(len(s), 40)], fontdict={"size": 8})  # limit to 40 characters
-    fig.tight_layout()
-    fig.savefig(fname, dpi=200)
-    plt.close()
-
-
-def plot_test_txt():  # from utils.utils import *; plot_test()
-    # Plot test.txt histograms
-    x = np.loadtxt("test.txt", dtype=np.float32)
-    box = xyxy2xywh(x[:, :4])
-    cx, cy = box[:, 0], box[:, 1]
-
-    fig, ax = plt.subplots(1, 1, figsize=(6, 6))
-    ax.hist2d(cx, cy, bins=600, cmax=10, cmin=0)
-    ax.set_aspect("equal")
-    fig.tight_layout()
-    plt.savefig("hist2d.png", dpi=300)
-
-    fig, ax = plt.subplots(1, 2, figsize=(12, 6))
-    ax[0].hist(cx, bins=600)
-    ax[1].hist(cy, bins=600)
-    fig.tight_layout()
-    plt.savefig("hist1d.png", dpi=200)
-
-
-def plot_targets_txt():  # from utils.utils import *; plot_targets_txt()
-    # Plot test.txt histograms
-    x = np.loadtxt("targets.txt", dtype=np.float32)
-    x = x.T
-
-    s = ["x targets", "y targets", "width targets", "height targets"]
-    fig, ax = plt.subplots(2, 2, figsize=(8, 8))
-    ax = ax.ravel()
-    for i in range(4):
-        ax[i].hist(x[i], bins=100, label="%.3g +/- %.3g" % (x[i].mean(), x[i].std()))
-        ax[i].legend()
-        ax[i].set_title(s[i])
-    fig.tight_layout()
-    plt.savefig("targets.jpg", dpi=200)
-
-
-def plot_evolution_results(hyp):  # from utils.utils import *; plot_evolution_results(hyp)
-    # Plot hyperparameter evolution results in evolve.txt
-    x = np.loadtxt("evolve.txt", ndmin=2)
-    f = fitness(x)
-    fig = plt.figure(figsize=(12, 10))
-    matplotlib.rc("font", **{"size": 8})
-    for i, (k, v) in enumerate(hyp.items()):
-        y = x[:, i + 7]
-        mu = y[f.argmax()]  # best single result
-        plt.subplot(4, 5, i + 1)
-        plt.plot(mu, f.max(), "o", markersize=10)
-        plt.plot(y, f, ".")
-        plt.title("%s = %.3g" % (k, mu), fontdict={"size": 9})  # limit to 40 characters
-        print("%15s: %.3g" % (k, mu))
-    fig.tight_layout()
-    plt.savefig("evolve.png", dpi=200)
 
 
 def plot_results_overlay(start=0, stop=0):  # from utils.utils import *; plot_results_overlay()
