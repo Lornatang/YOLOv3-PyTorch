@@ -199,27 +199,26 @@ YOLOv3-tiny<br>YOLOv3<br>YOLOv3-SPP<br>    |512          |16.6<br>32.7<br>35.6<b
 YOLOv3-tiny<br>YOLOv3<br>YOLOv3-SPP<br>    |608          |16.6<br>33.1<br>37.0<br>|35.4<br>58.2<br>60.7<br>
 
 ```bash
-$ python3 test.py --cfg cfg/yolov3-spp.cfg --weights weights/yolov3-spp.pth --img 608
+$ python3 test.py --cfg cfg/yolov3-spp.cfg --weights weights/yolov3-spp.pth --save-json --image-size 608
 ```
 
 ```text
-Namespace(batch_size=16, cfg='cfg/yolov3-spp.cfg', confidence_thres=0.001, data='data/coco2014.data', device='', image_size=608, iou_thres=0.6, save_json=False, single_cls=False, task='eval', weights='weights/yolov3-spp.pth')
-Using CUDA device:0 (name='TITAN RTX', total_memory=24190MB)
+Namespace(batch_size=16, cfg='cfg/yolov3-spp.cfg', confidence_threshold=0.001, data='data/coco2014.data', device='', image_size=608, iou_threshold=0.6, save_json=True, single_cls=False, task='eval', weights='weights/yolov3-spp.pth', workers=4)
+Using CUDA 
+    + device:0 (name='TITAN RTX', total_memory=24190MB)
 
-               Class    Images   Targets         P         R   mAP@0.5        F1: 100% 157/157 [03:12<00:00,  1.50it/s]
-                 all     5e+03  3.51e+04      0.51     0.667     0.611     0.574
- Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.419
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.418
  Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.618
  Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.448
- Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.247
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.246
  Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.462
- Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.534
- Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.341
- Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.557
- Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.606
- Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.440
- Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.649
- Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.735
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.533
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.340
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.555
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.604
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.439
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.648
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.733
 ```
 
 ### Credit
