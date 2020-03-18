@@ -191,9 +191,47 @@ class Swish(nn.Module):
         return x.mul_(torch.sigmoid(x))
 
 
-class Mish(nn.Module):  # https://github.com/digantamisra98/Mish
-    def forward(self, x):
-        return x.mul_(F.softplus(x).tanh())
+# Source https://github.com/digantamisra98/Mish/blob/master/Mish/Torch/mish.py
+@torch.jit.script
+def cuda_mish(inputs):
+    return inputs * torch.tanh(F.softplus(inputs))
+
+
+@torch.jit.script
+def cpu_mish(inputs):
+    delta = torch.exp(-inputs)
+    alpha = 1 + 2 * delta
+    return inputs * alpha / (alpha + 2 * delta * delta)
+
+
+class Mish(nn.Module):
+    """
+    Applies the mish function element-wise:
+    mish(x) = x * tanh(softplus(x)) = x * tanh(ln(1 + exp(x)))
+    Shape:
+        - Input: (N, *) where * means, any number of additional
+          dimensions
+        - Output: (N, *), same shape as the input
+    Examples:
+        >>> m = Mish()
+        >>> inputs = torch.randn(2)
+        >>> output = m(inputs)
+    """
+
+    def __init__(self):
+        """
+        Init method.
+        """
+        super().__init__()
+
+    def forward(self, inputs):
+        """
+        Forward pass of the function.
+        """
+        if torch.cuda.is_available():
+            return cuda_mish(inputs)
+        else:
+            return cpu_mish(inputs)
 
 
 class YOLOLayer(nn.Module):
