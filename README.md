@@ -5,7 +5,7 @@
 <p align="center"><img src="assets/zidane.jpg" width="608"></p>
 
 ### Overview
-This project is a [YOLOv3](http://xxx.itp.ac.cn/abs/1804.02767) object detection system developed by [PyTorch](https://pytorch.org/) neural network framework developed by FaceBook Company.
+This project is a [YOLOv3](http://xxx.itp.ac.cn/abs/1804.02767) object detection system. Development framework by [PyTorch](https://pytorch.org/).
 
 The goal of this implementation is to be simple, highly extensible, and easy to integrate into your own projects. This implementation is a work in progress -- new features are currently being implemented.  
 
@@ -25,7 +25,7 @@ The goal of this implementation is to be simple, highly extensible, and easy to 
 5. [Image Augmentation](#image-augmentation)
 6. [Train on Custom Dataset](#train-on-custom-dataset)
 7. [Darknet Conversion](#darknet-conversion)
-8. [mAp result](#map-result)
+8. [Result](#result)
 9. [Credit](#credit) 
 
 ### About YOLOv3
@@ -182,7 +182,7 @@ $ python3  -c "from models import *; convert('cfg/yolov3-spp.cfg', 'weights/yolo
 Success: converted 'weights/yolov3-spp.pth' to 'converted.weights'
 ```
 
-### mAP result
+### Result
 
 ```bash
 $ python3 test.py --cfg yolov3-spp.cfg --weights weights/yolov3-spp.pth
