@@ -138,6 +138,6 @@ runs
 results.txt
 test_batch0.png
 train_batch0.png
-results.png
+yolov3-tiny-voc.png
 video
 *.tgz
