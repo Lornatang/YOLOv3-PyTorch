@@ -25,9 +25,8 @@ The goal of this implementation is to be simple, highly extensible, and easy to 
 5. [Image Augmentation](#image-augmentation)
 6. [Train on Custom Dataset](#train-on-custom-dataset)
 7. [Darknet Conversion](#darknet-conversion)
-8. [Darknet Calculate](#darknet-calculate)
-9. [mAp result](#map-result)
-10. [Credit](#credit) 
+8. [mAp result](#map-result)
+9. [Credit](#credit) 
 
 ### About YOLOv3
 We present some updates to YOLO! We made a bunch of little design changes to make it better. We also trained this new network that's pretty swell. It's a little bigger than last time but more accurate. It's still fast though, don't worry. At 320x320 YOLOv3 runs in 22 ms at 28.2 mAP, as accurate as SSD but three times faster. When we look at the old .5 IOU mAP detection metric YOLOv3 is quite good. It achieves 57.9 mAP@50 in 51 ms on a Titan X, compared to 57.5 mAP@50 in 198 ms by RetinaNet, similar performance but 3.8x faster. As always, all the code is online at this https URL
@@ -182,24 +181,6 @@ Success: converted 'weights/yolov3-spp.weights' to 'converted.pth'
 $ python3  -c "from models import *; convert('cfg/yolov3-spp.cfg', 'weights/yolov3-spp.pth')"
 Success: converted 'weights/yolov3-spp.pth' to 'converted.weights'
 ```
-
-### Darknet Calculate
-
-```bash
-
-# Calculate yolov3 FLOPs and Parameters
-$ python3  -c "from models import *; calculate('cfg/yolov3.cfg', 416)"
-Model Summary: 222 layers, 6.19491e+07 parameters, 6.19491e+07 gradients
-FLOPs: 33.05G
-Parameters: 61.95M
-
-# Calculate yolov3-tiny FLOPs and Parameters
-$ python3  -c "from models import *; calculate('cfg/yolov3-tiny.cfg', 416)"
-Model Summary: 37 layers, 8.85237e+06 parameters, 8.85237e+06 gradients
-FLOPs: 2.80G
-Parameters: 8.85M
-```
-
 
 ### mAP result
 

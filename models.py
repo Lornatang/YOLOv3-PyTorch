@@ -480,20 +480,3 @@ def convert(cfg='cfg/yolov3-spp.cfg', weights='weights/yolov3-spp.weights'):
 
     else:
         print('Error: extension not supported.')
-
-
-def calculate(cfg="cfg/yolov3.cfg", image_size=320):
-    """ Use third-party tools to calculate model parameters and model flops.
-
-    Args:
-        cfg (configureFile): Profile of the yolov3 model
-        image_size (int): Size of picture.
-
-    Examples:
-        from models import *; calculate('cfg/yolov3-spp.cfg', 320)
-    """
-    model = Darknet(cfg)
-    inputs = torch.randn(1, 3, image_size, image_size)
-    flops, params = profile(model, inputs=(inputs,))
-    print(f"FLOPs: {flops / 1e9:.2f}G")
-    print(f"Parameters: {params / 1e6:.2f}M")
