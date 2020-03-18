@@ -63,16 +63,19 @@ def exif_size(image):
 
 
 class LoadImages:
-    """ Use only in the inference phase"""
+    """ Use only in the inference phase
 
-    def __init__(self, path, image_size=416):
-        """ Load the pictures in the directory and convert them to the corresponding format.
+    Load the pictures in the directory and convert them to the corresponding format.
 
-        Args:
-            path (str): Source address of the file.
-            image_size (int): Size of loaded pictures. default:416
-        """
-        path = str(Path(path))
+    Args:
+        dataroot (str): The source path of the dataset.
+        image_size (int): Size of loaded pictures. (default:``416``).
+
+    """
+
+    def __init__(self, dataroot, image_size=416):
+
+        path = str(Path(dataroot))
         files = []
         if os.path.isdir(path):
             files = sorted(glob.glob(os.path.join(path, "*.*")))
@@ -110,7 +113,8 @@ class LoadImages:
             if not ret_val:
                 self.count += 1
                 self.capture.release()
-                if self.count == self.files_num:  # last video
+                # last video
+                if self.count == self.files_num:
                     raise StopIteration
                 else:
                     path = self.files[self.count]
@@ -123,15 +127,16 @@ class LoadImages:
         else:
             # Read image
             self.count += 1
-            raw_image = cv2.imread(path)  # BGR
+            raw_image = cv2.imread(path)  # opencv read image default is BGR
             assert raw_image is not None, "Image Not Found `" + path + "`"
             print(f"image {self.count}/{self.files_num} {path}: ", end='')
 
-        # Padded resize
+        # Padded resize operation
         image = letterbox(raw_image, new_shape=self.image_size)[0]
 
-        # BGR convert to RGB (3x416x416)
+        # BGR convert to RGB (3 x 416 x 416)
         image = image[:, :, ::-1].transpose(2, 0, 1)
+        # Return a contiguous array
         image = np.ascontiguousarray(image)
 
         return path, image, raw_image, self.capture
@@ -146,13 +151,21 @@ class LoadImages:
 
 
 class LoadCamera:
-    """ Use only in the inference phase"""
+    """ Use only in the inference phase
+
+    Load the Camera in the local and convert them to the corresponding format.
+
+    Args:
+        pipe (int): Device index of camera. (default:``0``).
+        image_size (int): Size of loaded pictures. (default:``416``).
+    """
 
     def __init__(self, pipe=0, image_size=416):
         self.image_size = image_size
 
         if pipe == "0":
-            pipe = 0  # local camera
+            # local camera
+            pipe = 0
 
         self.pipe = pipe
         self.capture = cv2.VideoCapture(pipe)  # video capture object
@@ -164,7 +177,7 @@ class LoadCamera:
 
     def __next__(self):
         self.count += 1
-        if cv2.waitKey(1) == ord("q"):
+        if cv2.waitKey(1) & 0xFF == ord("q"):
             self.capture.release()
             cv2.destroyAllWindows()
             raise StopIteration
@@ -183,15 +196,16 @@ class LoadCamera:
                     if retval:
                         break
 
-        assert retval, f"Camera Error {self.pipe}"
-        image_path = "webcam.jpg"
-        print(f"webcam {self.count}: ", end='')
+        assert retval, f"Camera Error `{self.pipe}`"
+        image_path = "webcam.png"
+        print(f"Webcam {self.count}: ", end='')
 
-        # Padded resize
+        # Padded resize operation
         image = letterbox(raw_image, new_shape=self.image_size)[0]
 
-        # BGR convert to RGB (3x416x416)
+        # BGR convert to RGB (3 x 416 x 416)
         image = image[:, :, ::-1].transpose(2, 0, 1)
+        # Return a contiguous array
         image = np.ascontiguousarray(image)
 
         return image_path, image, raw_image, None
@@ -201,17 +215,25 @@ class LoadCamera:
 
 
 class LoadStreams:
-    """ For reading camera and network data"""
+    """ For reading camera or network data
 
-    def __init__(self, sources="streams.txt", image_size=608):
+    Load data types from data flow.
+
+    Args:
+        dataroot (str): Data flow file name.
+        image_size (int): Image size in default data flow. (default:``416``).
+    """
+
+    def __init__(self, dataroot, image_size=416):
+
         self.mode = "images"
         self.image_size = image_size
 
-        if os.path.isfile(sources):
-            with open(sources, "r") as f:
+        if os.path.isfile(dataroot):
+            with open(dataroot, "r") as f:
                 sources = [x.strip() for x in f.read().splitlines() if len(x.strip())]
         else:
-            sources = [sources]
+            sources = [dataroot]
 
         n = len(sources)
         self.images = [None] * n
@@ -220,17 +242,17 @@ class LoadStreams:
             # Start the thread to read frames from the video stream
             print(f"{i + 1}/{n}: {s}... ", end='')
 
-            cap = cv2.VideoCapture(0 if s == "0" else s)
-            assert cap.isOpened(), "Failed to open %s" % s
+            capture = cv2.VideoCapture(0 if s == "0" else s)
+            assert capture.isOpened(), f"Failed to open {s}"
 
-            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            fps = cap.get(cv2.CAP_PROP_FPS) % 100
-            _, self.images[i] = cap.read()  # guarantee first frame
-            thread = Thread(target=self.update, args=([i, cap]), daemon=True)
+            width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fps = capture.get(cv2.CAP_PROP_FPS) % 100
+            _, self.images[i] = capture.read()  # guarantee first frame
+            thread = Thread(target=self.update, args=([i, capture]), daemon=True)
             print(f"Success ({width}*{height} at {fps:.2f}FPS).")
             thread.start()
-        print("")  # newline
+        print("")
 
         # check for common shapes
         s = np.stack([letterbox(x, new_shape=self.image_size)[0].shape for x in self.images], 0)  # inference shapes
@@ -239,14 +261,16 @@ class LoadStreams:
             warnings.warn("WARNING: Different stream shapes detected. "
                           "For optimal performance supply similarly-shaped streams.")
 
-    def update(self, index, cap):
+    def update(self, index, capture):
         # Read next stream frame in a daemon thread
         num = 0
-        while cap.isOpened():
+        while capture.isOpened():
             num += 1
-            cap.grab()
-            if num == 4:  # read every 4th frame
-                _, self.images[index] = cap.retrieve()
+            # Grabs the next frame from video file or capturing device.
+            capture.grab()
+            # read every 4th frame
+            if num == 4:
+                _, self.images[index] = capture.retrieve()
                 num = 0
             time.sleep(0.01)  # wait time
 
@@ -257,7 +281,7 @@ class LoadStreams:
     def __next__(self):
         self.count += 1
         raw_image = self.images.copy()
-        if cv2.waitKey(1) == ord("q"):  # q to quit
+        if cv2.waitKey(1) & 0xFF == ord("q"):
             cv2.destroyAllWindows()
             raise StopIteration
 
@@ -267,8 +291,9 @@ class LoadStreams:
         # Stack
         image = np.stack(image, 0)
 
-        # Convert
+        # BGR convert to RGB (batch_size 3 x 416 x 416)
         image = image[:, :, :, ::-1].transpose(0, 3, 1, 2)  # BGR to RGB, to bsx3x416x416
+        # Return a contiguous array
         image = np.ascontiguousarray(image)
 
         return self.sources, image, raw_image, None
@@ -277,10 +302,30 @@ class LoadStreams:
         return 0
 
 
-class LoadImagesAndLabels(Dataset):  # for training/testing
-    def __init__(self, path, image_size=416, batch_size=16, augment=False, hyp=None, rect=False, image_weights=False,
-                 cache_labels=True, cache_images=False, single_cls=False):
-        path = str(Path(path))  # os-agnostic
+class LoadImagesAndLabels(Dataset):
+    """ Use in training and testing
+
+    Load pictures and labels from the dataset and convert them to the corresponding format.
+
+    Args:
+        dataset (str): Dataset from which to load the data.
+        image_size (int, optional): Size of loaded pictures. (default:``416``).
+        batch_size (int, optional): How many samples per batch to load. (default: ``16``).
+        augment (bool, optional): Whether image enhancement technology is needed. (default: ``False``).
+        hyp (dict, optional): List of super parameters. (default: ``None``).
+        rect (bool, optional): Whether to adjust to matrix training. (default: ``False``).
+        image_weights (bool, optional): None. (default:``False``).
+        cache_labels (bool, optional): Cache images into memory for faster training
+            (WARNING: large dataset may exceed system RAM).(default:``False``).
+        cache_images(bool, optional): # cache labels into memory for faster training.
+            (WARNING: large dataset may exceed system RAM).(default:``False``).
+        single_cls(bool, optional):  Force dataset into single-class mode. (default:``False``).
+    """
+
+    def __init__(self, dataset, image_size=416, batch_size=16, augment=False, hyp=None, rect=False,
+                 image_weights=False, cache_labels=True, cache_images=False, single_cls=False):
+
+        path = str(Path(dataset))
         assert os.path.isfile(path), f"File not found {path}. See {help_url}"
         with open(path, "r") as f:
             self.image_files = [x.replace("/", os.sep) for x in f.read().splitlines()  # os-agnostic
@@ -316,17 +361,17 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
 
             # Sort by aspect ratio
             s = np.array(s, dtype=np.float64)
-            ar = s[:, 1] / s[:, 0]  # aspect ratio
-            i = ar.argsort()
+            aspect_ratio = s[:, 1] / s[:, 0]  # aspect ratio
+            i = aspect_ratio.argsort()
             self.image_files = [self.image_files[i] for i in i]
             self.label_files = [self.label_files[i] for i in i]
             self.shapes = s[i]  # wh
-            ar = ar[i]
+            aspect_ratio = aspect_ratio[i]
 
             # Set training image shapes
             shapes = [[1, 1]] * batch_num
             for i in range(batch_num):
-                ari = ar[batch_index == i]
+                ari = aspect_ratio[batch_index == i]
                 mini, maxi = ari.min(), ari.max()
                 if maxi < 1:
                     shapes[i] = [maxi, 1]
@@ -338,13 +383,13 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         # Preload labels (required for weighted CE training)
         self.images = [None] * self.image_files_num
         self.labels = [None] * self.image_files_num
-        if cache_labels or image_weights:  # cache labels for faster training
+        if cache_labels or image_weights:
             self.labels = [np.zeros((0, 5))] * self.image_files_num
             extract_bounding_boxes = False
             create_datasubset = False
-            pbar = tqdm(self.label_files, desc="Caching labels")
+            process_bar = tqdm(self.label_files, desc="Caching labels")
             nm, nf, ne, ns, nd = 0, 0, 0, 0, 0  # number missing, found, empty, datasubset, duplicate
-            for i, file in enumerate(pbar):
+            for i, file in enumerate(process_bar):
                 try:
                     with open(file, "r") as f:
                         l = np.array([x.split() for x in f.read().splitlines()], dtype=np.float32)
@@ -360,7 +405,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                     if np.unique(l, axis=0).shape[0] < l.shape[0]:  # duplicate rows
                         nd += 1  # print("WARNING: duplicate rows in %s" % self.label_files[i])  # duplicate rows
                     if single_cls:
-                        l[:, 0] = 0  # force dataset into single-class mode
+                        l[:, 0] = 0
                     self.labels[i] = l
                     nf += 1  # file found
 
@@ -397,29 +442,28 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 else:
                     ne += 1  # print("empty labels for image %s" % self.img_files[i])  # file empty
 
-                pbar.desc = "Caching labels (%g found, %g missing, %g empty, %g duplicate, for %g images)" % (
+                process_bar.desc = "Caching labels (%g found, %g missing, %g empty, %g duplicate, for %g images)" % (
                     nf, nm, ne, nd, self.image_files_num)
             assert nf > 0, "No labels found. See %s" % help_url
 
-        # Cache images into memory for faster training (WARNING: large datasets may exceed system RAM)
         if cache_images:  # if training
-            gb = 0  # Gigabytes of cached images
-            pbar = tqdm(range(len(self.image_files)), desc="Caching images")
+            memory = 0  # Gigabytes of cached images
+            process_bar = tqdm(range(len(self.image_files)), desc="Caching images")
             self.img_hw0, self.img_hw = [None] * self.image_files_num, [None] * self.image_files_num
-            for i in pbar:  # max 10k images
-                self.images[i], self.img_hw0[i], self.img_hw[i] = load_image(self, i)  # img, hw_original, hw_resized
-                gb += self.images[i].nbytes
-                pbar.desc = "Caching images (%.1fGB)" % (gb / 1E9)
+            for i in process_bar:  # max 10k images
+                self.images[i], self.img_hw0[i], self.img_hw[i] = load_image(self, i)  # image, hw_original, hw_resized
+                memory += self.images[i].nbytes
+                process_bar.desc = "Caching images (%.1fGB)" % (memory / 1E9)
 
         # Detect corrupted images https://medium.com/joelthchao/programmatically-detect-corrupted-image-8c1b2006c3d3
         detect_corrupted_images = False
         if detect_corrupted_images:
-            from skimage import io  # conda install -c conda-forge scikit-image
-            for file in tqdm(self.image_files, desc="Detecting corrupted images"):
+            from skimage import io
+            for file in tqdm(self.image_files, desc="Detecting corrupted images..."):
                 try:
                     _ = io.imread(file)
                 except IOError:
-                    print("Corrupted image detected: %s" % file)
+                    print(f"Corrupted image detected: {file}")
 
     def __len__(self):
         return len(self.image_files)
@@ -428,23 +472,23 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         if self.image_weights:
             index = self.indices[index]
 
-        img_path = self.image_files[index]
+        image_path = self.image_files[index]
         label_path = self.label_files[index]
 
         hyp = self.hyp
         if self.mosaic:
             # Load mosaic
-            img, labels = load_mosaic(self, index)
+            images, labels = load_mosaic(self, index)
             shapes = None
 
         else:
             # Load image
-            img, (h0, w0), (h, w) = load_image(self, index)
+            images, (raw_height, raw_width), (height, width) = load_image(self, index)
 
             # Letterbox
             shape = self.batch_shapes[self.batch[index]] if self.rect else self.image_size  # final letterboxed shape
-            img, ratio, pad = letterbox(img, shape, auto=False, scaleup=self.augment)
-            shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
+            images, ratio, pad = letterbox(images, shape, auto=False, scaleup=self.augment)
+            shapes = (raw_height, raw_width), ((height / raw_height, width / raw_width), pad)  # for COCO mAP rescaling
 
             # Load labels
             labels = []
@@ -457,60 +501,56 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 if x.size > 0:
                     # Normalized xywh to pixel xyxy format
                     labels = x.copy()
-                    labels[:, 1] = ratio[0] * w * (x[:, 1] - x[:, 3] / 2) + pad[0]  # pad width
-                    labels[:, 2] = ratio[1] * h * (x[:, 2] - x[:, 4] / 2) + pad[1]  # pad height
-                    labels[:, 3] = ratio[0] * w * (x[:, 1] + x[:, 3] / 2) + pad[0]
-                    labels[:, 4] = ratio[1] * h * (x[:, 2] + x[:, 4] / 2) + pad[1]
+                    labels[:, 1] = ratio[0] * width * (x[:, 1] - x[:, 3] / 2) + pad[0]  # pad width
+                    labels[:, 2] = ratio[1] * height * (x[:, 2] - x[:, 4] / 2) + pad[1]  # pad height
+                    labels[:, 3] = ratio[0] * width * (x[:, 1] + x[:, 3] / 2) + pad[0]
+                    labels[:, 4] = ratio[1] * height * (x[:, 2] + x[:, 4] / 2) + pad[1]
 
         if self.augment:
             # Augment imagespace
             if not self.mosaic:
-                img, labels = random_affine(img, labels,
-                                            degrees=hyp["degrees"],
-                                            translate=hyp["translate"],
-                                            scale=hyp["scale"],
-                                            shear=hyp["shear"])
+                images, labels = random_affine(images, labels,
+                                               degrees=hyp["degrees"],
+                                               translate=hyp["translate"],
+                                               scale=hyp["scale"],
+                                               shear=hyp["shear"])
 
             # Augment colorspace
-            augment_hsv(img, hgain=hyp["hsv_h"], sgain=hyp["hsv_s"], vgain=hyp["hsv_v"])
+            augment_hsv(images, hgain=hyp["hsv_h"], sgain=hyp["hsv_s"], vgain=hyp["hsv_v"])
 
-            # Apply cutouts
-            # if random.random() < 0.9:
-            #     labels = cutout(img, labels)
-
-        nL = len(labels)  # number of labels
-        if nL:
+        labels_num = len(labels)  # number of labels
+        if labels_num:
             # convert xyxy to xywh
             labels[:, 1:5] = xyxy2xywh(labels[:, 1:5])
 
             # Normalize coordinates 0 - 1
-            labels[:, [2, 4]] /= img.shape[0]  # height
-            labels[:, [1, 3]] /= img.shape[1]  # width
+            labels[:, [2, 4]] /= images.shape[0]  # height
+            labels[:, [1, 3]] /= images.shape[1]  # width
 
         if self.augment:
             # random left-right flip
-            lr_flip = True
-            if lr_flip and random.random() < 0.5:
-                img = np.fliplr(img)
-                if nL:
+            fliplr = True
+            if fliplr and random.random() < 0.5:
+                images = np.fliplr(images)
+                if labels_num:
                     labels[:, 1] = 1 - labels[:, 1]
 
             # random up-down flip
-            ud_flip = False
-            if ud_flip and random.random() < 0.5:
-                img = np.flipud(img)
-                if nL:
+            flipud = False
+            if flipud and random.random() < 0.5:
+                images = np.flipud(images)
+                if labels_num:
                     labels[:, 2] = 1 - labels[:, 2]
 
-        labels_out = torch.zeros((nL, 6))
-        if nL:
+        labels_out = torch.zeros((labels_num, 6))
+        if labels_num:
             labels_out[:, 1:] = torch.from_numpy(labels)
 
         # Convert
-        img = img[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
-        img = np.ascontiguousarray(img)
+        images = images[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
+        images = np.ascontiguousarray(images)
 
-        return torch.from_numpy(img), labels_out, img_path, shapes
+        return torch.from_numpy(images), labels_out, image_path, shapes
 
     @staticmethod
     def collate_fn(batch):
@@ -527,21 +567,21 @@ def load_image(self, index):
         img_path = self.image_files[index]
         image = cv2.imread(img_path)  # BGR
         assert image is not None, "Image Not Found " + img_path
-        h0, w0 = image.shape[:2]  # orig hw
-        r = self.image_size / max(h0, w0)  # resize image to img_size
+        raw_height, raw_width = image.shape[:2]  # orig hw
+        r = self.image_size / max(raw_height, raw_width)  # resize image to img_size
         if r < 1 or (self.augment and (r != 1)):  # always resize down, only resize up if training with augmentation
             interp = cv2.INTER_LINEAR if self.augment else cv2.INTER_AREA  # LINEAR for training, AREA for testing
-            image = cv2.resize(image, (int(w0 * r), int(h0 * r)), interpolation=interp)
-        return image, (h0, w0), image.shape[:2]  # img, hw_original, hw_resized
+            image = cv2.resize(image, (int(raw_width * r), int(raw_height * r)), interpolation=interp)
+        return image, (raw_height, raw_width), image.shape[:2]  # img, hw_original, hw_resized
     else:
         return self.images[index], self.img_hw0[index], self.img_hw[index]  # img, hw_original, hw_resized
 
 
 def augment_hsv(img, hgain=0.5, sgain=0.5, vgain=0.5):
     x = np.random.uniform(-1, 1, 3) * [hgain, sgain, vgain] + 1  # random gains
-    img_hsv = (cv2.cvtColor(img, cv2.COLOR_BGR2HSV) * x).clip(None, 255).astype(np.uint8)
-    np.clip(img_hsv[:, :, 0], None, 179, out=img_hsv[:, :, 0])  # inplace hue clip (0 - 179 deg)
-    cv2.cvtColor(img_hsv, cv2.COLOR_HSV2BGR, dst=img)  # no return needed
+    image_hsv = (cv2.cvtColor(img, cv2.COLOR_BGR2HSV) * x).clip(None, 255).astype(np.uint8)
+    np.clip(image_hsv[:, :, 0], None, 179, out=image_hsv[:, :, 0])  # inplace hue clip (0 - 179 deg)
+    cv2.cvtColor(image_hsv, cv2.COLOR_HSV2BGR, dst=img)  # no return needed
 
 
 def load_mosaic(self, index):
@@ -612,9 +652,9 @@ def load_mosaic(self, index):
     return image4, labels4
 
 
-def letterbox(img, new_shape=(416, 416), color=(128, 128, 128),
+def letterbox(image, new_shape=(416, 416), color=(128, 128, 128),
               auto=True, scaleFill=False, scaleup=True, interp=cv2.INTER_AREA):
-    shape = img.shape[:2]  # current shape [height, width]
+    shape = image.shape[:2]  # current shape [height, width]
     if isinstance(new_shape, int):
         new_shape = (new_shape, new_shape)
 
@@ -638,11 +678,11 @@ def letterbox(img, new_shape=(416, 416), color=(128, 128, 128),
     dh /= 2
 
     if shape[::-1] != new_unpad:  # resize
-        img = cv2.resize(img, new_unpad, interpolation=interp)  # INTER_AREA is better, INTER_LINEAR is faster
+        image = cv2.resize(image, new_unpad, interpolation=interp)  # INTER_AREA is better, INTER_LINEAR is faster
     top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
     left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-    img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
-    return img, ratio, (dw, dh)
+    image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
+    return image, ratio, (dw, dh)
 
 
 def random_affine(img, targets=(), degrees=10, translate=.1, scale=.1, shear=10, border=0):
@@ -703,120 +743,6 @@ def random_affine(img, targets=(), degrees=10, translate=.1, scale=.1, shear=10,
         targets[:, 1:5] = xy[i]
 
     return img, targets
-
-
-def cutout(image, labels):
-    # Reference: https://arxiv.org/abs/1708.04552
-    # Reference: https://github.com/hysts/pytorch_cutout/blob/master/dataloader.py
-    h, w = image.shape[:2]
-
-    def bbox_ioa(box1, box2):
-        # Returns the intersection over box2 area given box1, box2. box1 is 4, box2 is nx4. boxes are x1y1x2y2
-        box2 = box2.transpose()
-
-        # Get the coordinates of bounding boxes
-        b1_x1, b1_y1, b1_x2, b1_y2 = box1[0], box1[1], box1[2], box1[3]
-        b2_x1, b2_y1, b2_x2, b2_y2 = box2[0], box2[1], box2[2], box2[3]
-
-        # Intersection area
-        inter_area = (np.minimum(b1_x2, b2_x2) - np.maximum(b1_x1, b2_x1)).clip(0) * \
-                     (np.minimum(b1_y2, b2_y2) - np.maximum(b1_y1, b2_y1)).clip(0)
-
-        # box2 area
-        box2_area = (b2_x2 - b2_x1) * (b2_y2 - b2_y1) + 1e-16
-
-        # Intersection over box2 area
-        return inter_area / box2_area
-
-    # create random masks
-    scales = [0.5] * 1 + [0.25] * 2 + [0.125] * 4 + [0.0625] * 8 + [0.03125] * 16  # image size fraction
-    for s in scales:
-        mask_h = random.randint(1, int(h * s))
-        mask_w = random.randint(1, int(w * s))
-
-        # box
-        xmin = max(0, random.randint(0, w) - mask_w // 2)
-        ymin = max(0, random.randint(0, h) - mask_h // 2)
-        xmax = min(w, xmin + mask_w)
-        ymax = min(h, ymin + mask_h)
-
-        # apply random color mask
-        image[ymin:ymax, xmin:xmax] = [random.randint(64, 191) for _ in range(3)]
-
-        # return unobscured labels
-        if len(labels) and s > 0.03:
-            box = np.array([xmin, ymin, xmax, ymax], dtype=np.float32)
-            ioa = bbox_ioa(box, labels[:, 1:5])  # intersection over area
-            labels = labels[ioa < 0.60]  # remove >60% obscured labels
-
-    return labels
-
-
-def reduce_img_size(path="../data/sm4/images", img_size=1024):  # from utils.datasets import *; reduce_img_size()
-    # creates a new ./images_reduced folder with reduced size images of maximum size img_size
-    path_new = path + "_reduced"  # reduced images path
-    create_folder(path_new)
-    for f in tqdm(glob.glob("%s/*.*" % path)):
-        try:
-            img = cv2.imread(f)
-            h, w = img.shape[:2]
-            r = img_size / max(h, w)  # size ratio
-            if r < 1.0:
-                img = cv2.resize(img, (int(w * r), int(h * r)), interpolation=cv2.INTER_AREA)  # _LINEAR fastest
-            fnew = f.replace(path, path_new)  # .replace(Path(f).suffix, ".jpg")
-            cv2.imwrite(fnew, img)
-        except:
-            print("WARNING: image failure %s" % f)
-
-
-def convert_images2bmp():  # from utils.datasets import *; convert_images2bmp()
-    # Save images
-    formats = [x.lower() for x in image_formats] + [x.upper() for x in image_formats]
-    for path in ["../data/sm4/images", "../data/sm4/background"]:
-        create_folder(path + "bmp")
-        for ext in formats:
-            for f in tqdm(glob.glob("%s/*%s" % (path, ext)), desc="Converting %s" % ext):
-                cv2.imwrite(f.replace(ext.lower(), ".bmp").replace(path, path + "bmp"), cv2.imread(f))
-
-    # Save labels
-    for file in ["../data/sm4/out_train.txt", "../data/sm4/out_test.txt"]:
-        with open(file, "r") as f:
-            lines = f.read()
-            lines = lines.replace("/images", "/imagesbmp")
-            lines = lines.replace("/background", "/backgroundbmp")
-        for ext in formats:
-            lines = lines.replace(ext, ".bmp")
-        with open(file.replace(".txt", "bmp.txt"), "w") as f:
-            f.write(lines)
-
-
-def recursive_dataset2bmp(dataset="../data/sm4_bmp"):  # from utils.datasets import *; recursive_dataset2bmp()
-    # Converts dataset to bmp (for faster training)
-    formats = [x.lower() for x in image_formats] + [x.upper() for x in image_formats]
-    for a, b, files in os.walk(dataset):
-        for file in tqdm(files, desc=a):
-            p = a + "/" + file
-            s = Path(file).suffix
-            if s == ".txt":  # replace text
-                with open(p, "r") as f:
-                    lines = f.read()
-                for f in formats:
-                    lines = lines.replace(f, ".bmp")
-                with open(p, "w") as f:
-                    f.write(lines)
-            elif s in formats:  # replace image
-                cv2.imwrite(p.replace(s, ".bmp"), cv2.imread(p))
-                if s != ".bmp":
-                    os.system("rm `%s`" % p)
-
-
-def imagelist2folder(path="data/coco_64img.txt"):  # from utils.datasets import *; imagelist2folder()
-    # Copies all the images in a text file (list of images) into a folder
-    create_folder(path[:-4])
-    with open(path, "r") as f:
-        for line in f.read().splitlines():
-            os.system("cp `%s` %s" % (line, path[:-4]))
-            print(line)
 
 
 def create_folder(path="./new_folder"):
