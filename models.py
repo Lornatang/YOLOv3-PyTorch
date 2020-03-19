@@ -23,11 +23,6 @@ from utils import fuse_conv_and_bn
 from utils import model_info
 from utils import parse_model_config
 
-try:
-    from thop import profile
-except ImportError:
-    raise Exception("Tools for computing models require additional installation. Please run `python3 -m pip install "
-                    "thop`")
 
 ONNX_EXPORT = False
 
