@@ -376,7 +376,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=273,
                         help="Note: 500200 batches at bs 16, 117263 COCO images = 273 epochs. (default=273)"
-                             "Formula: Epochs = max_batches / (len(train_dataset)/batch-size) * accumulate.")
+                             "Formula: Epochs = max_batches / (len(train_dataset)/(batch-size * accumulate)).")
     parser.add_argument("--batch-size", type=int, default=16,
                         help="Note: Effective bs = batch_size * accumulate = 16 * 4 = 64. (default=16)")
     parser.add_argument("--accumulate", type=int, default=4,
