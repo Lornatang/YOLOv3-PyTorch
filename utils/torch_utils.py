@@ -130,15 +130,18 @@ def load_classifier(name="resnet101", n=2):
 
 def model_info(model, verbose=False):
     # Plots a line-by-line description of a PyTorch model
-    n_p = sum(x.numel() for x in model.parameters())  # number parameters
-    n_g = sum(x.numel() for x in model.parameters() if x.requires_grad)  # number gradients
+    parameter_num = sum(x.numel() for x in model.parameters())
+    gradient_num = sum(x.numel() for x in model.parameters() if x.requires_grad)
+
     if verbose:
         print("%5s %40s %9s %12s %20s %10s %10s" % ("layer", "name", "gradient", "parameters", "shape", "mu", "sigma"))
-        for i, (name, p) in enumerate(model.named_parameters()):
+        for i, (name, parameter) in enumerate(model.named_parameters()):
             name = name.replace("module_list.", "")
-            print("%5g %40s %9s %12g %20s %10.3g %10.3g" %
-                  (i, name, p.requires_grad, p.numel(), list(p.shape), p.mean(), p.std()))
-    print("Model Summary: %g layers, %g parameters, %g gradients" % (len(list(model.parameters())), n_p, n_g))
+            print(f"{i:5g} {name:40s} {parameter.requires_grad:9s} {parameter.numel():12g} "
+                  f"{list(parameter.shape):20s} {parameter.mean():20s} {parameter.std():10.3g}")
+
+    print(f"Model Summary: {len(list(model.parameters()))} layers, "
+          f"{parameter_num} parameters, {gradient_num} gradients")
 
 
 def scale_image(image, ratio=1.0):  # image(16,3,256,416), ratio=1.0

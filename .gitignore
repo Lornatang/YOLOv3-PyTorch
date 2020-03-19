@@ -137,8 +137,6 @@ weights/*.pth
 runs
 results.txt
 results.json
-test_batch0.png
-train_batch0.png
-yolov3-tiny-voc.png
+*.png
 video
 *.tgz
