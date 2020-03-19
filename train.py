@@ -92,10 +92,10 @@ def train():
         print(f"Using multi-scale {img_sz_min * 32} - {image_size}")
 
     # Configure run
-    data_dict = parse_data_config(data)
-    train_path = data_dict["train"]
-    valid_path = data_dict["valid"]
-    nc = 1 if args.single_cls else int(data_dict["classes"])  # number of classes
+    dataset_dict = parse_data_config(data)
+    train_path = dataset_dict["train"]
+    valid_path = dataset_dict["valid"]
+    nc = 1 if args.single_cls else int(dataset_dict["classes"])  # number of classes
 
     # Remove previous results
     for files in glob.glob("results.txt"):
