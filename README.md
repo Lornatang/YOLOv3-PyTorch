@@ -5,6 +5,7 @@
 <p align="center"><img src="assets/zidane.jpg" width="608"></p>
 
 ### Overview
+This project is based on [ultralytics/yolov3](https://github.com/ultralytics/yolov3).Thanks.
 This project is a [YOLOv3](http://xxx.itp.ac.cn/abs/1804.02767) object detection system. Development framework by [PyTorch](https://pytorch.org/).
 
 The goal of this implementation is to be simple, highly extensible, and easy to integrate into your own projects. This implementation is a work in progress -- new features are currently being implemented.  
