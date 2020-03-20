@@ -698,4 +698,4 @@ def plot_results(start=0, stop=0):  # from utils.utils import *; plot_results()
 
     fig.tight_layout()
     ax[1].legend()
-    fig.savefig("results.png", dpi=200)
+    fig.savefig("yolov4-tiny-mask.png", dpi=200)
