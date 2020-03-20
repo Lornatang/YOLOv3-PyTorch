@@ -554,19 +554,19 @@ class LoadImagesAndLabels(Dataset):
 
     @staticmethod
     def collate_fn(batch):
-        img, label, path, shapes = zip(*batch)  # transposed
+        image, label, path, shapes = zip(*batch)  # transposed
         for i, l in enumerate(label):
             l[:, 0] = i  # add target image index for build_targets()
-        return torch.stack(img, 0), torch.cat(label, 0), path, shapes
+        return torch.stack(image, 0), torch.cat(label, 0), path, shapes
 
 
 def load_image(self, index):
     # loads 1 image from dataset, returns img, original hw, resized hw
     image = self.images[index]
     if image is None:  # not cached
-        img_path = self.image_files[index]
-        image = cv2.imread(img_path)  # BGR
-        assert image is not None, "Image Not Found " + img_path
+        image_path = self.image_files[index]
+        image = cv2.imread(image_path)  # BGR
+        assert image is not None, "Image Not Found " + image_path
         raw_height, raw_width = image.shape[:2]  # orig hw
         r = self.image_size / max(raw_height, raw_width)  # resize image to img_size
         if r < 1 or (self.augment and (r != 1)):  # always resize down, only resize up if training with augmentation
@@ -577,16 +577,15 @@ def load_image(self, index):
         return self.images[index], self.img_hw0[index], self.img_hw[index]  # img, hw_original, hw_resized
 
 
-def augment_hsv(img, hgain=0.5, sgain=0.5, vgain=0.5):
+def augment_hsv(image, hgain=0.5, sgain=0.5, vgain=0.5):
     x = np.random.uniform(-1, 1, 3) * [hgain, sgain, vgain] + 1  # random gains
-    image_hsv = (cv2.cvtColor(img, cv2.COLOR_BGR2HSV) * x).clip(None, 255).astype(np.uint8)
+    image_hsv = (cv2.cvtColor(image, cv2.COLOR_BGR2HSV) * x).clip(None, 255).astype(np.uint8)
     np.clip(image_hsv[:, :, 0], None, 179, out=image_hsv[:, :, 0])  # inplace hue clip (0 - 179 deg)
-    cv2.cvtColor(image_hsv, cv2.COLOR_HSV2BGR, dst=img)  # no return needed
+    cv2.cvtColor(image_hsv, cv2.COLOR_HSV2BGR, dst=image)  # no return needed
 
 
 def load_mosaic(self, index):
     # loads images in a mosaic
-
     labels4 = []
     image_size = self.image_size
     # mosaic center x, y
@@ -745,7 +744,7 @@ def random_affine(img, targets=(), degrees=10, translate=.1, scale=.1, shear=10,
     return img, targets
 
 
-def create_folder(path="./new_folder"):
+def create_folder(path="./output"):
     # Create folder
     if os.path.exists(path):
         shutil.rmtree(path)  # delete output folder
