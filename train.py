@@ -57,7 +57,7 @@ parameters = {"giou": 3.54,  # giou loss gain
               "lrf": -4.,  # final LambdaLR learning rate = lr0 * (10 ** lrf)
               "momentum": 0.937,  # SGD momentum
               "weight_decay": 0.000484,  # optimizer weight decay
-              'fl_gamma': 0.0,  # focal loss gamma (efficientDet default is gamma=1.5)
+              'fl_gamma': 0.0,  # focal loss gamma (default is gamma=1.5)
               "hsv_h": 0.0138,  # image HSV-Hue augmentation (fraction)
               "hsv_s": 0.678,  # image HSV-Saturation augmentation (fraction)
               "hsv_v": 0.36,  # image HSV-Value augmentation (fraction)
@@ -77,25 +77,31 @@ if parameter_file:
 def train():
     cfg = args.cfg
     data = args.data
-    image_size, img_size_val = args.image_size if len(args.image_size) == 2 else args.image_size * 2  # train, val sizes
-    epochs = args.epochs  # 500200 batches at batch size 64, 117263 images = 273 epochs
+    if len(args.image_size) == 2:
+        image_size, image_size_val = args.image_size[0], args.image_size[1]
+    else:
+        image_size, image_size_val = args.image_size
+
+    epochs = args.epochs
     batch_size = args.batch_size
-    accumulate = args.accumulate  # effective bs = batch_size * accumulate = 16 * 4 = 64
-    weights = args.weights  # initial training weights
+    accumulate = args.accumulate
+    weights = args.weights
 
     # Initialize
     init_seeds()
+    image_size_min = 6.6  # 320 / 32 / 1.5
+    image_size_max = 28.5  # 320 / 32 / 28.5
     if args.multi_scale:
-        img_sz_min = round(image_size / 32 / 1.5)
-        img_sz_max = round(image_size / 32 * 1.5)
-        image_size = img_sz_max * 32  # initiate with maximum multi_scale size
-        print(f"Using multi-scale {img_sz_min * 32} - {image_size}")
+        image_size_min = round(image_size / 32 / 1.5)
+        image_size_max = round(image_size / 32 * 1.5)
+        image_size = image_size_max * 32  # initiate with maximum multi_scale size
+        print(f"Using multi-scale {image_size_min * 32} - {image_size}")
 
     # Configure run
     dataset_dict = parse_data_config(data)
     train_path = dataset_dict["train"]
     valid_path = dataset_dict["valid"]
-    nc = 1 if args.single_cls else int(dataset_dict["classes"])  # number of classes
+    num_classes = 1 if args.single_cls else int(dataset_dict["classes"])
 
     # Remove previous results
     for files in glob.glob("results.txt"):
@@ -106,33 +112,38 @@ def train():
 
     # Optimizer
     pg0, pg1, pg2 = [], [], []  # optimizer parameter groups
-    for k, v in dict(model.named_parameters()).items():
-        if ".bias" in k:
-            pg2 += [v]  # biases
-        elif "Conv2d.weight" in k:
-            pg1 += [v]  # apply weight_decay
+    for model_key, model_value in dict(model.named_parameters()).items():
+        if ".bias" in model_key:
+            pg2 += [model_value]  # biases
+        elif "Conv2d.weight" in model_key:
+            pg1 += [model_value]  # apply weight_decay
         else:
-            pg0 += [v]  # all else
+            pg0 += [model_value]  # all else
 
-    optimizer = torch.optim.SGD(pg0, lr=parameters["lr0"], momentum=parameters["momentum"], nesterov=True)
-    optimizer.add_param_group({"params": pg1, "weight_decay": parameters["weight_decay"]})  # add pg1 with weight_decay
-    optimizer.add_param_group({"params": pg2})  # add pg2 (biases)
+    optimizer = torch.optim.SGD(pg0,
+                                lr=parameters["lr0"],
+                                momentum=parameters["momentum"],
+                                nesterov=True)
+    optimizer.add_param_group({"params": pg1,
+                               # add pg1 with weight_decay
+                               "weight_decay": parameters["weight_decay"]})
+    optimizer.add_param_group({"params": pg2})  # add pg2 with biases
     del pg0, pg1, pg2
 
     epoch = 0
     start_epoch = 0
     best_fitness = 0.0
     if weights.endswith(".pth"):
-        # possible weights are "yolov3.pth", "yolov3-spp.pth", "yolov3-tiny.pth" etc.
         state = torch.load(weights, map_location=device)
-
         # load model
         try:
-            state["model"] = {k: v for k, v in state["model"].items() if model.state_dict()[k].numel() == v.numel()}
+            state["model"] = {k: v for k, v in state["model"].items()
+                              if model.state_dict()[k].numel() == v.numel()}
             model.load_state_dict(state["model"], strict=False)
         except KeyError as e:
             error_msg = f"{args.weights} is not compatible with {args.cfg}. "
-            error_msg += f"Specify --weights `` or specify a --cfg compatible with {args.weights}. "
+            error_msg += f"Specify --weights `` or specify a --cfg " \
+                         f"compatible with {args.weights}. "
             raise KeyError(error_msg) from e
 
         # load optimizer
@@ -156,53 +167,64 @@ def train():
 
     # Mixed precision training https://github.com/NVIDIA/apex
     if mixed_precision:
-        model, optimizer = amp.initialize(model, optimizer, opt_level="O1", verbosity=0)
-
-    lf = lambda x: (1 + math.cos(x * math.pi / epochs)) / 2  # cosine https://arxiv.org/pdf/1812.01187.pdf
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf, last_epoch=start_epoch - 1)
+        model, optimizer = amp.initialize(model, optimizer, opt_level="O1",
+                                          verbosity=0)
+    # source https://arxiv.org/pdf/1812.01187.pdf
+    lr_lambda = lambda lr: (1 + math.cos(lr * math.pi / epochs)) / 2
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
+                                                  lr_lambda=lr_lambda,
+                                                  last_epoch=start_epoch - 1)
 
     # Initialize distributed training
     if device.type != "cpu" and torch.cuda.device_count() > 1 and torch.distributed.is_available():
         dist.init_process_group(backend="nccl",  # "distributed backend"
-                                init_method="tcp://127.0.0.1:9999",  # distributed training init method
-                                world_size=1,  # number of nodes for distributed training
-                                rank=0)  # distributed training node rank
+                                # distributed training init method
+                                init_method="tcp://127.0.0.1:9999",
+                                # number of nodes for distributed training
+                                world_size=1,
+                                # distributed training node rank
+                                rank=0)
         model = torch.nn.parallel.DistributedDataParallel(model)
-        model.yolo_layers = model.module.yolo_layers  # move yolo layer indices to top level
+        model.yolo_layers = model.module.yolo_layers
 
     # Dataset
+    # Apply augmentation hyperparameters (option: rectangular training)
     train_dataset = LoadImagesAndLabels(train_path, image_size, batch_size,
                                         augment=True,
-                                        hyp=parameters,  # augmentation hyperparameters
-                                        rect=args.rect,  # rectangular training
+                                        hyp=parameters,
+                                        rect=args.rect,
                                         cache_images=args.cache_images,
                                         single_cls=args.single_cls)
-    valid_dataset = LoadImagesAndLabels(valid_path, img_size_val, batch_size * 2,
+    # No apply augmentation hyperparameters and rectangular inference
+    valid_dataset = LoadImagesAndLabels(valid_path, image_size_val,
+                                        batch_size * 2,
                                         augment=False,
-                                        hyp=parameters,  # no apply augmentation hyperparameters
-                                        rect=True,  # rectangular inference
+                                        hyp=parameters,
+                                        rect=True,
                                         cache_images=args.cache_images,
                                         single_cls=args.single_cls)
-
+    collate_fn = train_dataset.collate_fn
     # Dataloader
     train_dataloader = torch.utils.data.DataLoader(train_dataset,
                                                    batch_size=batch_size,
                                                    num_workers=args.workers,
                                                    shuffle=not args.rect,
                                                    pin_memory=True,
-                                                   collate_fn=train_dataset.collate_fn)
+                                                   collate_fn=collate_fn)
     valid_dataloader = torch.utils.data.DataLoader(valid_dataset,
                                                    batch_size=batch_size * 2,
                                                    num_workers=args.workers,
                                                    shuffle=False,
                                                    pin_memory=True,
-                                                   collate_fn=train_dataset.collate_fn)
+                                                   collate_fn=collate_fn)
 
     # Model parameters
-    model.nc = nc  # attach number of classes to model
+    model.nc = num_classes  # attach number of classes to model
     model.hyp = parameters  # attach hyperparameters to model
     model.gr = 0.0  # giou loss ratio (obj_loss = 1.0 or giou)
-    model.class_weights = labels_to_class_weights(train_dataset.labels, nc).to(device)  # attach class weights
+    # attach class weights
+    model.class_weights = \
+        labels_to_class_weights(train_dataset.labels, num_classes).to(device)
 
     # Model EMA
     # ema = ModelEMA(model, decay=0.9998)
@@ -210,8 +232,9 @@ def train():
     # Start training
     batches_num = len(train_dataloader)  # number of batches
     prebias = start_epoch == 0
-    maps = np.zeros(nc)  # mAP per class
-    results = (0, 0, 0, 0, 0, 0, 0)  # 'P', 'R', 'mAP', 'F1', 'val GIoU', 'val Objectness', 'val Classification'
+    maps = np.zeros(num_classes)  # mAP per class
+    # 'P', 'R', 'mAP', 'F1', 'val GIoU', 'val Objectness', 'val Classification'
+    results = (0, 0, 0, 0, 0, 0, 0)
     print(f"Using {args.workers} dataloader workers.")
     print(f"Starting training for {args.epochs} epochs...")
 
@@ -221,53 +244,69 @@ def train():
 
         # Prebias
         if prebias:
-            ne = 3  # number of prebias epochs
-            ps = 0.1, 0.9  # prebias settings (lr=0.1, momentum=0.9)
+            pre_epochs = 3  # number of prebias epochs
+            prebias_set = 0.1, 0.9  # prebias settings (lr=0.1, momentum=0.9)
 
-            if epoch == ne:
-                ps = parameters['lr0'], parameters['momentum']  # normal training settings
+            if epoch == pre_epochs:
+                # normal training settings
+                prebias_set = parameters['lr0'], parameters['momentum']
                 model.gr = 1.0  # giou loss ratio (obj_loss = giou)
                 print_model_biases(model)
                 prebias = False
 
             # Bias optimizer settings
-            optimizer.param_groups[2]["lr"] = ps[0]
-            if optimizer.param_groups[2].get("momentum") is not None:  # for SGD but not Adam
-                optimizer.param_groups[2]["momentum"] = ps[1]
+            optimizer.param_groups[2]["lr"] = prebias_set[0]
+            if optimizer.param_groups[2].get("momentum") is not None:
+                optimizer.param_groups[2]["momentum"] = prebias_set[1]
 
         # Update image weights (optional)
         if train_dataset.image_weights:
-            w = model.class_weights.cpu().numpy() * (1 - maps) ** 2  # class weights
-            image_weights = labels_to_image_weights(train_dataset.labels, nc=nc, class_weights=w)
-            # rand weighted idx
-            train_dataset.indices = random.choices(range(train_dataset.image_files_num), weights=image_weights,
-                                                   k=train_dataset.image_files_num)
+            class_weights = model.class_weights.cpu().numpy() * (
+                    1 - maps) ** 2  # class weights
+            image_weights = labels_to_image_weights(train_dataset.labels,
+                                                    num_classes=num_classes,
+                                                    class_weights=class_weights)
+            # rand weighted index
+            train_dataset.indices = random.choices(
+                range(train_dataset.image_files_num),
+                weights=image_weights,
+                k=train_dataset.image_files_num)
 
         mean_losses = torch.zeros(4).to(device)
         print("\n")
-        print(("%10s" * 8) % ("Epoch", "memory", "GIoU", "obj", "cls", "total", "targets", " image_size"))
+        print(("%10s" * 8) % (
+            "Epoch", "memory", "GIoU", "obj", "cls", "total", "targets",
+            " image_size"))
         progress_bar = tqdm(enumerate(train_dataloader), total=batches_num)
-        for i, (images, targets, paths, _) in progress_bar:
-            ni = i + batches_num * epoch  # number integrated batches (since train start)
-            images = images.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
+        for index, (images, targets, paths, _) in progress_bar:
+            # number integrated batches (since train start)
+            ni = index + batches_num * epoch
+            # uint8 to float32, 0 - 255 to 0.0 - 1.0
+            images = images.to(device).float() / 255.0
             targets = targets.to(device)
 
-            # Hyperparameter Burn-in
+            # Hyper parameter Burn-in
             n_burn = 200  # number of burn-in batches
             if ni <= n_burn:
-                for x in model.named_modules():  # initial stats may be poor, wait to track
-                    if x[0].endswith('BatchNorm2d'):
-                        x[1].track_running_stats = ni == n_burn
+                for m in model.named_modules():
+                    if m[0].endswith('BatchNorm2d'):
+                        m[1].track_running_stats = ni == n_burn
 
             # Multi-Scale training
             if args.multi_scale:
-                if ni / accumulate % 1 == 0:  #  adjust img_size (67% - 150%) every 1 batch
-                    image_size = random.randrange(img_sz_min, img_sz_max + 1) * 32
-                sf = image_size / max(images.shape[2:])  # scale factor
-                if sf != 1:
-                    ns = [math.ceil(x * sf / 32.) * 32 for x in
-                          images.shape[2:]]  # new shape (stretched to 32-multiple)
-                    images = F.interpolate(images, size=ns, mode="bilinear", align_corners=False)
+                #  adjust img_size (67% - 150%) every 1 batch
+                if ni / accumulate % 1 == 0:
+                    image_size = random.randrange(image_size_min,
+                                                  image_size_max + 1) * 32
+                scale_ratio = image_size / max(images.shape[2:])
+                if scale_ratio != 1:
+                    # new shape (stretched to 32-multiple)
+                    new_size = [math.ceil(size * scale_ratio / 32.) * 32
+                                for size in images.shape[2:]]
+                    images = F.interpolate(images,
+                                           size=new_size,
+                                           mode="bilinear",
+                                           align_corners=False)
 
             # Run model
             output = model(images)
@@ -275,7 +314,8 @@ def train():
             # Compute loss
             loss, loss_items = compute_loss(output, targets, model)
             if not torch.isfinite(loss):
-                warnings.warn(f"WARNING: Non-finite loss, ending training {loss_items}")
+                warnings.warn(
+                    f"WARNING: Non-finite loss, ending training {loss_items}")
                 return results
 
             # Scale loss by nominal batch_size of 64
@@ -295,45 +335,53 @@ def train():
                 # ema.update(model)
 
             # Print batch results
-            mean_losses = (mean_losses * i + loss_items) / (i + 1)  # update mean losses
+            # update mean losses
+            mean_losses = (mean_losses * index + loss_items) / (index + 1)
             memory = f"{torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0:.2f}G"
-            s = ("%10s" * 2 + "%10.3g" * 6) % (
-                "%g/%g" % (epoch, args.epochs - 1), memory, *mean_losses, len(targets), image_size)
-            progress_bar.set_description(s)
+            progress_bar.set_description(("%10s" * 2 + "%10.3g" * 6)
+                                         % ("%g/%g" % (epoch, args.epochs - 1),
+                                            memory, *mean_losses,
+                                            len(targets), image_size))
 
         # Update scheduler
-        scheduler.step(epoch)
+        scheduler.step()
 
         # Process epoch results
         # ema.update_attr(model)
         final_epoch = epoch + 1 == epochs
         if not args.notest or final_epoch:  # Calculate mAP
-            is_coco = any([x in data for x in ['coco.data', 'coco2014.data', 'coco2017.data']]) and model.nc == 80
+            coco = any([coco_name in data
+                        for coco_name in ['coco.data',
+                                          'coco2014.data',
+                                          'coco2017.data']]) and model.nc == 80
             results, maps = evaluate(cfg,
                                      data,
                                      batch_size=batch_size * 2,
-                                     image_size=img_size_val,
+                                     image_size=image_size_val,
                                      model=model,
                                      confidence_threshold=0.001 if final_epoch else 0.01,
                                      iou_threshold=0.6,
-                                     save_json=final_epoch and is_coco,
+                                     save_json=final_epoch and coco,
                                      single_cls=args.single_cls,
                                      dataloader=valid_dataloader)
 
         # Write epoch results
         with open("results.txt", "a") as f:
-            f.write(s + "%10.3g" * 7 % results + "\n")  # P, R, mAP, F1, test_losses=(GIoU, obj, cls)
+            # P, R, mAP, F1, test_losses=(GIoU, obj, cls)
+            f.write(s + "%10.3g" * 7 % results)
+            f.write("\n")
 
         # Write Tensorboard results
         if tb_writer:
-            x = list(mean_losses) + list(results)
             titles = ["GIoU", "Objectness", "Classification", "Train loss",
-                      "Precision", "Recall", "mAP", "F1", "val GIoU", "val Objectness", "val Classification"]
-            for xi, title in zip(x, titles):
+                      "Precision", "Recall", "mAP", "F1", "val GIoU",
+                      "val Objectness", "val Classification"]
+            for xi, title in zip(list(mean_losses) + list(results), titles):
                 tb_writer.add_scalar(title, xi, epoch)
 
         # Update best mAP
-        fitness_i = fitness(np.array(results).reshape(1, -1))  # fitness_i = weighted combination of [P, R, mAP, F1]
+        # fitness_i = weighted combination of [P, R, mAP, F1]
+        fitness_i = fitness(np.array(results).reshape(1, -1))
         if fitness_i > best_fitness:
             best_fitness = fitness_i
 
@@ -345,8 +393,10 @@ def train():
                 state = {'epoch': epoch,
                          'best_fitness': best_fitness,
                          'training_results': f.read(),
-                         'model': model.module.state_dict() if hasattr(model, 'module') else model.state_dict(),
-                         'optimizer': None if final_epoch else optimizer.state_dict()}
+                         'model': model.module.state_dict()
+                         if hasattr(model, 'module') else model.state_dict(),
+                         'optimizer': None
+                         if final_epoch else optimizer.state_dict()}
 
         # Save last checkpoint
         torch.save(state, "weights/checkpoint.pth")
@@ -365,7 +415,8 @@ def train():
 
     if not args.evolve:
         plot_results()  # save as results.png
-    print(f"{epoch - start_epoch} epochs completed in {(time.time() - start_time) / 3600:.3f} hours.\n")
+    print(f"{epoch - start_epoch} epochs completed "
+          f"in "f"{(time.time() - start_time) / 3600:.3f} hours.\n")
     dist.destroy_process_group() if torch.cuda.device_count() > 1 else None
     torch.cuda.empty_cache()
 
@@ -375,37 +426,52 @@ def train():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=273,
-                        help="Note: 500200 batches at bs 16, 117263 COCO images = 273 epochs. (default=273)"
-                             "Formula: Epochs = max_batches / (len(train_dataset)/(batch-size * accumulate)).")
+                        help="500200 is yolov3 max batches. (default: 237)"
+                             "Formula: Epochs = 500200 / (117263 / 64).")
     parser.add_argument("--batch-size", type=int, default=16,
-                        help="Note: Effective bs = batch_size * accumulate = 16 * 4 = 64. (default=16)")
+                        help="mini-batch size (default: 16), this is the total "
+                             "batch size of all GPUs on the current node when "
+                             "using Data Parallel or Distributed Data Parallel"
+                             "Effective batch size is batch_size * accumulate.")
     parser.add_argument("--accumulate", type=int, default=4,
-                        help="Batches to accumulate before optimizing. (default=4)")
+                        help="Batches to accumulate before optimizing. "
+                             "(default: 4)")
     parser.add_argument("--cfg", type=str, default="cfg/yolov3.cfg",
-                        help="Neural network profile path. (default=`cfg/yolov3.cfg`)")
+                        help="Neural network profile path. "
+                             "(default: cfg/yolov3.cfg)")
     parser.add_argument("--data", type=str, default="data/coco2014.data",
-                        help="Dataload load path. (default=`cfg/coco2014.data`)")
+                        help="Path to dataset. (default: cfg/coco2014.data)")
     parser.add_argument('--workers', default=4, type=int, metavar='N',
                         help='Number of data loading workers (default: 4)')
-    parser.add_argument("--multi-scale", action="store_true", help="adjust (67% - 150%) img_size every 10 batches")
+    parser.add_argument("--multi-scale", action="store_true",
+                        help="adjust (67% - 150%) img_size every 10 batches")
     parser.add_argument("--image-size", nargs='+', type=int, default=[416],
-                        help="Size of processing picture. (default=[416])")
-    parser.add_argument("--rect", action="store_true", help="rectangular training for faster training.")
-    parser.add_argument("--resume", action="store_true", help="resume training from checkpoint.pth")
-    parser.add_argument('--nosave', action='store_true', help='only save final checkpoint')
-    parser.add_argument('--notest', action='store_true', help='only test final epoch')
-    parser.add_argument('--evolve', action='store_true', help='evolve hyperparameters')
-    parser.add_argument("--cache-images", action="store_true", help="cache images for faster training.")
+                        help="Size of processing picture. (default: [416])")
+    parser.add_argument("--rect", action="store_true",
+                        help="rectangular training for faster training.")
+    parser.add_argument("--resume", action="store_true",
+                        help="resume training from checkpoint.pth")
+    parser.add_argument('--nosave', action='store_true',
+                        help='only save final checkpoint')
+    parser.add_argument('--notest', action='store_true',
+                        help='only test final epoch')
+    parser.add_argument('--evolve', action='store_true',
+                        help='evolve hyperparameters')
+    parser.add_argument("--cache-images", action="store_true",
+                        help="cache images for faster training.")
     parser.add_argument("--weights", type=str, default="",
-                        help="Model file weight path. (default=``)")
-    parser.add_argument("--device", default="", help="device id (i.e. 0 or 0,1 or cpu)")
-    parser.add_argument("--single-cls", action="store_true", help="train as single-class dataset")
+                        help="Model file weight path. (default: ``)")
+    parser.add_argument("--device", default="",
+                        help="device id (i.e. 0 or 0,1 or cpu)")
+    parser.add_argument("--single-cls", action="store_true",
+                        help="train as single-class dataset")
     args = parser.parse_args()
     args.weights = "weights/checkpoint.pth" if args.resume else args.weights
 
     print(args)
 
-    device = select_device(args.device, apex=mixed_precision, batch_size=args.batch_size)
+    device = select_device(args.device, apex=mixed_precision,
+                           batch_size=args.batch_size)
     if device.type == "cpu":
         mixed_precision = False
 
@@ -430,7 +496,8 @@ if __name__ == "__main__":
         args.notest, args.nosave = True, True  # only test/save final epoch
 
         for _ in range(1):  # generations to evolve
-            if os.path.exists('evolve.txt'):  # if evolve.txt exists: select best hyps and mutate
+            if os.path.exists(
+                    'evolve.txt'):  # if evolve.txt exists: select best hyps and mutate
                 # Select parent(s)
                 parent = 'single'  # parent selection method: 'single' or 'weighted'
                 x = np.loadtxt('evolve.txt', ndmin=2)
@@ -438,35 +505,46 @@ if __name__ == "__main__":
                 x = x[np.argsort(-fitness(x))][:n]  # top n mutations
                 w = fitness(x) - fitness(x).min()  # weights
                 if parent == 'single' or len(x) == 1:
-                    x = x[random.choices(range(n), weights=w)[0]]  # weighted selection
+                    x = x[random.choices(range(n), weights=w)[
+                        0]]  # weighted selection
                 elif parent == 'weighted':
-                    x = (x * w.reshape(n, 1)).sum(0) / w.sum()  # weighted combination
+                    x = (x * w.reshape(n, 1)).sum(
+                        0) / w.sum()  # weighted combination
 
                 # Mutate
                 method, mp, s = 3, 0.9, 0.2  # method, mutation probability, sigma
-                npr = np.random
-                npr.seed(int(time.time()))
-                g = np.array([1, 1, 1, 1, 1, 1, 1, 0, .1, 1, 0, 1, 1, 1, 1, 1, 1, 1])  # gains
+                np.random.seed(int(time.time()))
+                # gains
+                g = np.array(
+                    [1, 1, 1, 1, 1, 1, 1, 0, .1, 1, 0, 1, 1, 1, 1, 1, 1, 1])
                 ng = len(g)
                 if method == 1:
-                    v = (npr.randn(ng) * npr.random() * g * s + 1) ** 2.0
+                    v = (np.random.randn(ng) *
+                         np.random.random() * g * s + 1) ** 2.0
                 elif method == 2:
-                    v = (npr.randn(ng) * npr.random(ng) * g * s + 1) ** 2.0
+                    v = (np.random.randn(ng) *
+                         np.random.random(ng) * g * s + 1) ** 2.0
                 elif method == 3:
                     v = np.ones(ng)
-                    while all(v == 1):  # mutate until a change occurs (prevent duplicates)
-                        v = (g * (npr.random(ng) < mp) * npr.randn(ng) * npr.random() * s + 1).clip(0.3, 3.0)
-                for i, k in enumerate(parameters.keys()):  # plt.hist(v.ravel(), 300)
+                    # mutate until a change occurs (prevent duplicates)
+                    while all(v == 1):
+                        v = (g * (np.random.random(ng) < mp) *
+                             np.random.randn(ng) *
+                             np.random.random() * s + 1).clip(0.3, 3.0)
+                for i, k in enumerate(
+                        parameters.keys()):  # plt.hist(v.ravel(), 300)
                     parameters[k] = x[i + 7] * v[i]  # mutate
 
             # Clip to limits
-            keys = ['lr0', 'iou_t', 'momentum', 'weight_decay', 'hsv_s', 'hsv_v', 'translate', 'scale', 'fl_gamma']
-            limits = [(1e-5, 1e-2), (0.00, 0.70), (0.60, 0.98), (0, 0.001), (0, .9), (0, .9), (0, .9), (0, .9), (0, 3)]
+            keys = ['lr0', 'iou_t', 'momentum', 'weight_decay', 'hsv_s',
+                    'hsv_v', 'translate', 'scale', 'fl_gamma']
+            limits = [(1e-5, 1e-2), (0.00, 0.70), (0.60, 0.98), (0, 0.001),
+                      (0, .9), (0, .9), (0, .9), (0, .9), (0, 3)]
             for k, v in zip(keys, limits):
                 parameters[k] = np.clip(parameters[k], v[0], v[1])
 
             # Train mutation
-            results = train()
+            res = train()
 
             # Write mutation results
-            print_mutation(parameters, results)
+            print_mutation(parameters, res)
