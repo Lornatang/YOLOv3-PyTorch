@@ -18,7 +18,7 @@ import xml.etree.ElementTree
 import argparse
 from PIL import Image
 
-sets = ["train", "valid"]
+sets = ["train", "val", "trainval"]
 
 classes = ["aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog",
            "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
