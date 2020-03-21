@@ -70,10 +70,10 @@ To train on COCO2014 using a Darknet-53 backend pretrained on ImageNet run:
 $ python3 train.py --cfg cfg/yolov3.cfg  --data cfg/coco2014.data --weights weights/darknet53.conv.74 --multi-scale
 ```
 
-##### Example (VOC2012)
+##### Example (VOC2007+2012)
 To train on VOC2012:
 ```bash
-$ python3 train.py --cfg cfg/yolov3-voc.cfg  --data cfg/voc2012.data --weights weights/darknet53.conv.74 --multi-scale
+$ python3 train.py --cfg cfg/yolov3-voc.cfg  --data cfg/voc2007.data --weights weights/darknet53.conv.74 --multi-scale
 ```
 
 ##### Other training methods
@@ -82,7 +82,7 @@ $ python3 train.py --cfg cfg/yolov3-voc.cfg  --data cfg/voc2012.data --weights w
 
 **Resume Training:** `python3 train.py --resume` to resume training from `weights/checkpoint.pth`.
 
-**Plot Training:** `from utils import utils; utils.plot_results()` plots training results from `coco_16img.data`, `coco_64img.data`, 2 example datasets available in the `data/` folder, which train and test on the first 16 and 64 images of the COCO2014-trainval dataset.
+**Plot Training:** `from utils import utils; utils.plot_results()` plots training results from `coco_16image.data`, `coco_64image.data`, 2 example datasets available in the `data/` folder, which train and test on the first 16 and 64 images of the COCO2014-trainval dataset.
 
 
 ##### Training log
