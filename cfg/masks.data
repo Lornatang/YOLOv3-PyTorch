@@ -1,6 +1,0 @@
-classes=2
-train=data/masks/train.txt
-valid=data/masks/valid.txt
-names=data/masks.names
-backup=backup/
-eval=masks
