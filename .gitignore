@@ -134,6 +134,7 @@ cfg/yolov4s-tiny-mask.cfg
 cfg/masks.data
 cfg/safety_hat.data
 data/masks.names
+data/safety_hat.names
 data/coco2014
 data/voc2007
 data/voc2012
