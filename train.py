@@ -80,7 +80,7 @@ def train():
     if len(args.image_size) == 2:
         image_size, image_size_val = args.image_size[0], args.image_size[1]
     else:
-        image_size, image_size_val = args.image_size
+        image_size, image_size_val = args.image_size[0], args.image_size[0]
 
     epochs = args.epochs
     batch_size = args.batch_size
@@ -133,6 +133,7 @@ def train():
     epoch = 0
     start_epoch = 0
     best_fitness = 0.0
+    context = None
     if weights.endswith(".pth"):
         state = torch.load(weights, map_location=device)
         # load model
@@ -244,20 +245,20 @@ def train():
 
         # Prebias
         if prebias:
-            pre_epochs = 3  # number of prebias epochs
-            prebias_set = 0.1, 0.9  # prebias settings (lr=0.1, momentum=0.9)
+            warmup_epoch = 3  # number of prebias epochs
+            warmup_parameter = 0.1, 0.9  # (lr=0.1, momentum=0.9)
 
-            if epoch == pre_epochs:
+            if epoch == warmup_epoch:
                 # normal training settings
-                prebias_set = parameters['lr0'], parameters['momentum']
+                warmup_parameter = parameters['lr0'], parameters['momentum']
                 model.gr = 1.0  # giou loss ratio (obj_loss = giou)
                 print_model_biases(model)
                 prebias = False
 
             # Bias optimizer settings
-            optimizer.param_groups[2]["lr"] = prebias_set[0]
+            optimizer.param_groups[2]["lr"] = warmup_parameter[0]
             if optimizer.param_groups[2].get("momentum") is not None:
-                optimizer.param_groups[2]["momentum"] = prebias_set[1]
+                optimizer.param_groups[2]["momentum"] = warmup_parameter[1]
 
         # Update image weights (optional)
         if train_dataset.image_weights:
@@ -338,10 +339,11 @@ def train():
             # update mean losses
             mean_losses = (mean_losses * index + loss_items) / (index + 1)
             memory = f"{torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0:.2f}G"
-            progress_bar.set_description(("%10s" * 2 + "%10.3g" * 6)
-                                         % ("%g/%g" % (epoch, args.epochs - 1),
-                                            memory, *mean_losses,
-                                            len(targets), image_size))
+            context = ("%10s" * 2 + "%10.3g" * 6) % (
+                "%g/%g" % (epoch, args.epochs - 1),
+                memory, *mean_losses,
+                len(targets), image_size)
+            progress_bar.set_description(context)
 
         # Update scheduler
         scheduler.step()
@@ -368,7 +370,7 @@ def train():
         # Write epoch results
         with open("results.txt", "a") as f:
             # P, R, mAP, F1, test_losses=(GIoU, obj, cls)
-            f.write(s + "%10.3g" * 7 % results)
+            f.write(context + "%10.3g" * 7 % results)
             f.write("\n")
 
         # Write Tensorboard results
