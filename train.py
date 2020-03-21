@@ -164,7 +164,7 @@ def train():
         # possible weights are "*.weights", "yolov3-tiny.conv.15",  "darknet53.conv.74" etc.
         load_darknet_weights(model, weights)
     else:
-        print("Pre training model weight not loaded")
+        print("Pre training model weight not loaded.")
 
     # Mixed precision training https://github.com/NVIDIA/apex
     if mixed_precision:

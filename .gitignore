@@ -126,6 +126,7 @@ output/
 cfg/yolov3-mask.cfg
 cfg/yolov3s-mask.cfg
 cfg/yolov3-tiny-mask.cfg
+cfg/yolov3-tiny-safety-hat.cfg
 cfg/yolov3s-tiny-mask.cfg
 cfg/yolov4-mask.cfg
 cfg/yolov4s-mask.cfg
