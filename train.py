@@ -483,9 +483,9 @@ if __name__ == "__main__":
         pass
 
     tb_writer = None
-    if not args.evolve:  # Train normally
+    if not args.evolve:
         try:
-            # Start Tensorboard with "tensorboard --logdir=runs", view at http://localhost:6006/
+            # Start Tensorboard with "tensorboard --logdir=runs"
             from torch.utils.tensorboard import SummaryWriter
 
             tb_writer = SummaryWriter()
@@ -498,8 +498,8 @@ if __name__ == "__main__":
         args.notest, args.nosave = True, True  # only test/save final epoch
 
         for _ in range(1):  # generations to evolve
-            if os.path.exists(
-                    'evolve.txt'):  # if evolve.txt exists: select best hyps and mutate
+            # if evolve.txt exists: select best hyps and mutate
+            if os.path.exists('evolve.txt'):
                 # Select parent(s)
                 parent = 'single'  # parent selection method: 'single' or 'weighted'
                 x = np.loadtxt('evolve.txt', ndmin=2)
