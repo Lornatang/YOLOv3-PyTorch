@@ -15,11 +15,12 @@ import os
 import time
 from copy import deepcopy
 
+import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
-import torchvision.models as models
 import torch.nn.functional as F
+import torchvision.models as models
 
 
 class ModelEMA:
@@ -99,8 +100,12 @@ def fuse_conv_and_bn(conv, bn):
 
 def init_seeds(seed=0):
     torch.manual_seed(seed)
+    # If you or any of the libraries you are using rely on Numpy,
+    # you should seed the Numpy RNG as well
+    np.random.seed(0)
 
-    # Remove randomness (may be slower on Tesla GPUs) # https://pytorch.org/docs/stable/notes/randomness.html
+    # Remove randomness (may be slower on Tesla GPUs)
+    # https://pytorch.org/docs/stable/notes/randomness.html
     if seed == 0:
         cudnn.deterministic = True
         cudnn.benchmark = False
