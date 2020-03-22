@@ -123,8 +123,10 @@ dmypy.json
 # custom
 logs/
 output/
+cfg/yolov3-tiny-voc.cfg
 cfg/yolov3-mask.cfg
 cfg/yolov3s-mask.cfg
+cfg/yolov3-swish-tiny-voc.cfg
 cfg/yolov3-tiny-mask.cfg
 cfg/yolov3-tiny-safety-hat.cfg
 cfg/yolov3s-tiny-mask.cfg
