@@ -23,31 +23,31 @@ class Tiny(torch.nn.Module):
     def __init__(self):
         super(Tiny, self).__init__()
         self.layer1 = BasicConv2d(3, 16, 3, 1, 1,
-                                  batch_norm=True, activation="leakyrelu")
+                                  batch_norm=True, activation="mish")
         self.layer2 = BasicConv2d(16, 32, 3, 1, 1,
-                                  batch_norm=True, activation="leakyrelu")
+                                  batch_norm=True, activation="mish")
         self.layer3 = BasicConv2d(32, 64, 3, 1, 1,
-                                  batch_norm=True, activation="leakyrelu")
+                                  batch_norm=True, activation="mish")
         self.layer4 = BasicConv2d(64, 128, 3, 1, 1,
-                                  batch_norm=True, activation="leakyrelu")
+                                  batch_norm=True, activation="mish")
         self.layer5 = BasicConv2d(128, 256, 3, 1, 1,
-                                  batch_norm=True, activation="leakyrelu")
+                                  batch_norm=True, activation="mish")
         self.layer6 = BasicConv2d(256, 512, 3, 1, 1,
-                                  batch_norm=True, activation="leakyrelu")
+                                  batch_norm=True, activation="mish")
 
         self.layer7 = BasicConv2d(512, 1024, 3, 1, 1,
-                                  batch_norm=True, activation="leakyrelu")
+                                  batch_norm=True, activation="mish")
         self.layer8 = BasicConv2d(1024, 256, 1, 1, 1,
-                                  batch_norm=True, activation="leakyrelu")
+                                  batch_norm=True, activation="mish")
         self.layer9 = BasicConv2d(256, 512, 3, 1, 1,
-                                  batch_norm=True, activation="leakyrelu")
+                                  batch_norm=True, activation="mish")
         self.layer10 = BasicConv2d(512, 256, 1, 1, 0)  # small
 
         self.layer11 = BasicConv2d(256, 128, 1, 1, 1,
-                                   batch_norm=True, activation="leakyrelu")
+                                   batch_norm=True, activation="mish")
         self.layer12 = Upsample(2)
         self.layer13 = BasicConv2d(128, 256, 3, 1, 1,
-                                   batch_norm=True, activation="leakyrelu")
+                                   batch_norm=True, activation="mish")
         self.layer14 = BasicConv2d(256, 256, 1, 1, 0)  # medium
 
         self.maxpool = nn.MaxPool2d(kernel_size=2, stride=2)
