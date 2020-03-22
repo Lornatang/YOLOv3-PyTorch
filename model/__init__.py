@@ -11,11 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from .activition import Mish
-from .activition import Swish
-from .conv import BasicConv2d
-from .conv import DeepConv2d
-from .fpn import FPN
-from .res import ResidualBlock
-from .route import Route
-from .upsampling import Upsample
+from .module import BasicConv2d
+from .module import DeepConv2d
+from .module import FPN
+from .module import Mish
+from .module import ResidualBlock
+from .module import Route
+from .module import Swish
+from .module import Upsample
