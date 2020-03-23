@@ -13,6 +13,10 @@
 # ==============================================================================
 
 """ Load all function method names."""
+from .activition import HSigmoid
+from .activition import HSwish
+from .activition import Mish
+from .activition import Swish
 from .datasets import LoadCamera
 from .datasets import LoadImages
 from .datasets import LoadImagesAndLabels
@@ -42,6 +46,7 @@ from .utils import clip_coords
 from .utils import coco80_to_coco91_class
 from .utils import compute_ap
 from .utils import compute_loss
+from .utils import create_grids
 from .utils import fitness
 from .utils import labels_to_class_weights
 from .utils import labels_to_image_weights
@@ -54,5 +59,3 @@ from .utils import print_mutation
 from .utils import scale_coords
 from .utils import xywh2xyxy
 from .utils import xyxy2xywh
-from .utils import create_grids
-
