@@ -168,8 +168,7 @@ def train():
 
     # Mixed precision training https://github.com/NVIDIA/apex
     if mixed_precision:
-        model, optimizer = amp.initialize(model, optimizer, opt_level="O1",
-                                          verbosity=0)
+        model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
     # source https://arxiv.org/pdf/1812.01187.pdf
     lr_lambda = lambda lr: (1 + math.cos(lr * math.pi / epochs)) / 2
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
