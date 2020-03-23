@@ -123,6 +123,10 @@ dmypy.json
 # custom
 logs/
 output/
+cfgs/mobilenetv1-voc.cfg
+cfgs/mobilenetv2-voc.cfg
+cfgs/mobilenetv3-small-voc.cfg
+cfgs/mobilenetv3-large-voc.cfg
 cfgs/yolov3-tiny-voc.cfg
 cfgs/yolov3-mask.cfg
 cfgs/yolov3s-mask.cfg
