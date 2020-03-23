@@ -14,12 +14,12 @@
 import torch
 import torch.nn as nn
 
-from model import BasicConv2d
+from ..module import BasicConv2d
 
 
 class ResidualBlock(torch.nn.Module):
     def __init__(self, in_channels, ch1x1, out_channels,
-                 activation):
+                 activation="None"):
         super(ResidualBlock, self).__init__()
 
         self.main = nn.Sequential(

@@ -14,8 +14,8 @@
 import torch
 import torch.nn as nn
 
-from model import BasicConv2d
-from model import Upsample
+from ..module import BasicConv2d
+from ..module import Upsample
 
 
 class Tiny(torch.nn.Module):

@@ -26,7 +26,8 @@ class BasicConv2d(nn.Module):
                             stride, padding, bias=not batch_norm)]
 
         if batch_norm:
-            layers.append(nn.BatchNorm2d(out_channels, eps=0.001))
+            layers.append(
+                nn.BatchNorm2d(out_channels, momentum=0.003, eps=0.0001))
 
         if activation == "leakyrelu":
             layers.append(nn.LeakyReLU(negative_slope=0.1, inplace=True))
@@ -51,12 +52,12 @@ class DeepConv2d(nn.Module):
         self.main = nn.Sequential(
             nn.Conv2d(in_channels, in_channels, kernel_size=3,
                       stride=stride, padding=1, groups=in_channels, bias=False),
-            nn.BatchNorm2d(in_channels, eps=0.001),
+            nn.BatchNorm2d(in_channels, momentum=0.003, eps=0.0001),
             nn.ReLU(inplace=True),
 
             nn.Conv2d(in_channels, out_channels, kernel_size=1,
                       stride=1, padding=0, groups=in_channels, bias=False),
-            nn.BatchNorm2d(out_channels, eps=0.001),
+            nn.BatchNorm2d(out_channels, momentum=0.003, eps=0.0001),
             nn.ReLU(inplace=True)
         )
 
