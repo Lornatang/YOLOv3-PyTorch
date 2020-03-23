@@ -11,5 +11,3 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from .yolov3_voc import VOC
-from .yolov3_tiny_voc import TinyVOC

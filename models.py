@@ -35,24 +35,24 @@ def create_modules(module_defs, img_size):
     routs = []  # list of layers which rout to deeper layers
     yolo_index = -1
 
-    for i, mdef in enumerate(module_defs):
+    for i, module in enumerate(module_defs):
         modules = nn.Sequential()
 
-        if mdef["type"] == "convolutional":
-            bn = mdef["batch_normalize"]
-            filters = mdef["filters"]
-            size = mdef["size"]
-            stride = mdef["stride"] if "stride" in mdef else (
-                mdef["stride_y"], mdef["stride_x"])
+        if module["type"] == "convolutional":
+            bn = module["batch_normalize"]
+            filters = module["filters"]
+            size = module["size"]
+            stride = module["stride"] if "stride" in module else (
+                module["stride_y"], module["stride_x"])
             modules.add_module("Conv2d",
                                nn.Conv2d(in_channels=output_filters[-1],
                                          out_channels=filters,
                                          kernel_size=size,
                                          stride=stride,
-                                         padding=(size - 1) // 2 if mdef["pad"]
+                                         padding=(size - 1) // 2 if module["pad"]
                                          else 0,
-                                         groups=mdef[
-                                             "groups"] if "groups" in mdef else 1,
+                                         groups=module[
+                                             "groups"] if "groups" in module else 1,
                                          bias=not bn))
             if bn:
                 modules.add_module("BatchNorm2d",
@@ -61,17 +61,17 @@ def create_modules(module_defs, img_size):
             else:
                 routs.append(i)  # detection output (goes into yolo layer)
 
-            if mdef["activation"] == "leaky":
+            if module["activation"] == "leaky":
                 modules.add_module("activation",
                                    nn.LeakyReLU(0.1, inplace=True))
-            elif mdef["activation"] == "swish":
+            elif module["activation"] == "swish":
                 modules.add_module("activation", Swish())
-            elif mdef["activation"] == "mish":
+            elif module["activation"] == "mish":
                 modules.add_module("activation", Mish())
 
-        elif mdef["type"] == "maxpool":
-            size = mdef["size"]
-            stride = mdef["stride"]
+        elif module["type"] == "maxpool":
+            size = module["size"]
+            stride = module["stride"]
             maxpool = nn.MaxPool2d(kernel_size=size, stride=stride,
                                    padding=(size - 1) // 2)
             if size == 2 and stride == 1:  # yolov3-tiny
@@ -80,38 +80,37 @@ def create_modules(module_defs, img_size):
             else:
                 modules = maxpool
 
-        elif mdef["type"] == "upsample":
+        elif module["type"] == "upsample":
             if ONNX_EXPORT:  # explicitly state size, avoid scale_factor
                 g = (yolo_index + 1) * 2 / 32  # gain
                 # image_size = (320, 192)
                 modules = nn.Upsample(size=tuple(int(x * g) for x in img_size))
             else:
-                modules = nn.Upsample(scale_factor=mdef["stride"])
+                modules = nn.Upsample(scale_factor=module["stride"])
 
         # nn.Sequential() placeholder for "route" layer
-        elif mdef["type"] == "route":
-            layers = mdef['layers']
-            filters = sum([output_filters[l + 1 if l > 0 else l]
-                           for l in layers])
+        elif module["type"] == "route":
+            layers = module['layers']
+            filters = sum([output_filters[l + 1 if l > 0 else l] for l in layers])
             routs.extend([i + l if l < 0 else l for l in layers])
 
         # nn.Sequential() placeholder for "shortcut" layer
-        elif mdef["type"] == "shortcut":
-            layers = mdef['from']
+        elif module["type"] == "shortcut":
+            layers = module['from']
             filters = output_filters[-1]
             routs.extend([i + l if l < 0 else l for l in layers])
             modules = WeightFeatureFusion(layers=layers,
-                                          weight='weights_type' in mdef)
+                                          weight='weights_type' in module)
 
-        elif mdef["type"] == "reorg3d":  # yolov3-spp-pan-scale
+        elif module["type"] == "reorg3d":  # yolov3-spp-pan-scale
             pass
 
-        elif mdef["type"] == "yolo":
+        elif module["type"] == "yolo":
             yolo_index += 1
-            l = mdef["from"] if "from" in mdef else []
-            modules = YOLOLayer(anchors=mdef["anchors"][mdef["mask"]],
+            l = module["from"] if "from" in module else []
+            modules = YOLOLayer(anchors=module["anchors"][module["mask"]],
                                 # anchor list
-                                nc=mdef["classes"],  # number of classes
+                                nc=module["classes"],  # number of classes
                                 img_size=img_size,  # (416, 416)
                                 yolo_index=yolo_index,  # 0, 1, 2...
                                 layers=l)  # output layers
@@ -122,7 +121,7 @@ def create_modules(module_defs, img_size):
                 # cls bias: class probability is sigmoid(p) = 1/nc
                 bc = math.log(1 / (modules.nc - 0.99))
 
-                j = l[yolo_index] if "from" in mdef else -1
+                j = l[yolo_index] if "from" in module else -1
                 bias_ = module_list[j][0].bias  # shape(255,)
                 # shape(3,85)
                 bias = bias_[:modules.no * modules.na].view(modules.na, -1)
@@ -135,7 +134,7 @@ def create_modules(module_defs, img_size):
                 print("WARNING: smart bias initialization failure.")
 
         else:
-            print(f"Warning: Unrecognized Layer Type: {mdef['type']}")
+            print(f"Warning: Unrecognized Layer Type: {module['type']}")
 
         # Register module list and number of output filters
         module_list.append(modules)
@@ -147,8 +146,8 @@ def create_modules(module_defs, img_size):
     return module_list, routs_binary
 
 
-class WeightFeatureFusion(
-    nn.Module):  # weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070
+class WeightFeatureFusion(nn.Module):
+    """Weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070"""
     def __init__(self, layers, weight=False):
         super(WeightFeatureFusion, self).__init__()
         self.layers = layers  # layer indices
@@ -321,12 +320,12 @@ class YOLOLayer(nn.Module):
 class Darknet(nn.Module):
     # YOLOv3 object detection model
 
-    def __init__(self, cfg, img_size=(416, 416)):
+    def __init__(self, cfg, image_size=(416, 416)):
         super(Darknet, self).__init__()
 
         self.module_defs = parse_model_config(cfg)
         self.module_list, self.routs = create_modules(self.module_defs,
-                                                      img_size)
+                                                      image_size)
         self.yolo_layers = get_yolo_layers(self)
 
         # Darknet Header https://github.com/AlexeyAB/darknet/issues/2914#issuecomment-496675346
@@ -417,10 +416,10 @@ def get_yolo_layers(model):
             x["type"] == "yolo"]  # [82, 94, 106] for yolov3
 
 
-def create_grids(self, img_size=416, ng=(13, 13), device="cpu",
+def create_grids(self, image_size=416, ng=(13, 13), device="cpu",
                  type=torch.float32):
     nx, ny = ng  # x and y grid size
-    self.img_size = max(img_size)
+    self.img_size = max(image_size)
     self.stride = self.img_size / max(ng)
 
     # build xy offsets

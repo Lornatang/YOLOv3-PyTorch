@@ -13,6 +13,7 @@
 # ==============================================================================
 import torch
 import torch.nn as nn
+from utils import create_grids
 
 
 class YOLO(nn.Module):
@@ -64,3 +65,41 @@ class YOLO(nn.Module):
             return pred_bbox
         else:
             return pred_bbox.view(-1, 5 + self.num_classes)
+
+
+class YOLOLayer(nn.Module):
+    def __init__(self, anchors, nc, yolo_index, layers):
+        super(YOLOLayer, self).__init__()
+        self.anchors = torch.Tensor(anchors)
+        self.index = yolo_index  # index of this layer in layers
+        self.layers = layers  # model output layer indices
+        self.nl = len(layers)  # number of output layers (3)
+        self.na = len(anchors)  # number of anchors (3)
+        self.nc = nc  # number of classes (80)
+        self.no = nc + 5  # number of outputs (85)
+        self.nx = 0  # initialize number of x grid points
+        self.ny = 0  # initialize number of y grid points
+
+    def forward(self, pred, image_size, out):
+        batch_size, _, ny, nx = pred.shape  # batch_size, 255, 13, 13
+        if (self.nx, self.ny) != (nx, ny):
+            create_grids(self, image_size, (nx, ny), pred.device, pred.dtype)
+
+        # p.view(batch_size, 255, 13, 13) -- > (batch_size, 3, 13, 13, 85)
+        # (batch_size, anchors, grid, grid, classes + xywh)
+        # prediction
+        pred = pred.view(batch_size, self.na, self.no, self.ny,
+                         self.nx).permute(0, 1, 3, 4, 2).contiguous()
+
+        if self.training:
+            return pred
+
+        else:  # inference
+            io = pred.clone()  # inference output
+            io[..., :2] = torch.sigmoid(io[..., :2]) + self.grid_xy  # xy
+            # wh yolo method
+            io[..., 2:4] = torch.exp(io[..., 2:4]) * self.anchor_wh
+            io[..., :4] *= self.stride
+            torch.sigmoid_(io[..., 4:])
+            # view [1, 3, 13, 13, 85] as [1, 507, 85]
+            return io.view(batch_size, -1, self.no), pred

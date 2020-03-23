@@ -13,8 +13,8 @@
 # ==============================================================================
 import torch.nn as nn
 
-from model import BasicConv2d
-from model import ResidualBlock
+from ..module import BasicConv2d
+from ..module import ResidualBlock
 
 
 class Darknet53(nn.Module):

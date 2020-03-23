@@ -25,3 +25,6 @@ from .module import ResidualBlock
 from .module import Route
 from .module import Swish
 from .module import Upsample
+from .network.yolov3_voc import VOC
+from .network.yolov3_tiny_voc import TinyVOC
+
