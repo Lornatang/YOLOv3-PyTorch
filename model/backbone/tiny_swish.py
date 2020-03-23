@@ -18,10 +18,10 @@ from model import BasicConv2d
 from model import Upsample
 
 
-class Tiny(torch.nn.Module):
+class TinySwish(torch.nn.Module):
 
     def __init__(self):
-        super(Tiny, self).__init__()
+        super(TinySwish, self).__init__()
         self.layer1 = BasicConv2d(3, 16, 3, 1, 1,
                                   batch_norm=True, activation="swish")
         self.layer2 = BasicConv2d(16, 32, 3, 1, 1,

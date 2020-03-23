@@ -11,17 +11,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from .backbone import Darknet19
-from .backbone import Darknet53
-from .backbone import Tiny
-from .backbone import TinyMish
-from .backbone import TinySwish
-from .layer import YOLO
-from .module import BasicConv2d
-from .module import DeepConv2d
-from .module import FPN
-from .module import Mish
-from .module import ResidualBlock
-from .module import Route
-from .module import Swish
-from .module import Upsample
+from .yolov3_voc import VOC
