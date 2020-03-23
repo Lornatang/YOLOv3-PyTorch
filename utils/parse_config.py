@@ -38,8 +38,8 @@ def parse_data_config(path):
 
 def parse_model_config(path):
     # Parse the yolo *.cfgs file and return module definitions path may be "cfgs/yolov3.cfgs", "yolov3.cfgs", or "yolov3"
-    if not path.endswith(".cfgs"):  # add .cfgs suffix if omitted
-        path += ".cfgs"
+    if not path.endswith(".cfg"):  # add .cfgs suffix if omitted
+        path += ".cfg"
     if not os.path.exists(path) and os.path.exists("cfgs" + os.sep + path):  # add cfgs/ prefix if omitted
         path = "cfgs" + os.sep + path
 
