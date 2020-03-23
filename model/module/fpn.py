@@ -27,8 +27,8 @@ class FPN(nn.Module):
         """
 
         Args:
-            in_channels (int): Number of channels in the input image.
-            out_channels (int): Number of channels produced by the convolution.
+            in_channels (list): Number of channels in the input image.
+            out_channels (list): Number of channels produced by the convolution.
         """
         super(FPN, self).__init__()
 
