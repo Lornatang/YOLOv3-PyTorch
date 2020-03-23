@@ -67,13 +67,13 @@ usage: train.py [-h] [--epochs EPOCHS] [--batch-size BATCH_SIZE] [--accumulate A
 ##### Example (COCO2014)
 To train on COCO2014 using a Darknet-53 backend pretrained on ImageNet run: 
 ```bash
-$ python3 train.py --cfg cfg/yolov3.cfg  --data cfg/coco2014.data --weight weights/darknet53.conv.74 --multi-scale
+$ python3 train.py --cfg cfgs/yolov3.cfg  --data cfgs/coco2014.data --weight weights/darknet53.conv.74 --multi-scale
 ```
 
 ##### Example (VOC2007+2012)
 To train on VOC2012:
 ```bash
-$ python3 train.py --cfg cfg/yolov3-voc.cfg  --data cfg/voc2007.data --weight weights/darknet53.conv.74 --multi-scale
+$ python3 train.py --cfg cfgs/yolov3-voc.cfg  --data cfgs/voc2007.data --weight weights/darknet53.conv.74 --multi-scale
 ```
 
 ##### Other training methods
@@ -117,11 +117,11 @@ $ python3 detect.py --source ...
 
 To run a specific models:
 
-**YOLOv3:** `python3 detect.py --cfg cfg/yolov3.cfg --weight weights/yolov3.weights`  
+**YOLOv3:** `python3 detect.py --cfg cfgs/yolov3.cfg --weight weights/yolov3.weights`  
 
-**YOLOv3-tiny:** `python3 detect.py --cfg cfg/yolov3-tiny.cfg --weight weights/yolov3-tiny.weights`  
+**YOLOv3-tiny:** `python3 detect.py --cfg cfgs/yolov3-tiny.cfg --weight weights/yolov3-tiny.weights`  
 
-**YOLOv3-SPP:** `python3 detect.py --cfg cfg/yolov3-spp.cfg --weight weights/yolov3-spp.weights` 
+**YOLOv3-SPP:** `python3 detect.py --cfg cfgs/yolov3-spp.cfg --weight weights/yolov3-spp.weights` 
 
 #### Image Augmentation
 
@@ -186,7 +186,7 @@ Success: converted 'weights/yolov3-spp.pth' to 'converted.weights'
 ### Result
 
 ```bash
-$ python3 test.py --cfg yolov3-spp.cfg --weight weights/yolov3-spp.pth
+$ python3 test.py --cfg cfgs/yolov3-spp.cfg --weight weights/yolov3-spp.pth
 ```
 
 - mAP@0.5 run at `--iou-thr 0.5`, mAP@0.5...0.95 run at `--iou-thr 0.7`
@@ -204,7 +204,7 @@ $ python3 test.py --cfg cfg/yolov3-spp.cfg --weight weights/yolov3-spp.pth --sav
 ```
 
 ```text
-Namespace(batch_size=16, cfg='cfg/yolov3-spp.cfg', confidence_threshold=0.001, data='data/coco2014.data', device='', image_size=608, iou_threshold=0.6, save_json=True, single_cls=False, task='eval', weights='weights/yolov3-spp.pth', workers=4)
+Namespace(batch_size=16, cfg='cfgs/yolov3-spp.cfg', confidence_threshold=0.001, data='data/coco2014.data', device='', image_size=608, iou_threshold=0.6, save_json=True, single_cls=False, task='eval', weights='weights/yolov3-spp.pth', workers=4)
 Using CUDA 
     + device:0 (name='TITAN RTX', total_memory=24190MB)
 

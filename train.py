@@ -85,7 +85,7 @@ def train():
     epochs = args.epochs
     batch_size = args.batch_size
     accumulate = args.accumulate
-    weights = args.weights
+    weight = args.weight
 
     # Initialize
     init_seeds()
@@ -134,8 +134,8 @@ def train():
     start_epoch = 0
     best_fitness = 0.0
     context = None
-    if weights.endswith(".pth"):
-        state = torch.load(weights, map_location=device)
+    if weight.endswith(".pth"):
+        state = torch.load(weight, map_location=device)
         # load model
         try:
             state["model"] = {k: v for k, v in state["model"].items()
@@ -160,15 +160,17 @@ def train():
         start_epoch = state["epoch"] + 1
         del state
 
-    elif len(weights) > 0:
+    elif len(weight) > 0:
         # possible weights are "*.weights", "yolov3-tiny.conv.15",  "darknet53.conv.74" etc.
-        load_darknet_weights(model, weights)
+        load_darknet_weights(model, weight)
     else:
         print("Pre training model weight not loaded.")
 
     # Mixed precision training https://github.com/NVIDIA/apex
     if mixed_precision:
-        model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+        # skip print amp info
+        model, optimizer = amp.initialize(model, optimizer, opt_level="O1",
+                                          verbosity=0)
     # source https://arxiv.org/pdf/1812.01187.pdf
     lr_lambda = lambda lr: (1 + math.cos(lr * math.pi / epochs)) / 2
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
@@ -467,7 +469,7 @@ if __name__ == "__main__":
     parser.add_argument("--single-cls", action="store_true",
                         help="train as single-class dataset")
     args = parser.parse_args()
-    args.weights = "weights/checkpoint.pth" if args.resume else args.weights
+    args.weight = "weights/checkpoint.pth" if args.resume else args.weight
 
     print(args)
 
