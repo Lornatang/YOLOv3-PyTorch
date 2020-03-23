@@ -500,9 +500,9 @@ def save_weights(self, path="model.weights", cutoff=-1):
                 conv_layer.weight.data.cpu().numpy().tofile(f)
 
 
-def convert(config="cfgs/yolov3.cfgs", weight="weights/yolov3.weights"):
+def convert(config="cfgs/yolov3.cfg", weight="weights/yolov3.weights"):
     # Converts between PyTorch and Darknet format per extension (i.e. *.weights convert to *.pt and vice versa)
-    # from models import *; convert("cfgs/yolov3.cfgs", "weights/yolov3.weights")
+    # from models import *; convert("cfgs/yolov3.cfg", "weights/yolov3.weights")
 
     # Initialize model
     model = Darknet(config)
