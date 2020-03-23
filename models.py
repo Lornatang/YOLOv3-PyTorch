@@ -22,6 +22,10 @@ import torch.nn.functional as F
 from utils import fuse_conv_and_bn
 from utils import model_info
 from utils import parse_model_config
+from utils import Swish
+from utils import HSwish
+from utils import Mish
+from utils import HSigmoid
 
 ONNX_EXPORT = False
 
@@ -56,18 +60,26 @@ def create_modules(module_defines, image_size):
                                          bias=not bn))
             if bn:
                 modules.add_module("BatchNorm2d",
-                                   nn.BatchNorm2d(filters, momentum=0.003,
+                                   nn.BatchNorm2d(num_features=filters,
+                                                  momentum=0.003,
                                                   eps=1E-4))
             else:
                 routs.append(i)  # detection output (goes into yolo layer)
 
             if module["activation"] == "leaky":
-                modules.add_module("activation",
-                                   nn.LeakyReLU(0.1, inplace=True))
+                modules.add_module("activation", nn.LeakyReLU(0.1, True))
+            elif module["activation"] == "relu":
+                modules.add_module("activation", nn.ReLU(inplace=True))
+            elif module["activation"] == "relu6":
+                modules.add_module("activation", nn.ReLU6(inplace=True))
             elif module["activation"] == "swish":
                 modules.add_module("activation", Swish())
             elif module["activation"] == "mish":
                 modules.add_module("activation", Mish())
+            elif module["activation"] == "hswish":
+                modules.add_module("activation", HSwish())
+            elif module["activation"] == "hsigmoid":
+                modules.add_module("activation", HSigmoid())
 
         elif module["type"] == "maxpool":
             size = module["size"]
@@ -106,8 +118,25 @@ def create_modules(module_defines, image_size):
             modules = WeightFeatureFusion(layers=layers,
                                           weight='weights_type' in module)
 
-        elif module["type"] == "reorg3d":  # yolov3-spp-pan-scale
-            pass
+        elif module["type"] == "dense":
+            in_features = module["in_features"]
+            out_features = module["out_features"]
+            modules.add_module("Linear", nn.Linear(in_features=in_features,
+                                                   out_features=out_features))
+            if module["activation"] == "leaky":
+                modules.add_module("activation", nn.LeakyReLU(0.1, True))
+            elif module["activation"] == "relu":
+                modules.add_module("activation", nn.ReLU(inplace=True))
+            elif module["activation"] == "relu6":
+                modules.add_module("activation", nn.ReLU6(inplace=True))
+            elif module["activation"] == "swish":
+                modules.add_module("activation", Swish())
+            elif module["activation"] == "mish":
+                modules.add_module("activation", Mish())
+            elif module["activation"] == "hswish":
+                modules.add_module("activation", HSwish())
+            elif module["activation"] == "hsigmoid":
+                modules.add_module("activation", HSigmoid())
 
         elif module["type"] == "yolo":
             yolo_index += 1
@@ -188,39 +217,6 @@ class WeightFeatureFusion(nn.Module):
             else:  # same shape
                 x = x + a
         return x
-
-
-class Swish(nn.Module):
-    def forward(self, x):
-        return x.mul_(torch.sigmoid(x))
-
-
-# Source https://github.com/digantamisra98/Mish/blob/master/Mish/Torch/mish.py
-class Mish(nn.Module):
-    """
-    Applies the mish function element-wise:
-    mish(x) = x * tanh(softplus(x)) = x * tanh(ln(1 + exp(x)))
-    Shape:
-        - Input: (N, *) where * means, any number of additional
-          dimensions
-        - Output: (N, *), same shape as the input
-    Examples:
-        >>> m = Mish()
-        >>> inputs = torch.randn(2)
-        >>> output = m(inputs)
-    """
-
-    def __init__(self):
-        """
-        Init method.
-        """
-        super().__init__()
-
-    def forward(self, inputs):
-        """
-        Forward pass of the function.
-        """
-        return inputs * torch.tanh(F.softplus(inputs))
 
 
 class YOLOLayer(nn.Module):
