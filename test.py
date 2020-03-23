@@ -255,7 +255,7 @@ if __name__ == "__main__":
                         help="Neural network profile path. (default=cfgs/yolov3.cfg)")
     parser.add_argument("--data", type=str, default="cfgs/coco2014.data",
                         help="Dataload load path. (default=data/coco2014.data)")
-    parser.add_argument("--weights", type=str, default="weights/yolov3.pth",
+    parser.add_argument("--weight", type=str, default="weights/yolov3.pth",
                         help="Model file weight path. (default=weights/yolov3.pth")
     parser.add_argument("--batch-size", type=int, default=32,
                         help="Size of each image batch. (default=32)")
