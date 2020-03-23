@@ -92,7 +92,7 @@ def create_modules(module_defines, image_size):
             else:
                 modules = maxpool
 
-        elif module["type"] == "bn":
+        elif module["type"] == "batch_normalize":
             num_features = module["num_features"]
             modules.add_module("BatchNorm2d", nn.BatchNorm2d(
                 num_features=num_features, momentum=0.003, eps=1E-4))
