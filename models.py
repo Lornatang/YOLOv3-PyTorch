@@ -92,6 +92,27 @@ def create_modules(module_defines, image_size):
             else:
                 modules = maxpool
 
+        elif module["type"] == "bn":
+            num_features = module["num_features"]
+            modules.add_module("BatchNorm2d", nn.BatchNorm2d(
+                num_features=num_features, momentum=0.003, eps=1E-4))
+
+        elif module["type"] == "activation":
+            if module["activation"] == "leaky":
+                modules.add_module("activation", nn.LeakyReLU(0.1, True))
+            elif module["activation"] == "relu":
+                modules.add_module("activation", nn.ReLU(inplace=True))
+            elif module["activation"] == "relu6":
+                modules.add_module("activation", nn.ReLU6(inplace=True))
+            elif module["activation"] == "swish":
+                modules.add_module("activation", Swish())
+            elif module["activation"] == "mish":
+                modules.add_module("activation", Mish())
+            elif module["activation"] == "hswish":
+                modules.add_module("activation", HSwish())
+            elif module["activation"] == "hsigmoid":
+                modules.add_module("activation", HSigmoid())
+
         elif module["type"] == "upsample":
             if ONNX_EXPORT:  # explicitly state size, avoid scale_factor
                 g = (yolo_index + 1) * 2 / 32  # gain
