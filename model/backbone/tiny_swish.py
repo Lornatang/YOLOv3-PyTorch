@@ -37,13 +37,13 @@ class Tiny(torch.nn.Module):
 
         self.layer7 = BasicConv2d(512, 1024, 3, 1, 1,
                                   batch_norm=True, activation="swish")
-        self.layer8 = BasicConv2d(1024, 256, 1, 1, 1,
+        self.layer8 = BasicConv2d(1024, 256, 1, 1, 0,
                                   batch_norm=True, activation="swish")
         self.layer9 = BasicConv2d(256, 512, 3, 1, 1,
                                   batch_norm=True, activation="swish")
         self.layer10 = BasicConv2d(512, 256, 1, 1, 0)  # small
 
-        self.layer11 = BasicConv2d(256, 128, 1, 1, 1,
+        self.layer11 = BasicConv2d(256, 128, 1, 1, 0,
                                    batch_norm=True, activation="swish")
         self.layer12 = Upsample(2)
         self.layer13 = BasicConv2d(128, 256, 3, 1, 1,
@@ -54,7 +54,7 @@ class Tiny(torch.nn.Module):
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
             elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
