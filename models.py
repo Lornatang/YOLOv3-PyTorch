@@ -48,7 +48,6 @@ def create_modules(module_defines, image_size):
             size = module["size"]
             stride = module["stride"] if "stride" in module else (
                 module["stride_y"], module["stride_x"])
-            print(module)
             modules.add_module("Conv2d",
                                nn.Conv2d(in_channels=output_filters[-1],
                                          out_channels=filters,
