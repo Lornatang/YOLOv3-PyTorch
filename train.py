@@ -461,7 +461,7 @@ if __name__ == "__main__":
                         help='evolve hyperparameters')
     parser.add_argument("--cache-images", action="store_true",
                         help="cache images for faster training.")
-    parser.add_argument("--weights", type=str, default="",
+    parser.add_argument("--weight", type=str, default="",
                         help="Model file weight path. (default: ``)")
     parser.add_argument("--device", default="",
                         help="device id (i.e. 0 or 0,1 or cpu)")
