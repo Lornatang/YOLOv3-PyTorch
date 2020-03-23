@@ -133,17 +133,10 @@ def load_classifier(name="resnet101", n=2):
     return model
 
 
-def model_info(model, verbose=False):
+def model_info(model):
     # Plots a line-by-line description of a PyTorch model
     parameter_num = sum(x.numel() for x in model.parameters())
     gradient_num = sum(x.numel() for x in model.parameters() if x.requires_grad)
-
-    if verbose:
-        print("%5s %40s %9s %12s %20s %10s %10s" % ("layer", "name", "gradient", "parameters", "shape", "mu", "sigma"))
-        for i, (name, parameter) in enumerate(model.named_parameters()):
-            name = name.replace("module_list.", "")
-            print(f"{i:5g} {name:40s} {parameter.requires_grad:9s} {parameter.numel():12g} "
-                  f"{list(parameter.shape):20s} {parameter.mean():20s} {parameter.std():10.3g}")
 
     print(f"Model Summary: {len(list(model.parameters()))} layers, "
           f"{parameter_num} parameters, {gradient_num} gradients")
