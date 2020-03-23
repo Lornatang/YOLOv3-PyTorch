@@ -14,7 +14,7 @@
 import torch
 import torch.nn as nn
 
-from ..module import BasicConv2d
+from .conv import BasicConv2d
 
 
 class ResidualBlock(torch.nn.Module):

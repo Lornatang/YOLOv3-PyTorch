@@ -11,39 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-import torch
 import torch.nn as nn
-import sys
-from ..module import BasicConv2d
-import torch.nn.functional as F
 
-class Upsample(nn.Module):
-    def __init__(self, scale_factor=1, mode="nearest"):
-        super(Upsample, self).__init__()
-        self.scale_factor = scale_factor
-        self.mode = mode
-
-    def forward(self, x):
-        return F.interpolate(x, scale_factor=self.scale_factor, mode=self.mode)
-
-
-class Route(nn.Module):
-    def __init__(self):
-        super(Route, self).__init__()
-
-    def forward(self, x1, x2):
-        """ Forward propagation function
-
-        Args:
-            x1 (tensor): Previous outputs.
-            x2 (tensor): Current outputs.
-
-        Returns:
-            A spliced tensor.
-
-        """
-        out = torch.cat((x2, x1), dim=1)
-        return out
+from .conv import BasicConv2d
+from .route import Route
 
 
 class FPN(nn.Module):

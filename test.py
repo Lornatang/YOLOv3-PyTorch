@@ -251,9 +251,9 @@ def evaluate(cfg,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cfg", type=str, default="cfg/yolov3.cfg",
-                        help="Neural network profile path. (default=cfg/yolov3.cfg)")
-    parser.add_argument("--data", type=str, default="cfg/coco2014.data",
+    parser.add_argument("--cfg", type=str, default="cfgs/yolov3.cfg",
+                        help="Neural network profile path. (default=cfgs/yolov3.cfg)")
+    parser.add_argument("--data", type=str, default="cfgs/coco2014.data",
                         help="Dataload load path. (default=data/coco2014.data)")
     parser.add_argument("--weights", type=str, default="weights/yolov3.pth",
                         help="Model file weight path. (default=weights/yolov3.pth")

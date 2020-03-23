@@ -144,7 +144,7 @@ Run the commands below to create a custom model definition, replacing `<num-clas
 ```bash
 # move to config dir
 $ cd cfg/
-# create custom model 'yolov3-custom.cfg'. (In fact, it is OK to modify two lines of parameters, see `create_model.sh`)                              
+# create custom model 'yolov3-custom.cfgs'. (In fact, it is OK to modify two lines of parameters, see `create_model.sh`)                              
 $ bash create_model.sh <num-classes>
 ```
 
@@ -174,12 +174,12 @@ Add `--weights weights/darknet53.conv.74` to train using a backend pretrained on
 ```bash
 $ git clone https://github.com/Lornatang/YOLOv3-PyTorch && cd YOLOv3-PyTorch
 
-# convert darknet cfg/weights to pytorch model
-$ python3  -c "from models import *; convert('cfg/yolov3-spp.cfg', 'weights/yolov3-spp.weights')"
+# convert darknet cfgs/weights to pytorch model
+$ python3  -c "from models import *; convert('cfgs/yolov3-spp.cfgs', 'weights/yolov3-spp.weights')"
 Success: converted 'weights/yolov3-spp.weights' to 'converted.pth'
 
-# convert cfg/pytorch model to darknet weights
-$ python3  -c "from models import *; convert('cfg/yolov3-spp.cfg', 'weights/yolov3-spp.pth')"
+# convert cfgs/pytorch model to darknet weights
+$ python3  -c "from models import *; convert('cfgs/yolov3-spp.cfgs', 'weights/yolov3-spp.pth')"
 Success: converted 'weights/yolov3-spp.pth' to 'converted.weights'
 ```
 

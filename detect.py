@@ -183,8 +183,8 @@ def detect(save_img=False):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cfg", type=str, default="cfg/yolov3.cfg",
-                        help="Neural network profile path. (default=cfg/yolov3.cfg)")
+    parser.add_argument("--cfgs", type=str, default="cfgs/yolov3.cfgs",
+                        help="Neural network profile path. (default=cfgs/yolov3.cfgs)")
     parser.add_argument("--names", type=str, default="data/coco.names",
                         help="Types of objects detected. (default=data/coco.names)")
     parser.add_argument("--weights", type=str, default="weights/yolov3.pth",

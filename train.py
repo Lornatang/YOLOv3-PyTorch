@@ -438,11 +438,11 @@ if __name__ == "__main__":
     parser.add_argument("--accumulate", type=int, default=4,
                         help="Batches to accumulate before optimizing. "
                              "(default: 4)")
-    parser.add_argument("--cfg", type=str, default="cfg/yolov3.cfg",
+    parser.add_argument("--cfg", type=str, default="cfgs/yolov3.cfg",
                         help="Neural network profile path. "
-                             "(default: cfg/yolov3.cfg)")
+                             "(default: cfgs/yolov3.cfg)")
     parser.add_argument("--data", type=str, default="data/coco2014.data",
-                        help="Path to dataset. (default: cfg/coco2014.data)")
+                        help="Path to dataset. (default: cfgs/coco2014.data)")
     parser.add_argument('--workers', default=4, type=int, metavar='N',
                         help='Number of data loading workers (default: 4)')
     parser.add_argument("--multi-scale", action="store_true",
