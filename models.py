@@ -48,6 +48,7 @@ def create_modules(module_defines, image_size):
             size = module["size"]
             stride = module["stride"] if "stride" in module else (
                 module["stride_y"], module["stride_x"])
+            print(module)
             modules.add_module("Conv2d",
                                nn.Conv2d(in_channels=output_filters[-1],
                                          out_channels=filters,
@@ -337,8 +338,8 @@ class Darknet(nn.Module):
     def __init__(self, config, image_size=(416, 416)):
         super(Darknet, self).__init__()
 
-        self.module_defs = parse_model_config(config)
-        self.module_list, self.routs = create_modules(self.module_defs,
+        self.module_defines = parse_model_config(config)
+        self.module_list, self.routs = create_modules(self.module_defines,
                                                       image_size)
         self.yolo_layers = get_yolo_layers(self)
 
@@ -350,11 +351,11 @@ class Darknet(nn.Module):
         self.info()  # print model description
 
     def forward(self, x):
-        img_size = x.shape[-2:]
+        image_size = x.shape[-2:]
         yolo_out, out = [], []
 
         for i, (module_define, module) in enumerate(
-                zip(self.module_defs, self.module_list)):
+                zip(self.module_defines, self.module_list)):
             module_type = module_define["type"]
             if module_type in ["convolutional", "upsample", "maxpool"]:
                 x = module(x)
@@ -372,7 +373,7 @@ class Darknet(nn.Module):
                             out[layers[1]], scale_factor=[0.5, 0.5])
                         x = torch.cat([out[i] for i in layers], 1)
             elif module_type == "yolo":
-                yolo_out.append(module(x, img_size, out))
+                yolo_out.append(module(x, image_size, out))
             out.append(x if self.routs[i] else [])
 
         if self.training:  # train
@@ -406,7 +407,7 @@ class Darknet(nn.Module):
 
 
 def get_yolo_layers(model):
-    return [i for i, x in enumerate(model.module_defs) if
+    return [i for i, x in enumerate(model.module_defines) if
             x["type"] == "yolo"]  # [82, 94, 106] for yolov3
 
 
