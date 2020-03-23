@@ -14,15 +14,15 @@
 import torch
 
 import torch.nn as nn
-from configs import yolov3_voc
+from cfgs import yolov3_voc
 from ..layer import YOLO
-from ..backbone import Tiny
+from ..backbone import Darknet53
 from ..module import FPN
 
 
-class TinyVOC(nn.Module):
+class VOC(nn.Module):
     def __init__(self):
-        super(TinyVOC, self).__init__()
+        super(VOC, self).__init__()
 
         self.num_anchors = torch.Tensor(yolov3_voc.YOLO["ANCHORS"])
         self.strides = torch.Tensor(yolov3_voc.YOLO["STRIDES"])
@@ -30,7 +30,11 @@ class TinyVOC(nn.Module):
         self.out_channels = yolov3_voc.YOLO["MASK"] * (
                 self.num_classes + 5)
 
-        self.backbone = Tiny()
+        self.backbone = Darknet53()
+        self.fpn = FPN(in_channels=[1024, 512, 256],
+                       out_channels=[self.out_channels,
+                                     self.out_channels,
+                                     self.out_channels])
 
         # small anchors
         self.small = YOLO(anchors=self.num_anchors[0],
@@ -40,14 +44,20 @@ class TinyVOC(nn.Module):
         self.medium = YOLO(anchors=self.num_anchors[1],
                            num_classes=self.num_classes,
                            stride=self.strides[1])
+        # large anchors
+        self.large = YOLO(anchors=self.num_anchors[2],
+                          num_classes=self.num_classes,
+                          stride=self.strides[2])
 
     def forward(self, x):
         out = []
 
-        small, medium = self.backnone(x)
+        pred_small, pred_medium, pred_large = self.backnone(x)
+        small, medium, large = self.fpn(pred_small, pred_medium, pred_large)
 
         out.append(self.small(small))
         out.append(self.medium(medium))
+        out.append(self.medium(large))
 
         if self.training:
             p, p_d = list(zip(*out))
