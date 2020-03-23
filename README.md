@@ -60,20 +60,20 @@ $ bash get_coco_dataset.sh
 usage: train.py [-h] [--epochs EPOCHS] [--batch-size BATCH_SIZE] [--accumulate ACCUMULATE]
                 [--cfg CFG] [--data DATA] [--multi-scale] [--img-size IMG_SIZE [IMG_SIZE ...]]
                 [--rect] [--resume] [--nosave] [--notest] [--evolve] [--cache-images]
-                [--weights WEIGHTS] [--arc ARC] [--name NAME] [--device DEVICE] [--adam]
+                [--weight WEIGHTS] [--arc ARC] [--name NAME] [--device DEVICE] [--adam]
                 [--single-cls] [--var VAR]
 ```
 
 ##### Example (COCO2014)
 To train on COCO2014 using a Darknet-53 backend pretrained on ImageNet run: 
 ```bash
-$ python3 train.py --cfg cfg/yolov3.cfg  --data cfg/coco2014.data --weights weights/darknet53.conv.74 --multi-scale
+$ python3 train.py --cfg cfg/yolov3.cfg  --data cfg/coco2014.data --weight weights/darknet53.conv.74 --multi-scale
 ```
 
 ##### Example (VOC2007+2012)
 To train on VOC2012:
 ```bash
-$ python3 train.py --cfg cfg/yolov3-voc.cfg  --data cfg/voc2007.data --weights weights/darknet53.conv.74 --multi-scale
+$ python3 train.py --cfg cfg/yolov3-voc.cfg  --data cfg/voc2007.data --weight weights/darknet53.conv.74 --multi-scale
 ```
 
 ##### Other training methods
@@ -117,11 +117,11 @@ $ python3 detect.py --source ...
 
 To run a specific models:
 
-**YOLOv3:** `python3 detect.py --cfg cfg/yolov3.cfg --weights weights/yolov3.weights`  
+**YOLOv3:** `python3 detect.py --cfg cfg/yolov3.cfg --weight weights/yolov3.weights`  
 
-**YOLOv3-tiny:** `python3 detect.py --cfg cfg/yolov3-tiny.cfg --weights weights/yolov3-tiny.weights`  
+**YOLOv3-tiny:** `python3 detect.py --cfg cfg/yolov3-tiny.cfg --weight weights/yolov3-tiny.weights`  
 
-**YOLOv3-SPP:** `python3 detect.py --cfg cfg/yolov3-spp.cfg --weights weights/yolov3-spp.weights` 
+**YOLOv3-SPP:** `python3 detect.py --cfg cfg/yolov3-spp.cfg --weight weights/yolov3-spp.weights` 
 
 #### Image Augmentation
 
@@ -167,7 +167,7 @@ To train on the custom dataset run:
 $ python3 train.py --cfg cfg/yolov3-custom.cfg --data cfg/custom.data --epochs 100 --multi-scale
 ```
 
-Add `--weights weights/darknet53.conv.74` to train using a backend pretrained on ImageNet.
+Add `--weight weights/darknet53.conv.74` to train using a backend pretrained on ImageNet.
 
 ### Darknet Conversion
 
@@ -186,7 +186,7 @@ Success: converted 'weights/yolov3-spp.pth' to 'converted.weights'
 ### Result
 
 ```bash
-$ python3 test.py --cfg yolov3-spp.cfg --weights weights/yolov3-spp.pth
+$ python3 test.py --cfg yolov3-spp.cfg --weight weights/yolov3-spp.pth
 ```
 
 - mAP@0.5 run at `--iou-thr 0.5`, mAP@0.5...0.95 run at `--iou-thr 0.7`
@@ -200,7 +200,7 @@ YOLOv3-tiny<br>YOLOv3<br>YOLOv3-SPP<br>    |512          |16.6<br>32.7<br>35.6<b
 YOLOv3-tiny<br>YOLOv3<br>YOLOv3-SPP<br>    |608          |16.6<br>33.1<br>37.0<br>|35.4<br>58.2<br>60.7<br>
 
 ```bash
-$ python3 test.py --cfg cfg/yolov3-spp.cfg --weights weights/yolov3-spp.pth --save-json --image-size 608
+$ python3 test.py --cfg cfg/yolov3-spp.cfg --weight weights/yolov3-spp.pth --save-json --image-size 608
 ```
 
 ```text

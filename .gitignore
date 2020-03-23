@@ -127,6 +127,7 @@ cfgs/yolov3-tiny-voc.cfg
 cfgs/yolov3-mask.cfg
 cfgs/yolov3s-mask.cfg
 cfgs/yolov3-swish-tiny-voc.cfg
+cfgs/yolov3-mish-tiny-voc.cfg
 cfgs/yolov3-tiny-mask.cfg
 cfgs/yolov3-tiny-safety-hat.cfg
 cfgs/yolov3s-tiny-mask.cfg
