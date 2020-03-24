@@ -18,15 +18,13 @@ The goal of this implementation is to be simple, highly extensible, and easy to 
     * [Download COCO2014](#download-coco2014)
 3. [Usage](#usage)
     * [Train](#train)
-    * [Example (COCO2014)](#example-coco2014)
-    * [Example (VOC2012)](#example-(VOC2007+2012))
-    * [Backbone](#backbone)
-4. [Inference](#inference)
+    * [Test](#test)
+    * [Inference](#inference)
+4. [Backbone](#backbone)
 5. [Image Augmentation](#image-augmentation)
 6. [Train on Custom Dataset](#train-on-custom-dataset)
 7. [Darknet Conversion](#darknet-conversion)
-8. [Result](#result)
-9. [Credit](#credit) 
+8. [Credit](#credit) 
 
 ### About YOLOv3
 We present some updates to YOLO! We made a bunch of little design changes to make it better. We also trained this new network that's pretty swell. It's a little bigger than last time but more accurate. It's still fast though, don't worry. At 320x320 YOLOv3 runs in 22 ms at 28.2 mAP, as accurate as SSD but three times faster. When we look at the old .5 IOU mAP detection metric YOLOv3 is quite good. It achieves 57.9 mAP@50 in 51 ms on a Titan X, compared to 57.5 mAP@50 in 198 ms by RetinaNet, similar performance but 3.8x faster. As always, all the code is online at this https URL
@@ -63,39 +61,62 @@ usage: train.py [-h] [--epochs EPOCHS] [--batch-size BATCH_SIZE] [--accumulate A
                 [--single-cls] [--var VAR]
 ```
 
-##### Example (COCO2014)
+- Example (COCO2014)
 To train on COCO2014 using a Darknet-53 backend pretrained on ImageNet run: 
 ```bash
 $ python3 train.py --cfg cfgs/yolov3.cfg  --data cfgs/coco2014.data --weight weights/darknet53.conv.74 --multi-scale
 ```
 
-##### Example (VOC2007+2012)
+- Example (VOC2007+2012)
 To train on VOC2012:
 ```bash
 $ python3 train.py --cfg cfgs/yolov3-voc.cfg  --data cfgs/voc2007.data --weight weights/darknet53.conv.74 --multi-scale
 ```
 
-##### Other training methods
-
+- Other training methods
 **Normal Training:** `python3 train.py` to begin training after downloading COCO data with `data/get_coco_dataset.sh`. Each epoch trains on 117,263 images from the train and validate COCO sets, and tests on 5000 images from the COCO validate set.
 
 **Resume Training:** `python3 train.py --resume` to resume training from `weights/checkpoint.pth`.
 
 **Plot Training:** `from utils import utils; utils.plot_results()` plots training results from `coco_16image.data`, `coco_64image.data`, 2 example datasets available in the `data/` folder, which train and test on the first 16 and 64 images of the COCO2014-trainval dataset.
 
+#### Test
+```bash
+$ python3 test.py --cfg cfgs/yolov3-spp.cfg --weight weights/yolov3-spp.pth
+```
 
-##### Backbone
-In addition to some architectures given by the author, we also add 
-some commonly used neural network architectures, which usually have 
-better mPAP and less computation than the original architecture.
+- mAP@0.5 run at `--iou-thr 0.5`, mAP@0.5...0.95 run at `--iou-thr 0.7`
+- Darknet results: https://arxiv.org/abs/1804.02767
 
-|   Backbone    |    Train    |  Test  |  mAP  | Params | FLOPS | FPS |  Cfg  |   Weight   |  
-|:--------------|:-----------:|:------:|:-----:|:------:|:-----:|:---:|:-----:|:----------:|
-|  YOLOv3-tiny  |COCO trainval|test-dev|33.1   |8.85M   |5.56Bn | 220 |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/yolov3-tiny.cfg)|[weights](https://pjreddie.com/media/files/yolov3-tiny.weights)|
-|  MobileNet-v1 |COCO trainval|test-dev|40.4   |5.76M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
-|  MobileNet-v2 |COCO trainval|test-dev|-      |4.27M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
-|MobileNet-v3-s |COCO trainval|test-dev|-      |3.92M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-small.cfg)|-|
-|MobileNet-v3-l |COCO trainval|test-dev|-      |6.07M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-large.cfg)|-|
+<i></i>                      |Size |COCO mAP<br>@0.5...0.95 |COCO mAP<br>@0.5 
+---                          | ---         | ---         | ---
+YOLOv3-tiny<br>YOLOv3<br>YOLOv3-SPP<br>    |320          |14.0<br>28.7<br>30.5<br>|29.1<br>51.8<br>52.3<br>
+YOLOv3-tiny<br>YOLOv3<br>YOLOv3-SPP<br>    |416          |16.0<br>31.2<br>33.9<br>|33.0<br>55.4<br>56.9<br>
+YOLOv3-tiny<br>YOLOv3<br>YOLOv3-SPP<br>    |512          |16.6<br>32.7<br>35.6<br>|34.9<br>57.7<br>59.5<br>
+YOLOv3-tiny<br>YOLOv3<br>YOLOv3-SPP<br>    |608          |16.6<br>33.1<br>37.0<br>|35.4<br>58.2<br>60.7<br>
+
+```bash
+$ python3 test.py --cfg cfg/yolov3-spp.cfg --weight weights/yolov3-spp.pth --save-json --image-size 608
+```
+
+```text
+Namespace(batch_size=16, cfg='cfgs/yolov3-spp.cfg', confidence_threshold=0.001, data='data/coco2014.data', device='', image_size=608, iou_threshold=0.6, save_json=True, single_cls=False, task='eval', weights='weights/yolov3-spp.pth', workers=4)
+Using CUDA 
+    + device:0 (name='TITAN RTX', total_memory=24190MB)
+
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.418
+ Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.618
+ Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.448
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.246
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.462
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.533
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.340
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.555
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.604
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.439
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.648
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.733
+```
 
 #### Inference
 Uses pretrained weights to make predictions on images. Below table displays the inference times when using as inputs images scaled to 256x256. The ResNet backbone measurements are taken from the YOLOv3 paper. The Darknet-53 measurement marked shows the inference time of this implementation on my 1080ti card.
@@ -120,7 +141,21 @@ To run a specific models:
 
 **YOLOv3-SPP:** `python3 detect.py --cfg cfgs/yolov3-spp.cfg --weight weights/yolov3-spp.weights` 
 
-#### Image Augmentation
+### Backbone
+In addition to some architectures given by the author, we also add 
+some commonly used neural network architectures, which usually have 
+better mPAP and less computation than the original architecture.
+
+|   Backbone    |    Train    |  Test  |  mAP  | Params | FLOPS | FPS |  Cfg  |   Weight   |  
+|:--------------|:-----------:|:------:|:-----:|:------:|:-----:|:---:|:-----:|:----------:|
+|  YOLOv3-tiny  |COCO trainval|test-dev|33.1   |8.85M   |5.56Bn | 220 |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/yolov3-tiny.cfg)|[weights](https://pjreddie.com/media/files/yolov3-tiny.weights)|
+|  MobileNet-v1 |COCO trainval|test-dev|40.4   |5.76M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
+|  MobileNet-v2 |COCO trainval|test-dev|-      |4.27M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
+|MobileNet-v3-s |COCO trainval|test-dev|-      |3.92M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-small.cfg)|-|
+|MobileNet-v3-l |COCO trainval|test-dev|-      |6.07M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-large.cfg)|-|
+
+
+### Image Augmentation
 
 `datasets.py` applies random OpenCV-powered (https://opencv.org/) augmentation to the input images in accordance with the following specifications. Augmentation is applied **only** during training, not during inference. Bounding boxes are automatically tracked and updated with the images. 416 x 416 examples pictured below.
 
@@ -178,45 +213,6 @@ Success: converted 'weights/yolov3-spp.weights' to 'converted.pth'
 # convert cfgs/pytorch model to darknet weights
 $ python3  -c "from models import *; convert('cfgs/yolov3-spp.cfgs', 'weights/yolov3-spp.pth')"
 Success: converted 'weights/yolov3-spp.pth' to 'converted.weights'
-```
-
-### Result
-
-```bash
-$ python3 test.py --cfg cfgs/yolov3-spp.cfg --weight weights/yolov3-spp.pth
-```
-
-- mAP@0.5 run at `--iou-thr 0.5`, mAP@0.5...0.95 run at `--iou-thr 0.7`
-- Darknet results: https://arxiv.org/abs/1804.02767
-
-<i></i>                      |Size |COCO mAP<br>@0.5...0.95 |COCO mAP<br>@0.5 
----                          | ---         | ---         | ---
-YOLOv3-tiny<br>YOLOv3<br>YOLOv3-SPP<br>    |320          |14.0<br>28.7<br>30.5<br>|29.1<br>51.8<br>52.3<br>
-YOLOv3-tiny<br>YOLOv3<br>YOLOv3-SPP<br>    |416          |16.0<br>31.2<br>33.9<br>|33.0<br>55.4<br>56.9<br>
-YOLOv3-tiny<br>YOLOv3<br>YOLOv3-SPP<br>    |512          |16.6<br>32.7<br>35.6<br>|34.9<br>57.7<br>59.5<br>
-YOLOv3-tiny<br>YOLOv3<br>YOLOv3-SPP<br>    |608          |16.6<br>33.1<br>37.0<br>|35.4<br>58.2<br>60.7<br>
-
-```bash
-$ python3 test.py --cfg cfg/yolov3-spp.cfg --weight weights/yolov3-spp.pth --save-json --image-size 608
-```
-
-```text
-Namespace(batch_size=16, cfg='cfgs/yolov3-spp.cfg', confidence_threshold=0.001, data='data/coco2014.data', device='', image_size=608, iou_threshold=0.6, save_json=True, single_cls=False, task='eval', weights='weights/yolov3-spp.pth', workers=4)
-Using CUDA 
-    + device:0 (name='TITAN RTX', total_memory=24190MB)
-
- Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.418
- Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.618
- Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.448
- Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.246
- Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.462
- Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.533
- Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.340
- Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.555
- Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.604
- Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.439
- Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.648
- Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.733
 ```
 
 ### Credit
