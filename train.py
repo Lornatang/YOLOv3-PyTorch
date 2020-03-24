@@ -142,7 +142,7 @@ def train():
                               if model.state_dict()[k].numel() == v.numel()}
             model.load_state_dict(state["model"], strict=False)
         except KeyError as e:
-            error_msg = f"{args.weights} is not compatible with {args.cfg}. "
+            error_msg = f"{args.weight} is not compatible with {args.cfg}. "
             error_msg += f"Specify --weights `` or specify a --cfg "
             error_msg += f"compatible with {args.weights}. "
             raise KeyError(error_msg) from e
