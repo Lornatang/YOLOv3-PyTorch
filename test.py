@@ -279,7 +279,7 @@ if __name__ == "__main__":
     if args.task == "eval":  # (default) eval normally
         evaluate(args.cfg,
                  args.data,
-                 args.weights,
+                 args.weight,
                  args.batch_size,
                  args.workers,
                  args.image_size,
