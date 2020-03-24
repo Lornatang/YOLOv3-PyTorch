@@ -69,10 +69,6 @@ def evaluate(cfg,
         else:
             load_darknet_weights(model, weights)
 
-        # Fuse
-        model.fuse()
-        model.to(device)
-
         if device.type != "cpu" and torch.cuda.device_count() > 1:
             model = nn.DataParallel(model)
     else:

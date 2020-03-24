@@ -149,13 +149,13 @@ In addition to some architectures given by the author, we also add
 some commonly used neural network architectures, which usually have 
 better mPAP and less computation than the original architecture.
 
-|   Backbone    |    Train    |  Test  |  mAP  | Params | FLOPS | FPS |  Cfg  |   Weight   |  
-|:--------------|:-----------:|:------:|:-----:|:------:|:-----:|:---:|:-----:|:----------:|
-|  YOLOv3-tiny  |COCO trainval|test-dev|33.1   |8.85M   |5.56Bn | 220 |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/yolov3-tiny.cfg)|[weights](https://pjreddie.com/media/files/yolov3-tiny.weights)|
-|  MobileNet-v1 |COCO trainval|test-dev|43.4   |6.35M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
-|  MobileNet-v2 |COCO trainval|test-dev|-      |5.55M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
-|MobileNet-v3-s |COCO trainval|test-dev|-      |3.94M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-small.cfg)|-|
-|MobileNet-v3-l |COCO trainval|test-dev|-      |5.95M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-large.cfg)|-|
+|     Backbone     |    Train    |  Test  |  mAP  | Params | FLOPS | FPS |  Cfg  |   Weight   |  
+|:-----------------|:-----------:|:------:|:-----:|:------:|:-----:|:---:|:-----:|:----------:|
+|YOLOv3-tiny       |COCO trainval|test-dev|33.1   |8.85M   |5.56Bn | 220 |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/yolov3-tiny.cfg)|[weights](https://pjreddie.com/media/files/yolov3-tiny.weights)|
+|MobileNet-v1      |COCO trainval|test-dev|43.4   |6.35M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
+|MobileNet-v2      |COCO trainval|test-dev|-      |5.55M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
+|MobileNet-v3-small|COCO trainval|test-dev|-      |3.94M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-small.cfg)|-|
+|MobileNet-v3-large|COCO trainval|test-dev|-      |5.95M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-large.cfg)|-|
 
 
 ### Image Augmentation

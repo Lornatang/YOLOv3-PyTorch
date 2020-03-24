@@ -59,3 +59,7 @@ from .utils import print_mutation
 from .utils import scale_coords
 from .utils import xywh2xyxy
 from .utils import xyxy2xywh
+from .conv import SeModule
+from .block import MobileNetv3_Block
+from .linear import LinearBNHSwish
+from .conv import MobileNetv3_Conv

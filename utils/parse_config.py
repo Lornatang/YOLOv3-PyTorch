@@ -70,10 +70,10 @@ def parse_model_config(path):
                     modules[-1][key] = value  # return string
 
     # Check all fields are supported
-    supported = ["type", "in_features", "out_features", "num_features","batch_normalize", "filters", "size", "stride", "pad", "activation", "layers", "groups",
+    supported = ["type", "in_features", "out_features", "num_features", "batch_normalize", "filters", "size", "stride", "pad", "activation", "layers", "groups",
                  "from", "mask", "anchors", "classes", "num", "jitter", "ignore_thresh", "truth_thresh", "random",
                  "stride_x", "stride_y", "weights_type", "weights_normalization", "scale_x_y", "beta_nms", "nms_kind",
-                 "iou_loss", "iou_normalizer", "cls_normalizer", "iou_thresh"]
+                 "iou_loss", "iou_normalizer", "cls_normalizer", "iou_thresh", 'expand_size', 'semodules']
 
     f = []  # fields
     for x in modules[1:]:
