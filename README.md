@@ -152,7 +152,7 @@ better mPAP and less computation than the original architecture.
 |   Backbone    |    Train    |  Test  |  mAP  | Params | FLOPS | FPS |  Cfg  |   Weight   |  
 |:--------------|:-----------:|:------:|:-----:|:------:|:-----:|:---:|:-----:|:----------:|
 |  YOLOv3-tiny  |COCO trainval|test-dev|33.1   |8.85M   |5.56Bn | 220 |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/yolov3-tiny.cfg)|[weights](https://pjreddie.com/media/files/yolov3-tiny.weights)|
-|  MobileNet-v1 |COCO trainval|test-dev|40.4   |5.76M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
+|  MobileNet-v1 |COCO trainval|test-dev|43.4   |5.76M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
 |  MobileNet-v2 |COCO trainval|test-dev|-      |4.27M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
 |MobileNet-v3-s |COCO trainval|test-dev|-      |3.92M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-small.cfg)|-|
 |MobileNet-v3-l |COCO trainval|test-dev|-      |6.07M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-large.cfg)|-|
