@@ -62,18 +62,21 @@ usage: train.py [-h] [--epochs EPOCHS] [--batch-size BATCH_SIZE] [--accumulate A
 ```
 
 - Example (COCO2014)
+
 To train on COCO2014 using a Darknet-53 backend pretrained on ImageNet run: 
 ```bash
 $ python3 train.py --cfg cfgs/yolov3.cfg  --data cfgs/coco2014.data --weight weights/darknet53.conv.74 --multi-scale
 ```
 
 - Example (VOC2007+2012)
+
 To train on VOC2012:
 ```bash
 $ python3 train.py --cfg cfgs/yolov3-voc.cfg  --data cfgs/voc2007.data --weight weights/darknet53.conv.74 --multi-scale
 ```
 
 - Other training methods
+
 **Normal Training:** `python3 train.py` to begin training after downloading COCO data with `data/get_coco_dataset.sh`. Each epoch trains on 117,263 images from the train and validate COCO sets, and tests on 5000 images from the COCO validate set.
 
 **Resume Training:** `python3 train.py --resume` to resume training from `weights/checkpoint.pth`.
