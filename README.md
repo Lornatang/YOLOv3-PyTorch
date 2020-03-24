@@ -1,8 +1,8 @@
 # YOLOv3-PyTorch
 
-<p align="center"><img src="assets/bus.jpg" width="608"></p>
-<p align="center"><img src="assets/giraffe.jpg" width="608"></p>
-<p align="center"><img src="assets/zidane.jpg" width="608"></p>
+<p align="center"><img src="assets/bus.jpg" width="810" alt=""></p>
+<p align="center"><img src="assets/giraffe.jpg" width="640" alt=""></p>
+<p align="center"><img src="assets/zidane.jpg" width="1280" alt=""></p>
 
 ### Overview
 This project is based on [ultralytics/yolov3](https://github.com/ultralytics/yolov3).Thanks.
@@ -14,14 +14,13 @@ The goal of this implementation is to be simple, highly extensible, and easy to 
 1. [About YOLOv3](#about-yolov3)
 2. [Installation](#installation)
     * [Clone and install requirements](#clone-and-install-requirements)
-    * [Download pretrained weights](#download-pretrained-weights)
+    * [Download pre-trained weights](#download-pre-trained-weights)
     * [Download COCO2014](#download-coco2014)
 3. [Usage](#usage)
     * [Train](#train)
     * [Example (COCO2014)](#example-coco2014)
-    * [Example (VOC2012)](#example-voc2012)
-    * [Other training methods](#other-training-methods)
-    * [Training log](#training-log)
+    * [Example (VOC2012)](#example-(VOC2007+2012))
+    * [Backbone](#backbone)
 4. [Inference](#inference)
 5. [Image Augmentation](#image-augmentation)
 6. [Train on Custom Dataset](#train-on-custom-dataset)
@@ -41,7 +40,7 @@ $ cd YOLOv3-PyTorch/
 $ pip3 install -r requirements.txt
 ```
 
-#### Download pretrained weights
+#### Download pre-trained weights
 ```bash
 $ cd weights/
 $ bash download_weights.sh
@@ -85,20 +84,18 @@ $ python3 train.py --cfg cfgs/yolov3-voc.cfg  --data cfgs/voc2007.data --weight 
 **Plot Training:** `from utils import utils; utils.plot_results()` plots training results from `coco_16image.data`, `coco_64image.data`, 2 example datasets available in the `data/` folder, which train and test on the first 16 and 64 images of the COCO2014-trainval dataset.
 
 
-##### Training log
-```text
-Using multi-scale 288 - 640
-Caching labels (2501 found, 0 missing, 0 empty, 0 duplicate, for 2501 images): 100%|█████████████| 2501/2501 [00:00<00:00, 12827.45it/s]
-Caching labels (2510 found, 0 missing, 0 empty, 0 duplicate, for 2510 images): 100%|█████████████| 2510/2510 [00:00<00:00, 13017.56it/s]
-Model Summary: 222 layers, 6.1626e+07 parameters, 6.1626e+07 gradients
-Using 8 dataloader workers
-Starting training for 273 epochs...
+##### Backbone
+In addition to some architectures given by the author, we also add 
+some commonly used neural network architectures, which usually have 
+better mPAP and less computation than the original architecture.
 
-     Epoch   gpu_mem      GIoU       obj       cls     total   targets  img_size
-     0/272     5.51G      5.86      5.41      20.6      31.8        29       320: 100%|███████████████| 313/313 [00:59<00:00,  5.28it/s]
-               Class    Images   Targets         P         R   mAP@0.5        F1: 100%|███████████████| 157/157 [00:11<00:00, 14.04it/s]
-                 all  2.51e+03  6.31e+03         0         0         0         0
-```
+|   Backbone    |    Train    |  Test  |  mAP  | Params | FLOPS | FPS |  Cfg  |   Weight   |  
+|:--------------|:-----------:|:------:|:-----:|:------:|:-----:|:---:|:-----:|:----------:|
+|  YOLOv3-tiny  |COCO trainval|test-dev|33.1   |8.85M   |5.56Bn | 220 |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/yolov3-tiny.cfg)|[weights](https://pjreddie.com/media/files/yolov3-tiny.weights)|
+|  MobileNet-v1 |COCO trainval|test-dev|40.4   |5.76M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
+|  MobileNet-v2 |COCO trainval|test-dev|-      |4.27M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
+|MobileNet-v3-s |COCO trainval|test-dev|-      |3.92M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-small.cfg)|-|
+|MobileNet-v3-l |COCO trainval|test-dev|-      |6.07M   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-large.cfg)|-|
 
 #### Inference
 Uses pretrained weights to make predictions on images. Below table displays the inference times when using as inputs images scaled to 256x256. The ResNet backbone measurements are taken from the YOLOv3 paper. The Darknet-53 measurement marked shows the inference time of this implementation on my 1080ti card.
@@ -145,7 +142,7 @@ Run the commands below to create a custom model definition, replacing `<num-clas
 # move to config dir
 $ cd cfg/
 # create custom model 'yolov3-custom.cfgs'. (In fact, it is OK to modify two lines of parameters, see `create_model.sh`)                              
-$ bash create_model.sh <num-classes>
+$ bash create_model.sh your-dataset-num-classes
 ```
 
 #### Classes
