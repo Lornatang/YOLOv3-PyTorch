@@ -144,7 +144,7 @@ def train():
         except KeyError as e:
             error_msg = f"{args.weight} is not compatible with {args.cfg}. "
             error_msg += f"Specify --weights `` or specify a --cfg "
-            error_msg += f"compatible with {args.weights}. "
+            error_msg += f"compatible with {args.weight}. "
             raise KeyError(error_msg) from e
 
         # load optimizer

@@ -14,6 +14,10 @@
 import math
 from pathlib import Path
 
+from utils import SeModule
+from utils import MobileNetv3_Block
+from utils import LinearBNHSwish
+from utils import MobileNetv3_Conv
 import numpy as np
 import torch
 import torch.nn as nn
@@ -92,27 +96,6 @@ def create_modules(module_defines, image_size):
             else:
                 modules = maxpool
 
-        elif module["type"] == "batch_normalize":
-            num_features = module["num_features"]
-            modules.add_module("BatchNorm2d", nn.BatchNorm2d(
-                num_features=num_features, momentum=0.003, eps=1E-4))
-
-        elif module["type"] == "activation":
-            if module["activation"] == "leaky":
-                modules.add_module("activation", nn.LeakyReLU(0.1, True))
-            elif module["activation"] == "relu":
-                modules.add_module("activation", nn.ReLU(inplace=True))
-            elif module["activation"] == "relu6":
-                modules.add_module("activation", nn.ReLU6(inplace=True))
-            elif module["activation"] == "swish":
-                modules.add_module("activation", Swish())
-            elif module["activation"] == "mish":
-                modules.add_module("activation", Mish())
-            elif module["activation"] == "hswish":
-                modules.add_module("activation", HSwish())
-            elif module["activation"] == "hsigmoid":
-                modules.add_module("activation", HSigmoid())
-
         elif module["type"] == "upsample":
             if ONNX_EXPORT:  # explicitly state size, avoid scale_factor
                 g = (yolo_index + 1) * 2 / 32  # gain
@@ -127,6 +110,7 @@ def create_modules(module_defines, image_size):
             layers = module['layers']
             filters = sum([output_filters[layer + 1 if layer > 0 else layer]
                            for layer in layers])
+            print([output_filters[layer + 1 if layer > 0 else layer] for layer in layers])
             routs.extend([i + layer if layer < 0 else layer
                           for layer in layers])
 
@@ -139,25 +123,48 @@ def create_modules(module_defines, image_size):
             modules = WeightFeatureFusion(layers=layers,
                                           weight='weights_type' in module)
 
-        elif module["type"] == "dense":
-            in_features = module["in_features"]
-            out_features = module["out_features"]
-            modules.add_module("Linear", nn.Linear(in_features=in_features,
-                                                   out_features=out_features))
-            if module["activation"] == "leaky":
-                modules.add_module("activation", nn.LeakyReLU(0.1, True))
-            elif module["activation"] == "relu":
-                modules.add_module("activation", nn.ReLU(inplace=True))
-            elif module["activation"] == "relu6":
-                modules.add_module("activation", nn.ReLU6(inplace=True))
-            elif module["activation"] == "swish":
-                modules.add_module("activation", Swish())
-            elif module["activation"] == "mish":
-                modules.add_module("activation", Mish())
+        elif module["type"] == "mobilenetv3_block":
+            size = module['size']
+            in_features = module['in_features']
+            expand_size = module['expand_size']
+            out_features = module['out_features']
+            semodules = module['semodules']
+            stride = module['stride']
+
+            activation = None
+            if module["activation"] == "relu":
+                activation = nn.ReLU(inplace=True)
             elif module["activation"] == "hswish":
-                modules.add_module("activation", HSwish())
-            elif module["activation"] == "hsigmoid":
-                modules.add_module("activation", HSigmoid())
+                activation = HSwish()
+
+            if semodules != 0:
+                modules = MobileNetv3_Block(size,
+                                            in_features,
+                                            expand_size,
+                                            out_features,
+                                            activation,
+                                            SeModule(semodules),
+                                            stride)
+            else:
+                modules = MobileNetv3_Block(size,
+                                            in_features,
+                                            expand_size,
+                                            out_features,
+                                            activation,
+                                            None,
+                                            stride)
+
+        elif module["type"] == "mobilenetv3_conv":
+            in_features = module['in_features']
+            out_features = module['out_features']
+
+            modules = MobileNetv3_Conv(in_features, out_features)
+
+        elif module["type"] == "mobilenetv3_linear":
+            in_features = module['in_features']
+            out_features = module['out_features']
+
+            modules = LinearBNHSwish(in_features, out_features)
 
         elif module["type"] == "yolo":
             yolo_index += 1
