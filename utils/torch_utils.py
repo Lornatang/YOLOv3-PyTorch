@@ -104,8 +104,6 @@ def init_seeds(seed=0):
     # you should seed the Numpy RNG as well
     np.random.seed(0)
 
-    # Remove randomness (may be slower on Tesla GPUs)
-    # https://pytorch.org/docs/stable/notes/randomness.html
     if seed == 0:
         cudnn.deterministic = True
         cudnn.benchmark = False
@@ -113,7 +111,6 @@ def init_seeds(seed=0):
 
 def load_classifier(name="resnet101", n=2):
     # Loads a pretrained model reshaped to n-class output
-
     model = models.__dict__[name](pretrained=True)
 
     # Display model properties

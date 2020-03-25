@@ -14,10 +14,6 @@
 import math
 from pathlib import Path
 
-from utils import SeModule
-from utils import MobileNetv3_Block
-from utils import LinearBNHSwish
-from utils import MobileNetv3_Conv
 import numpy as np
 import torch
 import torch.nn as nn
@@ -52,21 +48,19 @@ def create_modules(module_defines, image_size):
             size = module["size"]
             stride = module["stride"] if "stride" in module else (
                 module["stride_y"], module["stride_x"])
-            modules.add_module("Conv2d",
-                               nn.Conv2d(in_channels=output_filters[-1],
-                                         out_channels=filters,
-                                         kernel_size=size,
-                                         stride=stride,
-                                         padding=(size - 1) // 2
-                                         if module["pad"] else 0,
-                                         groups=module["groups"]
-                                         if "groups" in module else 1,
-                                         bias=not bn))
+            modules.add_module("Conv2d", nn.Conv2d(in_channels=output_filters[-1],
+                                                   out_channels=filters,
+                                                   kernel_size=size,
+                                                   stride=stride,
+                                                   padding=(size - 1) // 2
+                                                   if module["pad"] else 0,
+                                                   groups=module["groups"]
+                                                   if "groups" in module else 1,
+                                                   bias=not bn))
             if bn:
-                modules.add_module("BatchNorm2d",
-                                   nn.BatchNorm2d(num_features=filters,
-                                                  momentum=0.003,
-                                                  eps=1E-4))
+                modules.add_module("BatchNorm2d", nn.BatchNorm2d(num_features=filters,
+                                                                 momentum=0.003,
+                                                                 eps=1E-4))
             else:
                 routs.append(i)  # detection output (goes into yolo layer)
 
@@ -110,7 +104,6 @@ def create_modules(module_defines, image_size):
             layers = module['layers']
             filters = sum([output_filters[layer + 1 if layer > 0 else layer]
                            for layer in layers])
-            print([output_filters[layer + 1 if layer > 0 else layer] for layer in layers])
             routs.extend([i + layer if layer < 0 else layer
                           for layer in layers])
 
@@ -122,49 +115,6 @@ def create_modules(module_defines, image_size):
                           for layer in layers])
             modules = WeightFeatureFusion(layers=layers,
                                           weight='weights_type' in module)
-
-        elif module["type"] == "mobilenetv3_block":
-            size = module['size']
-            in_features = module['in_features']
-            expand_size = module['expand_size']
-            out_features = module['out_features']
-            semodules = module['semodules']
-            stride = module['stride']
-
-            activation = None
-            if module["activation"] == "relu":
-                activation = nn.ReLU(inplace=True)
-            elif module["activation"] == "hswish":
-                activation = HSwish()
-
-            if semodules != 0:
-                modules = MobileNetv3_Block(size,
-                                            in_features,
-                                            expand_size,
-                                            out_features,
-                                            activation,
-                                            SeModule(semodules),
-                                            stride)
-            else:
-                modules = MobileNetv3_Block(size,
-                                            in_features,
-                                            expand_size,
-                                            out_features,
-                                            activation,
-                                            None,
-                                            stride)
-
-        elif module["type"] == "mobilenetv3_conv":
-            in_features = module['in_features']
-            out_features = module['out_features']
-
-            modules = MobileNetv3_Conv(in_features, out_features)
-
-        elif module["type"] == "mobilenetv3_linear":
-            in_features = module['in_features']
-            out_features = module['out_features']
-
-            modules = LinearBNHSwish(in_features, out_features)
 
         elif module["type"] == "yolo":
             yolo_index += 1
