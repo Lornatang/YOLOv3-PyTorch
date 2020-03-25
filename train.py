@@ -37,7 +37,6 @@ from utils import labels_to_class_weights
 from utils import labels_to_image_weights
 from utils import parse_data_config
 from utils import plot_results
-from utils import print_model_biases
 from utils import print_mutation
 from utils import select_device
 
@@ -53,7 +52,7 @@ parameters = {"giou": 3.54,  # giou loss gain
               "obj": 64.3,  # obj loss gain (*=img_size/320 if img_size != 320)
               "obj_pw": 1.0,  # obj BCELoss positive_weight
               "iou_t": 0.225,  # iou training threshold
-              'lr0': 0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
+              'lr0': 0.001,  # initial learning rate (SGD=5E-3, Adam=5E-4)
               "lrf": -4.,  # final LambdaLR learning rate = lr0 * (10 ** lrf)
               "momentum": 0.937,  # SGD momentum
               "weight_decay": 0.000484,  # optimizer weight decay
@@ -225,8 +224,7 @@ def train():
     model.hyp = parameters  # attach hyperparameters to model
     model.gr = 0.0  # giou loss ratio (obj_loss = 1.0 or giou)
     # attach class weights
-    model.class_weights = \
-        labels_to_class_weights(train_dataset.labels, num_classes).to(device)
+    model.class_weights = labels_to_class_weights(train_dataset.labels, num_classes).to(device)
 
     # Model EMA
     # ema = ModelEMA(model, decay=0.9998)
@@ -253,7 +251,6 @@ def train():
                 # normal training settings
                 warmup_parameter = parameters['lr0'], parameters['momentum']
                 model.gr = 1.0  # giou loss ratio (obj_loss = giou)
-                print_model_biases(model)
                 prebias = False
 
             # Bias optimizer settings
@@ -269,16 +266,14 @@ def train():
                                                     num_classes=num_classes,
                                                     class_weights=class_weights)
             # rand weighted index
-            train_dataset.indices = random.choices(
-                range(train_dataset.image_files_num),
-                weights=image_weights,
-                k=train_dataset.image_files_num)
+            train_dataset.indices = random.choices(range(train_dataset.image_files_num),
+                                                   weights=image_weights,
+                                                   k=train_dataset.image_files_num)
 
         mean_losses = torch.zeros(4).to(device)
         print("\n")
-        print(("%10s" * 8) % (
-            "Epoch", "memory", "GIoU", "obj", "cls", "total", "targets",
-            " image_size"))
+        print(("%10s" * 8) % ("Epoch", "memory", "GIoU", "obj", "cls", "total", "targets",
+                              " image_size"))
         progress_bar = tqdm(enumerate(train_dataloader), total=batches_num)
         for index, (images, targets, paths, _) in progress_bar:
             # number integrated batches (since train start)
@@ -298,8 +293,7 @@ def train():
             if args.multi_scale:
                 #  adjust img_size (67% - 150%) every 1 batch
                 if ni / accumulate % 1 == 0:
-                    image_size = random.randrange(image_size_min,
-                                                  image_size_max + 1) * 32
+                    image_size = random.randrange(image_size_min, image_size_max + 1) * 32
                 scale_ratio = image_size / max(images.shape[2:])
                 if scale_ratio != 1:
                     # new shape (stretched to 32-multiple)
@@ -316,8 +310,7 @@ def train():
             # Compute loss
             loss, loss_items = compute_loss(output, targets, model)
             if not torch.isfinite(loss):
-                warnings.warn(
-                    f"WARNING: Non-finite loss, ending training {loss_items}")
+                warnings.warn(f"WARNING: Non-finite loss, ending training {loss_items}")
                 return results
 
             # Scale loss by nominal batch_size of 64

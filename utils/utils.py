@@ -28,7 +28,8 @@ matplotlib.rc("font", **{"size": 11})
 
 # Set print options
 torch.set_printoptions(linewidth=320, precision=5, profile="long")
-np.set_printoptions(linewidth=320, formatter={"float_kind": "{:11.5g}".format})  # format short g, %precision=5
+np.set_printoptions(linewidth=320,
+                    formatter={"float_kind": "{:11.5g}".format})  # format short g, %precision=5
 
 # Prevent OpenCV from multi threading (to use PyTorch DataLoader)
 cv2.setNumThreads(0)
@@ -69,8 +70,10 @@ def labels_to_image_weights(labels, num_classes=80, class_weights=np.ones(80)):
 
 def coco80_to_coco91_class():  # converts 80-index (val2014) to 91-index (paper)
     # https://tech.amikelive.com/node-718/what-object-categories-labels-are-in-coco-dataset/
-    x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 28, 31, 32, 33, 34,
-         35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
+    x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27,
+         28, 31, 32, 33, 34,
+         35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
+         59, 60, 61, 62, 63,
          64, 65, 67, 70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87, 88, 89, 90]
     return x
 
@@ -99,7 +102,8 @@ def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
     # Rescale coords (xyxy) from img1_shape to img0_shape
     if ratio_pad is None:  # calculate from img0_shape
         gain = max(img1_shape) / max(img0_shape)  # gain  = old / new
-        pad = (img1_shape[1] - img0_shape[1] * gain) / 2, (img1_shape[0] - img0_shape[0] * gain) / 2  # wh padding
+        pad = (img1_shape[1] - img0_shape[1] * gain) / 2, (
+                img1_shape[0] - img0_shape[0] * gain) / 2  # wh padding
     else:
         gain = ratio_pad[0][0]
         pad = ratio_pad[1]
@@ -141,7 +145,8 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
 
     # Create Precision-Recall curve and compute AP for each class
     pr_score = 0.1
-    s = [len(unique_classes), tp.shape[1]]  # number class, number iou thresholds (i.e. 10 for mAP0.5...0.95)
+    s = [len(unique_classes),
+         tp.shape[1]]  # number class, number iou thresholds (i.e. 10 for mAP0.5...0.95)
     ap, p, r = np.zeros(s), np.zeros(s), np.zeros(s)
     for ci, c in enumerate(unique_classes):
         i = pred_cls == c
@@ -157,7 +162,8 @@ def ap_per_class(tp, conf, pred_cls, target_cls):
 
             # Recall
             recall = tpc / (n_gt + 1e-16)  # recall curve
-            r[ci] = np.interp(-pr_score, -conf[i], recall[:, 0])  # r at pr_score, negative x, xp because xp decreases
+            r[ci] = np.interp(-pr_score, -conf[i],
+                              recall[:, 0])  # r at pr_score, negative x, xp because xp decreases
 
             # Precision
             precision = tpc / (tpc + fpc)  # precision curve
@@ -230,7 +236,8 @@ def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False):
 
     iou = inter / union  # iou
     if GIoU or DIoU or CIoU:
-        cw = torch.max(b1_x2, b2_x2) - torch.min(b1_x1, b2_x1)  # convex (smallest enclosing box) width
+        cw = torch.max(b1_x2, b2_x2) - torch.min(b1_x1,
+                                                 b2_x1)  # convex (smallest enclosing box) width
         ch = torch.max(b1_y2, b2_y2) - torch.min(b1_y1, b2_y1)  # convex height
         if GIoU:  # Generalized IoU https://arxiv.org/pdf/1902.09630.pdf
             c_area = cw * ch + 1e-16  # convex area
@@ -239,7 +246,8 @@ def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False):
             # convex diagonal squared
             c2 = cw ** 2 + ch ** 2 + 1e-16
             # centerpoint distance squared
-            rho2 = ((b2_x1 + b2_x2) - (b1_x1 + b1_x2)) ** 2 / 4 + ((b2_y1 + b2_y2) - (b1_y1 + b1_y2)) ** 2 / 4
+            rho2 = ((b2_x1 + b2_x2) - (b1_x1 + b1_x2)) ** 2 / 4 + (
+                    (b2_y1 + b2_y2) - (b1_y1 + b1_y2)) ** 2 / 4
             if DIoU:
                 return iou - rho2 / c2  # DIoU
             elif CIoU:  # https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/box/box_utils.py#L47
@@ -360,7 +368,8 @@ def compute_loss(p, targets, model):  # predictions, targets, model
             pbox = torch.cat((pxy, pwh), 1)  # predicted box
             giou = bbox_iou(pbox.t(), tbox[i], x1y1x2y2=False, GIoU=True)  # giou computation
             lbox += (1.0 - giou).sum() if red == "sum" else (1.0 - giou).mean()  # giou loss
-            tobj[b, a, gj, gi] = (1.0 - model.gr) + model.gr * giou.detach().clamp(0).type(tobj.dtype)  # giou ratio
+            tobj[b, a, gj, gi] = (1.0 - model.gr) + model.gr * giou.detach().clamp(0).type(
+                tobj.dtype)  # giou ratio
 
             if model.nc > 1:  # cls loss (only if multiple classes)
                 t = torch.full_like(ps[:, 5:], cn)  # targets
@@ -436,9 +445,14 @@ def build_targets(model, targets):
     return tcls, tbox, indices, av
 
 
-def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, multi_label=True, classes=None, agnostic=False):
+def non_max_suppression(prediction,
+                        confidence_threshold=0.1,
+                        iou_threshold=0.6,
+                        multi_label=True,
+                        classes=None,
+                        agnostic=False):
     """
-    Removes detections with lower object confidence score than "conf_thres"
+    Removes detections with lower object confidence score than "confidence_threshold"
     Non-Maximum Suppression to further filter detections.
     Returns detections with shape:
         (x1, y1, x2, y2, object_conf, conf, class)
@@ -454,7 +468,7 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, multi_label=T
     output = [None] * len(prediction)
     for image_i, pred in enumerate(prediction):
         # Apply conf constraint
-        pred = pred[pred[:, 4] > conf_thres]
+        pred = pred[pred[:, 4] > confidence_threshold]
 
         # Apply width-height constraint
         pred = pred[((pred[:, 2:4] > min_wh) & (pred[:, 2:4] < max_wh)).all(1)]
@@ -471,7 +485,7 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, multi_label=T
 
         # Detections matrix nx6 (xyxy, conf, cls)
         if multi_label:
-            i, j = (pred[:, 5:] > conf_thres).nonzero().t()
+            i, j = (pred[:, 5:] > confidence_threshold).nonzero().t()
             pred = torch.cat((box[i], pred[i, j + 5].unsqueeze(1), j.float().unsqueeze(1)), 1)
         else:  # best class only
             conf, j = pred[:, 5:].max(1)
@@ -499,10 +513,10 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, multi_label=T
             boxes, scores = pred[:, :4].clone(), pred[:, 4]
             boxes += c.view(-1, 1) * max_wh
             if method == "vision_batch":
-                i = torchvision.ops.boxes.nms(boxes, scores, iou_thres)
+                i = torchvision.ops.boxes.nms(boxes, scores, iou_threshold)
             elif method == "fast_batch":  # FastNMS from https://github.com/dbolya/yolact
                 iou = box_iou(boxes, boxes).triu_(diagonal=1)  # upper triangular iou matrix
-                i = iou.max(dim=0)[0] < iou_thres
+                i = iou.max(dim=0)[0] < iou_threshold
 
             output[image_i] = pred[i]
             continue
@@ -520,7 +534,7 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, multi_label=T
                 dc = dc[:500]
 
             if method == "vision":
-                det_max.append(dc[torchvision.ops.boxes.nms(dc[:, :4], dc[:, 4], iou_thres)])
+                det_max.append(dc[torchvision.ops.boxes.nms(dc[:, :4], dc[:, 4], iou_threshold)])
 
             elif method == "or":  # default
                 while dc.shape[0]:
@@ -528,21 +542,21 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, multi_label=T
                     if len(dc) == 1:  # Stop if we"re at the last detection
                         break
                     iou = bbox_iou(dc[0], dc[1:])  # iou with other boxes
-                    dc = dc[1:][iou < iou_thres]  # remove ious > threshold
+                    dc = dc[1:][iou < iou_threshold]  # remove ious > threshold
 
             elif method == "and":  # requires overlap, single boxes erased
                 while len(dc) > 1:
                     iou = bbox_iou(dc[0], dc[1:])  # iou with other boxes
                     if iou.max() > 0.5:
                         det_max.append(dc[:1])
-                    dc = dc[1:][iou < iou_thres]  # remove ious > threshold
+                    dc = dc[1:][iou < iou_threshold]  # remove ious > threshold
 
             elif method == "merge":  # weighted mixture box
                 while len(dc):
                     if len(dc) == 1:
                         det_max.append(dc)
                         break
-                    i = bbox_iou(dc[0], dc) > iou_thres  # iou with other boxes
+                    i = bbox_iou(dc[0], dc) > iou_threshold  # iou with other boxes
                     weights = dc[i, 4:5]
                     dc[0, :4] = (weights * dc[i, :4]).sum(0) / weights.sum()
                     det_max.append(dc[:1])
@@ -558,32 +572,14 @@ def non_max_suppression(prediction, conf_thres=0.1, iou_thres=0.6, multi_label=T
                     iou = bbox_iou(dc[0], dc[1:])  # iou with other boxes
                     dc = dc[1:]
                     dc[:, 4] *= torch.exp(-iou ** 2 / sigma)  # decay confidences
-                    dc = dc[dc[:, 4] > conf_thres]  # https://github.com/ultralytics/yolov3/issues/362
+                    dc = dc[dc[:,
+                            4] > confidence_threshold]  # https://github.com/ultralytics/yolov3/issues/362
 
         if len(det_max):
             det_max = torch.cat(det_max)  # concatenate
             output[image_i] = det_max[(-det_max[:, 4]).argsort()]  # sort
 
     return output
-
-
-def print_model_biases(model):
-    # prints the bias neurons preceding each yolo layer
-    print("\nModel Bias Summary: %8s%18s%18s%18s" % ("layer", "regression", "objectness", "classification"))
-    multi_gpu = type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
-    for l in model.yolo_layers:  # print pretrained biases
-        try:
-            if multi_gpu:
-                na = model.module.module_list[l].na  # number of anchors
-                b = model.module.module_list[l - 1][0].bias.view(na, -1)  # bias 3x85
-            else:
-                na = model.module_list[l].na
-                b = model.module_list[l - 1][0].bias.view(na, -1)  # bias 3x85
-            print(" " * 20 + "%8g %18s%18s%18s" % (l, "%5.2f+/-%-5.2f" % (b[:, :4].mean(), b[:, :4].std()),
-                                                   "%5.2f+/-%-5.2f" % (b[:, 4].mean(), b[:, 4].std()),
-                                                   "%5.2f+/-%-5.2f" % (b[:, 5:].mean(), b[:, 5:].std())))
-        except:
-            pass
 
 
 def print_mutation(hyp, results):
@@ -650,12 +646,14 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
         t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
         c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
         cv2.rectangle(img, c1, c2, color, -1)  # filled
-        cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+        cv2.putText(img, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf,
+                    lineType=cv2.LINE_AA)
 
 
 def plot_results_overlay(start=0, stop=0):  # from utils.utils import *; plot_results_overlay()
     # Plot training results files "results*.txt", overlaying train and val losses
-    s = ["train", "train", "train", "Precision", "mAP@0.5", "val", "val", "val", "Recall", "F1"]  # legends
+    s = ["train", "train", "train", "Precision", "mAP@0.5", "val", "val", "val", "Recall",
+         "F1"]  # legends
     t = ["GIoU", "Objectness", "Classification", "P-R", "mAP-F1"]  # titles
     for f in sorted(glob.glob("results*.txt") + glob.glob("../../Downloads/results*.txt")):
         results = np.loadtxt(f, usecols=[2, 3, 4, 8, 9, 12, 13, 14, 10, 11], ndmin=2).T

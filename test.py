@@ -42,10 +42,17 @@ from utils import time_synchronized
 from utils import xywh2xyxy
 from utils import xyxy2xywh
 
+try:
+    from pycocotools.coco import COCO
+    from pycocotools.cocoeval import COCOeval
+except:
+    print('WARNING: missing `pycocotools` package, can not compute official COCO mAP. '
+          'See requirements.txt.')
+
 
 def evaluate(cfg,
              data,
-             weights=None,
+             weight=None,
              batch_size=16,
              workers=4,
              image_size=416,
@@ -64,10 +71,10 @@ def evaluate(cfg,
         model = Darknet(cfg, image_size).to(device)
 
         # Load weights
-        if weights.endswith(".pth"):
-            model.load_state_dict(torch.load(weights, map_location=device)["model"])
+        if weight.endswith(".pth"):
+            model.load_state_dict(torch.load(weight, map_location=device)["model"])
         else:
-            load_darknet_weights(model, weights)
+            load_darknet_weights(model, weight)
 
         if device.type != "cpu" and torch.cuda.device_count() > 1:
             model = nn.DataParallel(model)
@@ -109,14 +116,15 @@ def evaluate(cfg,
 
         # Disable gradients
         with torch.no_grad():
-            augment = False  # augment https://github.com/ultralytics/yolov3/issues/931
+            # Test the effect of image enhancement
+            augment = False
             if augment:
                 images = torch.cat((images, images.flip(3), scale_image(images, 0.7),), 0)
 
             # Run model
-            t = time_synchronized()
+            start_time = time_synchronized()
             inference_outputs, training_outputs = model(images)
-            t0 += time_synchronized() - t
+            t0 += time_synchronized() - start_time
 
             if augment:
                 x = torch.split(inference_outputs, batch_size, dim=0)
@@ -126,12 +134,15 @@ def evaluate(cfg,
 
             # Compute loss
             if hasattr(model, "hyp"):  # if model has loss hyperparameters
-                loss += compute_loss(training_outputs, targets, model)[1][:3].cpu()  # GIoU, obj, cls
+                # GIoU, obj, cls
+                loss += compute_loss(training_outputs, targets, model)[1][:3].cpu()
 
             # Run NMS
-            t = time_synchronized()
-            output = non_max_suppression(inference_outputs, conf_thres=confidence_threshold, iou_thres=iou_threshold)
-            t1 += time_synchronized() - t
+            start_time = time_synchronized()
+            output = non_max_suppression(inference_outputs,
+                                         confidence_threshold=confidence_threshold,
+                                         iou_threshold=iou_threshold)
+            t1 += time_synchronized() - start_time
 
         # Statistics per image
         for si, pred in enumerate(output):
@@ -142,7 +153,10 @@ def evaluate(cfg,
 
             if pred is None:
                 if label_num:
-                    stats.append((torch.zeros(0, niou, dtype=torch.bool), torch.Tensor(), torch.Tensor(), target_class))
+                    stats.append((torch.zeros(0, niou, dtype=torch.bool),
+                                  torch.Tensor(),
+                                  torch.Tensor(),
+                                  target_class))
                 continue
 
             # Clip boxes to image bounds
@@ -153,7 +167,8 @@ def evaluate(cfg,
                 # [{"image_id": 42, "category_id": 18, "bbox": [258.15, 41.29, 348.26, 243.78], "score": 0.236}, ...
                 image_id = int(Path(paths[si]).stem.split('_')[-1])
                 box = pred[:, :4].clone()  # xyxy
-                scale_coords(images[si].shape[1:], box, shapes[si][0], shapes[si][1])  # to original shape
+                # to original shape
+                scale_coords(images[si].shape[1:], box, shapes[si][0], shapes[si][1])
                 box = xyxy2xywh(box)  # xywh
                 box[:, :2] -= box[:, 2:] / 2  # xy center to top-left corner
                 for p, b in zip(pred.tolist(), box.tolist()):
@@ -169,7 +184,7 @@ def evaluate(cfg,
                 tcls_tensor = labels[:, 0]
 
                 # target boxes
-                tbox = xywh2xyxy(labels[:, 1:5]) * whwh
+                target_boxes = xywh2xyxy(labels[:, 1:5]) * whwh
 
                 # Per target class
                 for cls in torch.unique(tcls_tensor):
@@ -179,7 +194,8 @@ def evaluate(cfg,
                     # Search for detections
                     if pi.shape[0]:
                         # Prediction to target ious
-                        ious, i = box_iou(pred[pi, :4], tbox[ti]).max(1)  # best ious, indices
+                        # best ious, indices
+                        ious, i = box_iou(pred[pi, :4], target_boxes[ti]).max(1)
 
                         # Append detections
                         for j in (ious > iouv[0]).nonzero():
@@ -187,7 +203,8 @@ def evaluate(cfg,
                             if d not in detected:
                                 detected.append(d)
                                 correct[pi[j]] = ious[j] > iouv  # iou_thres is 1xn
-                                if len(detected) == label_num:  # all targets already located in image
+                                # all targets already located in image
+                                if len(detected) == label_num:
                                     break
 
             # Append statistics (correct, conf, pcls, tcls)
@@ -200,7 +217,8 @@ def evaluate(cfg,
         if niou > 1:
             p, r, ap, f1 = p[:, 0], r[:, 0], ap.mean(1), ap[:, 0]  # [P, R, AP@0.5:0.95, AP@0.5]
         mp, mr, map, mf1 = p.mean(), r.mean(), ap.mean(), f1.mean()
-        nt = np.bincount(stats[3].astype(np.int64), minlength=classes_num)  # number of targets per class
+        # number of targets per class
+        nt = np.bincount(stats[3].astype(np.int64), minlength=classes_num)
     else:
         nt = torch.zeros(1)
 
@@ -215,8 +233,14 @@ def evaluate(cfg,
 
     # Print speeds
     if verbose:
-        t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (image_size, image_size, batch_size)  # tuple
-        print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
+        # tuple
+        start_time = tuple(ms / seen * 1E3 for ms in (t0, t1, t0 + t1))
+        start_time += (image_size, image_size, batch_size)
+        print(f'Speed:\n'
+              f'Image size:({image_size}x{image_size}) at batch_size:{batch_size}\n.'
+              f'\t- Inference {t0 / seen * 1E3:.1f}ms.\n'
+              f'\t- NMS {t1 / seen * 1E3:.1f}ms.\n'
+              f'\t- Total {(t0 + t1) / seen * 1E3:.1f}ms.\n')
 
     # Save JSON
     if save_json and map and len(json_dict):
@@ -225,14 +249,8 @@ def evaluate(cfg,
         with open('results.json', 'w') as file:
             json.dump(json_dict, file)
 
-        try:
-            from pycocotools.coco import COCO
-            from pycocotools.cocoeval import COCOeval
-        except:
-            print('WARNING: missing pycocotools package, can not compute official COCO mAP. See requirements.txt.')
-
-        # https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocoEvalDemo.ipynb
-        cocoGt = COCO(glob.glob('data/coco2014/annotations/instances_val*.json')[0])  # initialize COCO ground truth api
+        # initialize COCO ground truth api
+        cocoGt = COCO(glob.glob('data/coco2014/annotations/instances_val*.json')[0])
         cocoDt = cocoGt.loadRes('results.json')  # initialize COCO pred api
 
         cocoEval = COCOeval(cocoGt, cocoDt, 'bbox')
@@ -269,7 +287,8 @@ if __name__ == "__main__":
                         help="IOU threshold for NMS. (default=0.6)")
     parser.add_argument("--task", default="eval", help="`eval`, `study`, `benchmark`")
     parser.add_argument("--device", default="", help="device id (i.e. 0 or 0,1) or cpu")
-    parser.add_argument('--save-json', action='store_true', help='save a cocoapi-compatible JSON results file')
+    parser.add_argument('--save-json', action='store_true',
+                        help='save a cocoapi-compatible JSON results file')
     parser.add_argument("--single-cls", action="store_true", help="train as single-class dataset")
     args = parser.parse_args()
 
@@ -289,32 +308,44 @@ if __name__ == "__main__":
                  args.single_cls)
 
     elif args.task == "benchmark":  # mAPs at 320-608 at conf 0.5 and 0.7
-        y = []
-        for i in [320, 416, 512, 608]:  # img-size
-            for j in [0.5, 0.7]:  # iou-thres
+        out = []
+        for size in [320, 416, 512, 608]:  # img-size
+            for iou_value in [0.5, 0.7]:  # iou threshold
                 t = time.time()
-                r = evaluate(args.cfg, args.data, args.weights, args.batch_size, i, args.confidence_threshold, j)[0]
-                y.append(r + (time.time() - t,))
-        np.savetxt("benchmark.txt", y, fmt="%10.4g")  # y = np.loadtxt("study.txt")
+                results = evaluate(cfg=args.cfg,
+                                   data=args.data,
+                                   weight=args.weights,
+                                   batch_size=args.batch_size,
+                                   image_size=size,
+                                   confidence_threshold=args.confidence_threshold,
+                                   iou_threshold=iou_value)[0]
+                out.append(results + (time.time() - t,))
+        np.savetxt("benchmark.txt", out, fmt="%10.4g")
 
     elif args.task == "study":  # Parameter study
-        y = []
-        x = np.arange(0.4, 0.9, 0.05)  # iou-thres
-        for i in x:
+        out = []
+        x = np.arange(0.4, 0.9, 0.05)  # iou threshold array
+        for iou_value in x:
             t = time.time()
-            r = evaluate(args.cfg, args.data, args.weights, args.batch_size, args.image_size, args.confidence_threshold,
-                         i)[0]
-            y.append(r + (time.time() - t,))
-        np.savetxt("study.txt", y, fmt="%10.4g")  # y = np.loadtxt("study.txt")
+
+            results = evaluate(cfg=args.cfg,
+                               data=args.data,
+                               weight=args.weights,
+                               batch_size=args.batch_size,
+                               image_size=args.image_size,
+                               confidence_threshold=args.confidence_threshold,
+                               iou_threshold=iou_value)[0]
+            out.append(results + (time.time() - t,))
+        np.savetxt("study.txt", out, fmt="%10.4g")
 
         # Plot
         fig, ax = plt.subplots(3, 1, figsize=(6, 6))
-        y = np.stack(y, 0)
-        ax[0].plot(x, y[:, 2], marker=".", label="mAP@0.5")
+        out = np.stack(out, 0)
+        ax[0].plot(x, out[:, 2], marker=".", label="mAP@0.5")
         ax[0].set_ylabel("mAP")
-        ax[1].plot(x, y[:, 3], marker=".", label="mAP@0.5:0.95")
+        ax[1].plot(x, out[:, 3], marker=".", label="mAP@0.5:0.95")
         ax[1].set_ylabel("mAP")
-        ax[2].plot(x, y[:, -1], marker=".", label="time")
+        ax[2].plot(x, out[:, -1], marker=".", label="time")
         ax[2].set_ylabel("time (s)")
         for i in range(3):
             ax[i].legend()
