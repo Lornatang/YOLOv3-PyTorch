@@ -144,6 +144,7 @@ data/safety_hat.names
 data/coco2014
 data/voc2007
 data/voc2012
+data/voc
 data/masks
 data/safety_hat
 weights/*.weights
