@@ -54,12 +54,7 @@ from .utils import load_classes
 from .utils import non_max_suppression
 from .utils import plot_one_box
 from .utils import plot_results
-from .utils import print_model_biases
 from .utils import print_mutation
 from .utils import scale_coords
 from .utils import xywh2xyxy
 from .utils import xyxy2xywh
-from .conv import SeModule
-from .block import MobileNetv3_Block
-from .linear import LinearBNHSwish
-from .conv import MobileNetv3_Conv
