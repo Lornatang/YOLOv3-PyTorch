@@ -42,7 +42,7 @@ def detect(save_image=False):
     image_size = (608, 352) if ONNX_EXPORT else args.image_size
     output = args.output
     source = args.source
-    weight = args.weight
+    weights = args.weights
     view_image = args.view_image
     save_txt = args.save_txt
 
@@ -60,10 +60,10 @@ def detect(save_image=False):
     model = Darknet(args.cfg, image_size)
 
     # Load weight
-    if weight.endswith(".pth"):
-        model.load_state_dict(torch.load(weight, map_location=device)["model"])
+    if weights.endswith(".pth"):
+        model.load_state_dict(torch.load(weights, map_location=device)["model"])
     else:
-        load_darknet_weights(model, weight)
+        load_darknet_weights(model, weights)
 
     # Second-stage classifier
     classify = False
@@ -208,11 +208,11 @@ def detect(save_image=False):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cfgs", type=str, default="cfgs/yolov3.cfg",
+    parser.add_argument("--cfg", type=str, default="cfgs/yolov3.cfg",
                         help="Neural network profile path. (default=cfgs/yolov3.cfg)")
     parser.add_argument("--names", type=str, default="data/coco.names",
                         help="Types of objects detected. (default=data/coco.names)")
-    parser.add_argument("--weight", type=str, default="weights/yolov3.pth",
+    parser.add_argument("--weights", type=str, default="weights/yolov3.pth",
                         help="Model file weight path. (default=weights/yolov3.pth")
     parser.add_argument("--source", type=str, default="data/examples",
                         help="Image input source. (default=data/examples)")

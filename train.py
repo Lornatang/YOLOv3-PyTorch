@@ -84,7 +84,7 @@ def train():
     epochs = args.epochs
     batch_size = args.batch_size
     accumulate = args.accumulate
-    weight = args.weight
+    weights = args.weights
 
     # Initialize
     init_seeds()
@@ -133,8 +133,8 @@ def train():
     start_epoch = 0
     best_fitness = 0.0
     context = None
-    if weight.endswith(".pth"):
-        state = torch.load(weight, map_location=device)
+    if weights.endswith(".pth"):
+        state = torch.load(weights, map_location=device)
         # load model
         try:
             state["model"] = {k: v for k, v in state["model"].items()
@@ -159,9 +159,9 @@ def train():
         start_epoch = state["epoch"] + 1
         del state
 
-    elif len(weight) > 0:
+    elif len(weights) > 0:
         # possible weights are "*.weights", "yolov3-tiny.conv.15",  "darknet53.conv.74" etc.
-        load_darknet_weights(model, weight)
+        load_darknet_weights(model, weights)
     else:
         print("Pre training model weight not loaded.")
 
@@ -455,14 +455,14 @@ if __name__ == "__main__":
                         help='evolve hyperparameters')
     parser.add_argument("--cache-images", action="store_true",
                         help="cache images for faster training.")
-    parser.add_argument("--weight", type=str, default="",
+    parser.add_argument("--weights", type=str, default="",
                         help="Model file weight path. (default: ``)")
     parser.add_argument("--device", default="",
                         help="device id (i.e. 0 or 0,1 or cpu)")
     parser.add_argument("--single-cls", action="store_true",
                         help="train as single-class dataset")
     args = parser.parse_args()
-    args.weight = "weights/checkpoint.pth" if args.resume else args.weight
+    args.weights = "weights/checkpoint.pth" if args.resume else args.weights
 
     print(args)
 
