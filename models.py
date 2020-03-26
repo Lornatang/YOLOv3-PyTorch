@@ -408,7 +408,7 @@ def load_darknet_weights(self, weights, cutoff=-1):
 
     ptr = 0
     for i, (mdef, module) in enumerate(
-            zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
+            zip(self.module_defines[:cutoff], self.module_list[:cutoff])):
         if mdef["type"] == "convolutional":
             conv = module[0]
             if mdef["batch_normalize"]:
