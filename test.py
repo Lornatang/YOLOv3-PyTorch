@@ -52,7 +52,7 @@ except:
 
 def evaluate(cfg,
              data,
-             weight=None,
+             weights=None,
              batch_size=16,
              workers=4,
              image_size=416,
@@ -70,11 +70,11 @@ def evaluate(cfg,
         # Initialize model
         model = Darknet(cfg, image_size).to(device)
 
-        # Load weights
-        if weight.endswith(".pth"):
-            model.load_state_dict(torch.load(weight, map_location=device)["model"])
+        # Load weightss
+        if weights.endswith(".pth"):
+            model.load_state_dict(torch.load(weights, map_location=device)["model"])
         else:
-            load_darknet_weights(model, weight)
+            load_darknet_weights(model, weights)
 
         if device.type != "cpu" and torch.cuda.device_count() > 1:
             model = nn.DataParallel(model)
@@ -237,10 +237,10 @@ def evaluate(cfg,
         start_time = tuple(ms / seen * 1E3 for ms in (t0, t1, t0 + t1))
         start_time += (image_size, image_size, batch_size)
         print(f'Speed:\n'
-              f'Image size:({image_size}x{image_size}) at batch_size:{batch_size}\n.'
+              f'Image size: ({image_size}x{image_size}) at batch_size: {batch_size}\n'
               f'\t- Inference {t0 / seen * 1E3:.1f}ms.\n'
-              f'\t- NMS {t1 / seen * 1E3:.1f}ms.\n'
-              f'\t- Total {(t0 + t1) / seen * 1E3:.1f}ms.\n')
+              f'\t- NMS       {t1 / seen * 1E3:.1f}ms.\n'
+              f'\t- Total     {(t0 + t1) / seen * 1E3:.1f}ms.\n')
 
     # Save JSON
     if save_json and map and len(json_dict):
@@ -273,8 +273,8 @@ if __name__ == "__main__":
                         help="Neural network profile path. (default=cfgs/yolov3.cfg)")
     parser.add_argument("--data", type=str, default="cfgs/coco2014.data",
                         help="Dataload load path. (default=data/coco2014.data)")
-    parser.add_argument("--weight", type=str, default="weights/yolov3.pth",
-                        help="Model file weight path. (default=weights/yolov3.pth")
+    parser.add_argument("--weights", type=str, default="weights/yolov3.pth",
+                        help="Model file weights path. (default=weights/yolov3.pth")
     parser.add_argument("--batch-size", type=int, default=32,
                         help="Size of each image batch. (default=32)")
     parser.add_argument('--workers', default=4, type=int, metavar='N',
@@ -298,7 +298,7 @@ if __name__ == "__main__":
     if args.task == "eval":  # (default) eval normally
         evaluate(args.cfg,
                  args.data,
-                 args.weight,
+                 args.weights,
                  args.batch_size,
                  args.workers,
                  args.image_size,
@@ -314,7 +314,7 @@ if __name__ == "__main__":
                 t = time.time()
                 results = evaluate(cfg=args.cfg,
                                    data=args.data,
-                                   weight=args.weights,
+                                   weights=args.weights,
                                    batch_size=args.batch_size,
                                    image_size=size,
                                    confidence_threshold=args.confidence_threshold,
@@ -330,7 +330,7 @@ if __name__ == "__main__":
 
             results = evaluate(cfg=args.cfg,
                                data=args.data,
-                               weight=args.weights,
+                               weights=args.weights,
                                batch_size=args.batch_size,
                                image_size=args.image_size,
                                confidence_threshold=args.confidence_threshold,
