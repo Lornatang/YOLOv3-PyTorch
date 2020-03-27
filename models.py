@@ -460,12 +460,12 @@ def save_weights(self, path="model.weights", cutoff=-1):
         self.seen.tofile(f)  # (int64) number of images seen during training
 
         # Iterate through layers
-        for i, (mdef, module) in enumerate(
-                zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
-            if mdef["type"] == "convolutional":
+        for i, (module_define, module) in enumerate(
+                zip(self.module_defines[:cutoff], self.module_list[:cutoff])):
+            if module_define["type"] == "convolutional":
                 conv_layer = module[0]
                 # If batch norm, load bn first
-                if mdef["batch_normalize"]:
+                if module_define["batch_normalize"]:
                     bn_layer = module[1]
                     bn_layer.bias.data.cpu().numpy().tofile(f)
                     bn_layer.weight.data.cpu().numpy().tofile(f)
