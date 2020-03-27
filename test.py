@@ -60,6 +60,7 @@ def evaluate(cfg,
              iou_threshold=0.6,  # for nms
              save_json=True,
              single_cls=False,
+             augment=False,
              model=None,
              dataloader=None):
     # Initialize/load model and set device
@@ -117,9 +118,10 @@ def evaluate(cfg,
         # Disable gradients
         with torch.no_grad():
             # Test the effect of image enhancement
-            augment = False
             if augment:
-                images = torch.cat((images, images.flip(3), scale_image(images, 0.7),), 0)
+                fs_image = scale_image(images.flip(3), 0.9)  # flip-lr and scale
+                s_image = scale_image(images, 0.7)  # scale
+                images = torch.cat((images, fs_image, s_image), 0)
 
             # Run model
             start_time = time_synchronized()
@@ -128,6 +130,7 @@ def evaluate(cfg,
 
             if augment:
                 x = torch.split(inference_outputs, batch_size, dim=0)
+                x[1][..., :4] /= 0.9  # scale
                 x[1][..., 0] = width - x[1][..., 0]  # flip lr
                 x[2][..., :4] /= 0.7  # scale
                 inference_outputs = torch.cat(x, 1)
@@ -275,8 +278,8 @@ if __name__ == "__main__":
                         help="Dataload load path. (default=data/coco2014.data)")
     parser.add_argument("--weights", type=str, default="weights/yolov3.pth",
                         help="Model file weights path. (default=weights/yolov3.pth")
-    parser.add_argument("--batch-size", type=int, default=32,
-                        help="Size of each image batch. (default=32)")
+    parser.add_argument("--batch-size", type=int, default=16,
+                        help="Size of each image batch. (default=16)")
     parser.add_argument('--workers', default=4, type=int, metavar='N',
                         help='Number of data loading workers (default: 4)')
     parser.add_argument("--image-size", type=int, default=416,
@@ -290,6 +293,7 @@ if __name__ == "__main__":
     parser.add_argument('--save-json', action='store_true',
                         help='save a cocoapi-compatible JSON results file')
     parser.add_argument("--single-cls", action="store_true", help="train as single-class dataset")
+    parser.add_argument('--augment', action='store_true', help='augmented for testing')
     args = parser.parse_args()
 
     print(args)
@@ -305,7 +309,8 @@ if __name__ == "__main__":
                  args.confidence_threshold,
                  args.iou_threshold,
                  args.save_json,
-                 args.single_cls)
+                 args.single_cls,
+                 args.augment)
 
     elif args.task == "benchmark":  # mAPs at 320-608 at conf 0.5 and 0.7
         out = []
