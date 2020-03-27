@@ -511,7 +511,7 @@ def non_max_suppression(prediction,
             i = torchvision.ops.boxes.nms(boxes, scores, iou_threshold)
             iou = box_iou(boxes, boxes[i]).tril_()  # lower triangular iou matrix
             weights = (iou > iou_threshold) * scores.view(-1, 1)
-            weights /= weights.sum(0)
+            weights /= weights.sum(0) + 1E-6
             x[i, :4] = torch.mm(weights.T,
                                 x[:, :4])  # merged_boxes(n,4) = weights(n,n) * boxes(n,4)
         elif method == 'vision':
