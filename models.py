@@ -420,28 +420,23 @@ def load_darknet_weights(self, weights, cutoff=-1):
                 bn = module[1]
                 nb = bn.bias.numel()  # number of biases
                 # Bias
-                bn.bias.data.copy_(
-                    torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.bias))
+                bn.bias.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.bias))
                 ptr += nb
                 # Weight
-                bn.weight.data.copy_(
-                    torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.weight))
+                bn.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.weight))
                 ptr += nb
                 # Running Mean
                 bn.running_mean.data.copy_(
-                    torch.from_numpy(weights[ptr:ptr + nb]).view_as(
-                        bn.running_mean))
+                    torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.running_mean))
                 ptr += nb
                 # Running Var
                 bn.running_var.data.copy_(
-                    torch.from_numpy(weights[ptr:ptr + nb]).view_as(
-                        bn.running_var))
+                    torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.running_var))
                 ptr += nb
             else:
                 # Load conv. bias
                 nb = conv.bias.numel()
-                conv_b = torch.from_numpy(weights[ptr:ptr + nb]).view_as(
-                    conv.bias)
+                conv_b = torch.from_numpy(weights[ptr:ptr + nb]).view_as(conv.bias)
                 conv.bias.data.copy_(conv_b)
                 ptr += nb
             # Load conv. weights
