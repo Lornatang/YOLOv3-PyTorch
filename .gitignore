@@ -123,22 +123,6 @@ dmypy.json
 # custom
 logs/
 output/
-cfgs/mobilenetv1-voc.cfg
-cfgs/mobilenetv2-voc.cfg
-cfgs/yolov3-tiny-voc.cfg
-cfgs/yolov3-mask.cfg
-cfgs/yolov3s-mask.cfg
-cfgs/yolov3-swish-tiny-voc.cfg
-cfgs/yolov3-mish-tiny-voc.cfg
-cfgs/yolov3-tiny-mask.cfg
-cfgs/yolov3-tiny-safety-hat.cfg
-cfgs/yolov3s-tiny-mask.cfg
-cfgs/yolov4-mask.cfg
-cfgs/yolov4s-mask.cfg
-cfgs/yolov4-tiny-mask.cfg
-cfgs/yolov4s-tiny-mask.cfg
-cfgs/masks.data
-cfgs/safety_hat.data
 data/masks.names
 data/safety_hat.names
 data/coco2014
@@ -147,6 +131,7 @@ data/voc2012
 data/voc
 data/masks
 data/safety_hat
+weights/voc/
 weights/*.weights
 weights/darknet53.conv.74
 weights/yolov3-tiny.conv.15
