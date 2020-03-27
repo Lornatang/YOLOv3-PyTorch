@@ -52,7 +52,7 @@ parameters = {"giou": 3.54,  # giou loss gain
               "obj": 64.3,  # obj loss gain (*=img_size/320 if img_size != 320)
               "obj_pw": 1.0,  # obj BCELoss positive_weight
               "iou_t": 0.225,  # iou training threshold
-              'lr0': 0.001,  # initial learning rate (SGD=5E-3, Adam=5E-4)
+              'lr0': 0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
               "lrf": -4.,  # final LambdaLR learning rate = lr0 * (10 ** lrf)
               "momentum": 0.937,  # SGD momentum
               "weight_decay": 0.000484,  # optimizer weight decay
@@ -141,9 +141,9 @@ def train():
                               if model.state_dict()[k].numel() == v.numel()}
             model.load_state_dict(state["model"], strict=False)
         except KeyError as e:
-            error_msg = f"{args.weight} is not compatible with {args.cfg}. "
+            error_msg = f"{args.weights} is not compatible with {args.cfg}. "
             error_msg += f"Specify --weights `` or specify a --cfg "
-            error_msg += f"compatible with {args.weight}. "
+            error_msg += f"compatible with {args.weights}. "
             raise KeyError(error_msg) from e
 
         # load optimizer
@@ -168,8 +168,7 @@ def train():
     # Mixed precision training https://github.com/NVIDIA/apex
     if mixed_precision:
         # skip print amp info
-        model, optimizer = amp.initialize(model, optimizer, opt_level="O1",
-                                          verbosity=0)
+        model, optimizer = amp.initialize(model, optimizer, opt_level="O1", verbosity=0)
     # source https://arxiv.org/pdf/1812.01187.pdf
     lr_lambda = lambda lr: (1 + math.cos(lr * math.pi / epochs)) / 2
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
