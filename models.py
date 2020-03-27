@@ -94,6 +94,19 @@ def create_modules(module_defines, image_size):
             size = module["size"]
             modules.add_module("AdaptiveAvgPool2d", nn.AdaptiveAvgPool2d(output_size=size))
 
+        elif module["type"] == "dense":
+            bn = module["batch_normalize"]
+            in_features = module["in_features"]
+            out_features = module["out_features"]
+            modules.add_module("Linear", nn.Linear(in_features=in_features,
+                                                   out_features=out_features,
+                                                   bias=not bn))
+
+            if bn:
+                modules.add_module("BatchNorm2d", nn.BatchNorm2d(num_features=out_features,
+                                                                 momentum=0.003,
+                                                                 eps=1E-4))
+
         elif module["type"] == "upsample":
             if ONNX_EXPORT:  # explicitly state size, avoid scale_factor
                 g = (yolo_index + 1) * 2 / 32  # gain
