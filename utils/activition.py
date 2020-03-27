@@ -27,7 +27,7 @@ class HSwish(nn.Module):
         self.inplace = inplace
 
     def forward(self, x):
-        return x * F.relu6(x + 3, inplace=True) / 6.
+        return x * F.relu6(x + 3, inplace=True) / 6
 
 
 # Source https://github.com/digantamisra98/Mish/blob/master/Mish/Torch/mish.py
@@ -64,4 +64,4 @@ class HSigmoid(nn.Module):
         self.inplace = inplace
 
     def forward(self, x):
-        return F.relu6(x + 3, inplace=True) / 6.
+        return F.relu6(x + 3, inplace=True) / 6
