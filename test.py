@@ -237,7 +237,7 @@ def evaluate(cfg,
     # Print speeds
     if verbose:
         # tuple
-        memory = f"{torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0:.2f}G"
+        memory = torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0
         start_time = tuple(ms / seen * 1E3 for ms in (t0, t1, t0 + t1))
         start_time += (image_size, image_size, batch_size)
         print(f"Inference menory: {memory:.1f} GB.")
