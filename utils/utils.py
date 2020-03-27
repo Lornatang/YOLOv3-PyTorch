@@ -344,7 +344,7 @@ def compute_loss(p, targets, model):  # predictions, targets, model
     cp, cn = smooth_BCE(eps=0.0)
 
     # focal loss
-    g = h['fl_gamma']  # focal loss gamma
+    g = h["fl_gamma"]  # focal loss gamma
     if g > 0:
         BCEcls, BCEobj = FocalLoss(BCEcls, g), FocalLoss(BCEobj, g)
 
