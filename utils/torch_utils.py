@@ -29,19 +29,19 @@ class ModelEMA:
     This is intended to allow functionality like
     https://www.tensorflow.org/api_docs/python/tf/train/ExponentialMovingAverage
     A smoothed version of the weights is necessary for some training schemes to perform well.
-    E.g. Google's hyper-params for training MNASNet, MobileNet-V3, EfficientNet, etc that use
+    E.g. Google"s hyper-params for training MNASNet, MobileNet-V3, EfficientNet, etc that use
     RMSprop with a short 2.4-3 epoch decay period and slow LR decay rate of .96-.99 requires EMA
     smoothing of weights to match results. Pay attention to the decay constant you are using
     relative to your update count per epoch.
-    To keep EMA from using GPU resources, set device='cpu'. This will save a bit of memory but
+    To keep EMA from using GPU resources, set device="cpu". This will save a bit of memory but
     disable validation of the EMA weights. Validation will have to be done manually in a separate
     process, or after the training stops converging.
     This class is sensitive where it is initialized in the sequence of model init,
     GPU assignment and distributed training wrappers.
-    I've tested with the sequence in my own train.py for torch.DataParallel, apex.DDP, and single-GPU.
+    I"ve tested with the sequence in my own train.py for torch.DataParallel, apex.DDP, and single-GPU.
     """
 
-    def __init__(self, model, decay=0.9998, device=''):
+    def __init__(self, model, decay=0.9998, device=""):
         # make a copy of the model for accumulating moving average of weights
         self.ema = deepcopy(model)
         self.ema.eval()
@@ -67,7 +67,7 @@ class ModelEMA:
     def update_attr(self, model):
         # Assign attributes (which may change during training)
         for k in model.__dict__.keys():
-            if not k.startswith('_'):
+            if not k.startswith("_"):
                 setattr(self.ema, k, getattr(model, k))
 
 
@@ -144,7 +144,7 @@ def scale_image(image, ratio=1.0):  # image(16,3,256,416), ratio=1.0
     height, width = image.shape[2:]
     size = (int(height * ratio), int(width * ratio))  # new size
     p = height - size[0], width - size[1]  # pad/crop pixels
-    image = F.interpolate(image, size=size, mode='bilinear', align_corners=False)  # resize
+    image = F.interpolate(image, size=size, mode="bilinear", align_corners=False)  # resize
     return F.pad(image, [0, p[1], 0, p[0]], value=0.5) if ratio < 1.0 else image[:, :, :p[0], :p[1]]  # pad/crop
 
 

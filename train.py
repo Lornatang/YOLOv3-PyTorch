@@ -52,18 +52,18 @@ parameters = {"giou": 3.54,  # giou loss gain
               "obj": 64.3,  # obj loss gain (*=img_size/320 if img_size != 320)
               "obj_pw": 1.0,  # obj BCELoss positive_weight
               "iou_t": 0.225,  # iou training threshold
-              'lr0': 0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
+              "lr0": 0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
               "lrf": -4.,  # final LambdaLR learning rate = lr0 * (10 ** lrf)
               "momentum": 0.937,  # SGD momentum
               "weight_decay": 0.000484,  # optimizer weight decay
-              'fl_gamma': 0.0,  # focal loss gamma (default is gamma=1.5)
+              "fl_gamma": 0.0,  # focal loss gamma (default is gamma=1.5)
               "hsv_h": 0.0138,  # image HSV-Hue augmentation (fraction)
               "hsv_s": 0.678,  # image HSV-Saturation augmentation (fraction)
               "hsv_v": 0.36,  # image HSV-Value augmentation (fraction)
-              'degrees': 1.98 * 0,  # image rotation (+/- deg)
-              'translate': 0.05 * 0,  # image translation (+/- fraction)
-              'scale': 0.05 * 0,  # image scale (+/- gain)
-              'shear': 0.641 * 0}  # image shear (+/- deg)
+              "degrees": 1.98 * 0,  # image rotation (+/- deg)
+              "translate": 0.05 * 0,  # image translation (+/- fraction)
+              "scale": 0.05 * 0,  # image scale (+/- gain)
+              "shear": 0.641 * 0}  # image shear (+/- deg)
 
 # Overwrite hyp with hyp*.txt
 parameter_file = glob.glob("hyp*.txt")
@@ -232,7 +232,7 @@ def train():
     batches_num = len(train_dataloader)  # number of batches
     prebias = start_epoch == 0
     maps = np.zeros(num_classes)  # mAP per class
-    # 'P', 'R', 'mAP', 'F1', 'val GIoU', 'val Objectness', 'val Classification'
+    # "P", "R", "mAP", "F1", "val GIoU", "val Objectness", "val Classification"
     results = (0, 0, 0, 0, 0, 0, 0)
     print(f"Using {args.workers} dataloader workers.")
     print(f"Starting training for {args.epochs} epochs...")
@@ -248,7 +248,7 @@ def train():
 
             if epoch == warmup_epoch:
                 # normal training settings
-                warmup_parameter = parameters['lr0'], parameters['momentum']
+                warmup_parameter = parameters["lr0"], parameters["momentum"]
                 model.gr = 1.0  # giou loss ratio (obj_loss = giou)
                 prebias = False
 
@@ -285,7 +285,7 @@ def train():
             n_burn = 200  # number of burn-in batches
             if ni <= n_burn:
                 for m in model.named_modules():
-                    if m[0].endswith('BatchNorm2d'):
+                    if m[0].endswith("BatchNorm2d"):
                         m[1].track_running_stats = ni == n_burn
 
             # Multi-Scale training
@@ -345,10 +345,9 @@ def train():
         # ema.update_attr(model)
         final_epoch = epoch + 1 == epochs
         if not args.notest or final_epoch:  # Calculate mAP
-            coco = any([coco_name in data
-                        for coco_name in ['coco.data',
-                                          'coco2014.data',
-                                          'coco2017.data']]) and model.nc == 80
+            coco = any([coco_name in data for coco_name in ["coco.data",
+                                                            "coco2014.data",
+                                                            "coco2017.data"]]) and model.nc == 80
             results, maps = evaluate(cfg,
                                      data,
                                      batch_size=batch_size * 2,
@@ -383,14 +382,14 @@ def train():
         # Save training results
         save = (not args.nosave) or (final_epoch and not args.evolve)
         if save:
-            with open("results.txt", 'r') as f:
+            with open("results.txt", "r") as f:
                 # Create checkpoint
-                state = {'epoch': epoch,
-                         'best_fitness': best_fitness,
-                         'training_results': f.read(),
-                         'model': model.module.state_dict()
-                         if hasattr(model, 'module') else model.state_dict(),
-                         'optimizer': None
+                state = {"epoch": epoch,
+                         "best_fitness": best_fitness,
+                         "training_results": f.read(),
+                         "model": model.module.state_dict()
+                         if hasattr(model, "module") else model.state_dict(),
+                         "optimizer": None
                          if final_epoch else optimizer.state_dict()}
 
         # Save last checkpoint
@@ -398,11 +397,11 @@ def train():
 
         # Save best checkpoint
         if best_fitness == fitness_i:
-            state = {'epoch': -1,
-                     'best_fitness': None,
-                     'training_results': None,
-                     'model': model.state_dict(),
-                     'optimizer': None}
+            state = {"epoch": -1,
+                     "best_fitness": None,
+                     "training_results": None,
+                     "model": model.state_dict(),
+                     "optimizer": None}
             torch.save(state, "weights/model_best.pth")
 
         # Delete checkpoint
@@ -436,22 +435,22 @@ if __name__ == "__main__":
                              "(default: cfgs/yolov3.cfg)")
     parser.add_argument("--data", type=str, default="data/coco2014.data",
                         help="Path to dataset. (default: cfgs/coco2014.data)")
-    parser.add_argument('--workers', default=4, type=int, metavar='N',
-                        help='Number of data loading workers (default: 4)')
+    parser.add_argument("--workers", default=4, type=int, metavar="N",
+                        help="Number of data loading workers (default: 4)")
     parser.add_argument("--multi-scale", action="store_true",
                         help="adjust (67% - 150%) img_size every 10 batches")
-    parser.add_argument("--image-size", nargs='+', type=int, default=[416],
+    parser.add_argument("--image-size", nargs="+", type=int, default=[416],
                         help="Size of processing picture. (default: [416])")
     parser.add_argument("--rect", action="store_true",
                         help="rectangular training for faster training.")
     parser.add_argument("--resume", action="store_true",
                         help="resume training from checkpoint.pth")
-    parser.add_argument('--nosave', action='store_true',
-                        help='only save final checkpoint')
-    parser.add_argument('--notest', action='store_true',
-                        help='only test final epoch')
-    parser.add_argument('--evolve', action='store_true',
-                        help='evolve hyperparameters')
+    parser.add_argument("--nosave", action="store_true",
+                        help="only save final checkpoint")
+    parser.add_argument("--notest", action="store_true",
+                        help="only test final epoch")
+    parser.add_argument("--evolve", action="store_true",
+                        help="evolve hyperparameters")
     parser.add_argument("--cache-images", action="store_true",
                         help="cache images for faster training.")
     parser.add_argument("--weights", type=str, default="",
@@ -492,17 +491,17 @@ if __name__ == "__main__":
 
         for _ in range(1):  # generations to evolve
             # if evolve.txt exists: select best hyps and mutate
-            if os.path.exists('evolve.txt'):
+            if os.path.exists("evolve.txt"):
                 # Select parent(s)
-                parent = 'single'  # parent selection method: 'single' or 'weighted'
-                x = np.loadtxt('evolve.txt', ndmin=2)
+                parent = "single"  # parent selection method: "single" or "weighted"
+                x = np.loadtxt("evolve.txt", ndmin=2)
                 n = min(5, len(x))  # number of previous results to consider
                 x = x[np.argsort(-fitness(x))][:n]  # top n mutations
                 w = fitness(x) - fitness(x).min()  # weights
-                if parent == 'single' or len(x) == 1:
+                if parent == "single" or len(x) == 1:
                     x = x[random.choices(range(n), weights=w)[
                         0]]  # weighted selection
-                elif parent == 'weighted':
+                elif parent == "weighted":
                     x = (x * w.reshape(n, 1)).sum(
                         0) / w.sum()  # weighted combination
 
@@ -531,8 +530,8 @@ if __name__ == "__main__":
                     parameters[k] = x[i + 7] * v[i]  # mutate
 
             # Clip to limits
-            keys = ['lr0', 'iou_t', 'momentum', 'weight_decay', 'hsv_s',
-                    'hsv_v', 'translate', 'scale', 'fl_gamma']
+            keys = ["lr0", "iou_t", "momentum", "weight_decay", "hsv_s",
+                    "hsv_v", "translate", "scale", "fl_gamma"]
             limits = [(1e-5, 1e-2), (0.00, 0.70), (0.60, 0.98), (0, 0.001),
                       (0, .9), (0, .9), (0, .9), (0, .9), (0, 3)]
             for k, v in zip(keys, limits):

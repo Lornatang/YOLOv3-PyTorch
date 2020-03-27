@@ -122,14 +122,14 @@ class LoadImages:
                     ret_val, raw_image = self.capture.read()
 
             self.frame += 1
-            print(f"video {self.count + 1}/{self.files_num} ({self.frame}/{self.frames_num}) {path}: ", end='')
+            print(f"video {self.count + 1}/{self.files_num} ({self.frame}/{self.frames_num}) {path}: ", end="")
 
         else:
             # Read image
             self.count += 1
             raw_image = cv2.imread(path)  # opencv read image default is BGR
             assert raw_image is not None, "Image Not Found `" + path + "`"
-            print(f"image {self.count}/{self.files_num} {path}: ", end='')
+            print(f"image {self.count}/{self.files_num} {path}: ", end="")
 
         # Padded resize operation
         image = letterbox(raw_image, new_shape=self.image_size)[0]
@@ -198,7 +198,7 @@ class LoadCamera:
 
         assert retval, f"Camera Error `{self.pipe}`"
         image_path = "webcam.png"
-        print(f"Webcam {self.count}: ", end='')
+        print(f"Webcam {self.count}: ", end="")
 
         # Padded resize operation
         image = letterbox(raw_image, new_shape=self.image_size)[0]
@@ -240,7 +240,7 @@ class LoadStreams:
         self.sources = sources
         for i, s in enumerate(sources):
             # Start the thread to read frames from the video stream
-            print(f"{i + 1}/{n}: {s}... ", end='')
+            print(f"{i + 1}/{n}: {s}... ", end="")
 
             capture = cv2.VideoCapture(0 if s == "0" else s)
             assert capture.isOpened(), f"Failed to open {s}"
