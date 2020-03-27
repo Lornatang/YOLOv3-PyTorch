@@ -147,12 +147,12 @@ To run a specific models:
 ### Backbone
 In addition to some architectures given by the author, we also add 
 some commonly used neural network architectures, which usually have 
-better mPAP and less computation than the original architecture.
+better mAP and less computation than the original architecture.
 
 |     Backbone     |    Train    |  Test  |train time (s/iter)|inference time (s/im)|train mem (GB)| mAP |  Cfg  |   Weight   |  
 |:-----------------|:-----------:|:------:|:-----------------:|:-------------------:|:------------:|:---:|:-----:|:----------:|
 |YOLOv3-tiny       |COCO trainval|test-dev|-                  |-   |- |- |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/yolov3-tiny.cfg)|[weights](https://pjreddie.com/media/files/yolov3-tiny.weights)|
-|MobileNet-v1      |COCO trainval|test-dev|-                  |-  |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
+|MobileNet-v1      |COCO trainval|test-dev|0.108              |-  |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
 |MobileNet-v2      |COCO trainval|test-dev|-                  |-   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
 |MobileNet-v3-small|COCO trainval|test-dev|-                  |-  |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-small.cfg)|-|
 |MobileNet-v3-large|COCO trainval|test-dev|-                  |-   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-large.cfg)|-|
