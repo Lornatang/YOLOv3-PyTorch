@@ -149,13 +149,15 @@ In addition to some architectures given by the author, we also add
 some commonly used neural network architectures, which usually have 
 better mAP and less computation than the original architecture.
 
-|     Backbone     |    Train    |  Test  |train time (s/iter)|inference time (s/im)|train mem (GB)| mAP |  Cfg  |   Weight   |  
-|:-----------------|:-----------:|:------:|:-----------------:|:-------------------:|:------------:|:---:|:-----:|:----------:|
-|YOLOv3-tiny       |COCO trainval|test-dev|-                  |-   |- |- |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/yolov3-tiny.cfg)|[weights](https://pjreddie.com/media/files/yolov3-tiny.weights)|
-|MobileNet-v1      |COCO trainval|test-dev|0.108              |-  |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
-|MobileNet-v2      |COCO trainval|test-dev|-                  |-   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
-|MobileNet-v3-small|COCO trainval|test-dev|-                  |-  |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-small.cfg)|-|
-|MobileNet-v3-large|COCO trainval|test-dev|-                  |-   |-|-|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-large.cfg)|-|
+* All training and tests at image size:(416 x 416) for GeForce RTX 2080 SUPER
+
+|     Backbone     |  Train  | Test |train time (s/iter)|inference time (s/im)|train mem (GB)| mAP |  Cfg  |   Weight   |  
+|:-----------------|:-------:|:----:|:-----------------:|:-------------------:|:------------:|:---:|:-----:|:----------:|
+|YOLOv3-tiny       |VOC07+12 |VOC07 |0.107              |0.004                |2.68          |50.3 |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/yolov3-tiny.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/yolov3-tiny.pth)|
+|MobileNet-v1      |VOC07+12 |VOC07 |0.108              |-                |-             |- |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
+|MobileNet-v2      |VOC07+12 |VOC07 |-                  |-                |-             |- |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
+|MobileNet-v3-small|VOC07+12 |VOC07 |-                  |-                |-             |- |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-small.cfg)|-|
+|MobileNet-v3-large|VOC07+12 |VOC07 |-                  |-                |-             |- |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv3-large.cfg)|-|
 
 
 ### Image Augmentation
