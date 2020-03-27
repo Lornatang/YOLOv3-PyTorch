@@ -395,8 +395,8 @@ def compute_loss(p, targets, model):  # predictions, targets, model
 def build_targets(model, targets):
     # targets = [image, class, x, y, w, h]
 
-    nt = len(targets)
-    tcls, tbox, indices, av = [], [], [], []
+    nt = targets.shape[0]
+    tcls, tbox, indices, anchor_vector = [], [], [], []
     multi_gpu = type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel)
     reject, use_all_anchors = True, True
     for i in model.yolo_layers:
@@ -410,10 +410,10 @@ def build_targets(model, targets):
         t, a = targets, []
         gwh = t[:, 4:6] * ng
         if nt:
-            iou = wh_iou(anchor_vec, gwh)
+            iou = wh_iou(anchor_vec, gwh)  # iou(3,n) = wh_iou(anchor_vec(3,2), gwh(n,2))
 
             if use_all_anchors:
-                na = len(anchor_vec)  # number of anchors
+                na = anchor_vec.shape[0]  # number of anchors
                 a = torch.arange(na).view((-1, 1)).repeat([1, nt]).view(-1)
                 t = targets.repeat([na, 1])
                 gwh = gwh.repeat([na, 1])
@@ -434,15 +434,14 @@ def build_targets(model, targets):
         # Box
         gxy -= gxy.floor()  # xy
         tbox.append(torch.cat((gxy, gwh), 1))  # xywh (grids)
-        av.append(anchor_vec[a])  # anchor vec
+        anchor_vector.append(anchor_vec[a])
 
         # Class
         tcls.append(c)
         if c.shape[0]:  # if any targets
-            assert c.max() < model.nc, "Model accepts %g classes labeled from 0-%g, however you labelled a class %g. " % (
-                model.nc, model.nc - 1, c.max())
+            assert c.max() < model.nc, f"Model accepts {model.nc} classes labeled from 0-{model.nc - 1}, however you labelled a class {c.max()}. "
 
-    return tcls, tbox, indices, av
+    return tcls, tbox, indices, anchor_vector
 
 
 def non_max_suppression(prediction,
@@ -452,133 +451,76 @@ def non_max_suppression(prediction,
                         classes=None,
                         agnostic=False):
     """
-    Removes detections with lower object confidence score than "confidence_threshold"
-    Non-Maximum Suppression to further filter detections.
-    Returns detections with shape:
-        (x1, y1, x2, y2, object_conf, conf, class)
+    Performs  Non-Maximum Suppression on inference results
+    Returns detections with shape: nx6 (x1, y1, x2, y2, conf, cls)
     """
 
     # Box constraints
     min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
 
-    method = "vision_batch"
-    batched = "batch" in method  # run once per image, all classes simultaneously
+    method = 'merge'
     nc = prediction[0].shape[1] - 5  # number of classes
     multi_label &= nc > 1  # multiple labels per box
     output = [None] * len(prediction)
-    for image_i, pred in enumerate(prediction):
+    for xi, x in enumerate(prediction):  # image index, image inference
         # Apply conf constraint
-        pred = pred[pred[:, 4] > confidence_threshold]
+        x = x[x[:, 4] > confidence_threshold]
 
         # Apply width-height constraint
-        pred = pred[((pred[:, 2:4] > min_wh) & (pred[:, 2:4] < max_wh)).all(1)]
+        x = x[((x[:, 2:4] > min_wh) & (x[:, 2:4] < max_wh)).all(1)]
 
         # If none remain process next image
-        if not pred.shape[0]:
+        if not x.shape[0]:
             continue
 
         # Compute conf
-        pred[..., 5:] *= pred[..., 4:5]  # conf = obj_conf * cls_conf
+        x[..., 5:] *= x[..., 4:5]  # conf = obj_conf * cls_conf
 
         # Box (center x, center y, width, height) to (x1, y1, x2, y2)
-        box = xywh2xyxy(pred[:, :4])
+        box = xywh2xyxy(x[:, :4])
 
         # Detections matrix nx6 (xyxy, conf, cls)
         if multi_label:
-            i, j = (pred[:, 5:] > confidence_threshold).nonzero().t()
-            pred = torch.cat((box[i], pred[i, j + 5].unsqueeze(1), j.float().unsqueeze(1)), 1)
+            i, j = (x[:, 5:] > confidence_threshold).nonzero().t()
+            x = torch.cat((box[i], x[i, j + 5].unsqueeze(1), j.float().unsqueeze(1)), 1)
         else:  # best class only
-            conf, j = pred[:, 5:].max(1)
-            pred = torch.cat((box, conf.unsqueeze(1), j.float().unsqueeze(1)), 1)
+            conf, j = x[:, 5:].max(1)
+            x = torch.cat((box, conf.unsqueeze(1), j.float().unsqueeze(1)), 1)
 
         # Filter by class
         if classes:
-            pred = pred[(j.view(-1, 1) == torch.tensor(classes, device=j.device)).any(1)]
+            x = x[(j.view(-1, 1) == torch.tensor(classes, device=j.device)).any(1)]
 
         # Apply finite constraint
-        if not torch.isfinite(pred).all():
-            pred = pred[torch.isfinite(pred).all(1)]
+        if not torch.isfinite(x).all():
+            x = x[torch.isfinite(x).all(1)]
 
         # If none remain process next image
-        if not pred.shape[0]:
+        if not x.shape[0]:
             continue
 
         # Sort by confidence
-        if not method.startswith("vision"):
-            pred = pred[pred[:, 4].argsort(descending=True)]
+        # if method == 'fast_batch':
+        #    x = x[x[:, 4].argsort(descending=True)]
 
         # Batched NMS
-        if batched:
-            c = pred[:, 5] * 0 if agnostic else pred[:, 5]  # class-agnostic NMS
-            boxes, scores = pred[:, :4].clone(), pred[:, 4]
-            boxes += c.view(-1, 1) * max_wh
-            if method == "vision_batch":
-                i = torchvision.ops.boxes.nms(boxes, scores, iou_threshold)
-            elif method == "fast_batch":  # FastNMS from https://github.com/dbolya/yolact
-                iou = box_iou(boxes, boxes).triu_(diagonal=1)  # upper triangular iou matrix
-                i = iou.max(dim=0)[0] < iou_threshold
+        c = x[:, 5] * 0 if agnostic else x[:, 5]  # classes
+        boxes, scores = x[:, :4].clone() + c.view(-1, 1) * max_wh, x[:,
+                                                                   4]  # boxes (offset by class), scores
+        if method == 'merge':  # Merge NMS (boxes merged using weighted mean)
+            i = torchvision.ops.boxes.nms(boxes, scores, iou_threshold)
+            iou = box_iou(boxes, boxes[i]).tril_()  # lower triangular iou matrix
+            weights = (iou > iou_threshold) * scores.view(-1, 1)
+            weights /= weights.sum(0)
+            x[i, :4] = torch.mm(weights.T,
+                                x[:, :4])  # merged_boxes(n,4) = weights(n,n) * boxes(n,4)
+        elif method == 'vision':
+            i = torchvision.ops.boxes.nms(boxes, scores, iou_threshold)
+        elif method == 'fast':  # FastNMS from https://github.com/dbolya/yolact
+            iou = box_iou(boxes, boxes).triu_(diagonal=1)  # upper triangular iou matrix
+            i = iou.max(0)[0] < iou_threshold
 
-            output[image_i] = pred[i]
-            continue
-
-        # All other NMS methods
-        det_max = []
-        cls = pred[:, -1]
-        for c in cls.unique():
-            dc = pred[cls == c]  # select class c
-            n = len(dc)
-            if n == 1:
-                det_max.append(dc)  # No NMS required if only 1 prediction
-                continue
-            elif n > 500:
-                dc = dc[:500]
-
-            if method == "vision":
-                det_max.append(dc[torchvision.ops.boxes.nms(dc[:, :4], dc[:, 4], iou_threshold)])
-
-            elif method == "or":  # default
-                while dc.shape[0]:
-                    det_max.append(dc[:1])  # save highest conf detection
-                    if len(dc) == 1:  # Stop if we"re at the last detection
-                        break
-                    iou = bbox_iou(dc[0], dc[1:])  # iou with other boxes
-                    dc = dc[1:][iou < iou_threshold]  # remove ious > threshold
-
-            elif method == "and":  # requires overlap, single boxes erased
-                while len(dc) > 1:
-                    iou = bbox_iou(dc[0], dc[1:])  # iou with other boxes
-                    if iou.max() > 0.5:
-                        det_max.append(dc[:1])
-                    dc = dc[1:][iou < iou_threshold]  # remove ious > threshold
-
-            elif method == "merge":  # weighted mixture box
-                while len(dc):
-                    if len(dc) == 1:
-                        det_max.append(dc)
-                        break
-                    i = bbox_iou(dc[0], dc) > iou_threshold  # iou with other boxes
-                    weights = dc[i, 4:5]
-                    dc[0, :4] = (weights * dc[i, :4]).sum(0) / weights.sum()
-                    det_max.append(dc[:1])
-                    dc = dc[i == 0]
-
-            elif method == "soft":  # soft-NMS https://arxiv.org/abs/1704.04503
-                sigma = 0.5  # soft-nms sigma parameter
-                while len(dc):
-                    if len(dc) == 1:
-                        det_max.append(dc)
-                        break
-                    det_max.append(dc[:1])
-                    iou = bbox_iou(dc[0], dc[1:])  # iou with other boxes
-                    dc = dc[1:]
-                    dc[:, 4] *= torch.exp(-iou ** 2 / sigma)  # decay confidences
-                    dc = dc[dc[:,
-                            4] > confidence_threshold]  # https://github.com/ultralytics/yolov3/issues/362
-
-        if len(det_max):
-            det_max = torch.cat(det_max)  # concatenate
-            output[image_i] = det_max[(-det_max[:, 4]).argsort()]  # sort
-
+        output[xi] = x[i]
     return output
 
 
