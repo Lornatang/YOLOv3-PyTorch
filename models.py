@@ -90,6 +90,10 @@ def create_modules(module_defines, image_size):
             else:
                 modules = maxpool
 
+        elif module["type"] == "avgpool":
+            size = module["size"]
+            modules.add_module("AdaptiveAvgPool2d", nn.AdaptiveAvgPool2d(output_size=size))
+
         elif module["type"] == "upsample":
             if ONNX_EXPORT:  # explicitly state size, avoid scale_factor
                 g = (yolo_index + 1) * 2 / 32  # gain
