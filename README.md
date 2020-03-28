@@ -70,7 +70,7 @@ $ python3 train.py --cfg cfgs/yolov3.cfg  --data cfgs/coco2014.data --weights we
 
 - Example (VOC2007+2012)
 
-To train on VOC2012:
+To train on VOC07+12:
 ```bash
 $ python3 train.py --cfg cfgs/yolov3-voc.cfg  --data cfgs/voc2007.data --weights weights/darknet53.conv.74 --multi-scale
 ```
@@ -153,8 +153,8 @@ better mAP and less computation than the original architecture.
 
 |     Backbone     |  Train  | Test |train time (s/iter)|inference time (s/im)|train mem (GB)| mAP |  Cfg  |  Weights   |  
 |:-----------------|:-------:|:----:|:-----------------:|:-------------------:|:------------:|:---:|:-----:|:----------:|
-|YOLOv3-tiny       |VOC07+12 |VOC07 |0.075              |0.004                |2.85          |50.3 |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/yolov3-tiny.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/yolov3-tiny.pth)|
-|MobileNet-v1      |VOC07+12 |VOC07 |0.090              |-                |4.84             |- |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
+|YOLOv3-tiny       |VOC07+12 |VOC07 |0.075              |0.003                |2.85          |50.3 |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/yolov3-tiny.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/yolov3-tiny-e26b1da8.pth)|
+|MobileNet-v1      |VOC07+12 |VOC07 |0.090              |0.004                |4.09          |61.4 |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv1-daaa7752.pth)|
 |MobileNet-v2      |VOC07+12 |VOC07 |-                  |-                |-             |- |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/mobilenetv2.cfg)|-|
 
 
