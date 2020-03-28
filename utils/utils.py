@@ -12,7 +12,6 @@
 # limitations under the License.
 # ==============================================================================
 import glob
-import math
 import random
 from pathlib import Path
 
@@ -22,105 +21,24 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-import torchvision
+
+from easydet.utils import FocalLoss
+from easydet.utils import bbox_iou
+from easydet.utils import scale_coords
+from easydet.utils import wh_iou
+from easydet.utils import xywh2xyxy
+from easydet.utils import xyxy2xywh
 
 matplotlib.rc("font", **{"size": 11})
 
 # Set print options
 torch.set_printoptions(linewidth=320, precision=5, profile="long")
-np.set_printoptions(linewidth=320,
-                    formatter={"float_kind": "{:11.5g}".format})  # format short g, %precision=5
+# format short g, %precision=5
+np.set_printoptions(linewidth=320, formatter={"float_kind": "{:11.5g}".format})
 
 # Prevent OpenCV from multi threading (to use PyTorch DataLoader)
+# for apply_classifier and plot one box
 cv2.setNumThreads(0)
-
-
-def load_classes(path):
-    # Loads *.names file at "path"
-    with open(path, "r") as f:
-        names = f.read().split("\n")
-    return list(filter(None, names))  # filter removes empty strings (such as last line)
-
-
-def labels_to_class_weights(labels, nc=80):
-    # Get class weights (inverse frequency) from training labels
-    if labels[0] is None:  # no labels loaded
-        return torch.Tensor()
-
-    labels = np.concatenate(labels, 0)  # labels.shape = (866643, 5) for COCO
-    classes = labels[:, 0].astype(np.int)  # labels = [class xywh]
-    weights = np.bincount(classes, minlength=nc)  # occurences per class
-
-    weights[weights == 0] = 1  # replace empty bins with 1
-    weights = 1 / weights  # number of targets per class
-    weights /= weights.sum()  # normalize
-    return torch.from_numpy(weights)
-
-
-def labels_to_image_weights(labels, num_classes=80, class_weights=np.ones(80)):
-    # Produces image weights based on class mAPs
-    n = len(labels)
-    class_counts = np.array(
-        [np.bincount(labels[i][:, 0].astype(np.int),
-                     minlength=num_classes) for i in range(n)])
-    image_weights = (class_weights.reshape(1, num_classes) * class_counts).sum(1)
-    # index = random.choices(range(n), weights=image_weights, k=1)  # weight image sample
-    return image_weights
-
-
-def coco80_to_coco91_class():  # converts 80-index (val2014) to 91-index (paper)
-    # https://tech.amikelive.com/node-718/what-object-categories-labels-are-in-coco-dataset/
-    x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27,
-         28, 31, 32, 33, 34,
-         35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
-         59, 60, 61, 62, 63,
-         64, 65, 67, 70, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87, 88, 89, 90]
-    return x
-
-
-def xyxy2xywh(x):
-    # Transform box coordinates from [x1, y1, x2, y2] (where xy1=top-left, xy2=bottom-right) to [x, y, w, h]
-    y = torch.zeros_like(x) if isinstance(x, torch.Tensor) else np.zeros_like(x)
-    y[:, 0] = (x[:, 0] + x[:, 2]) / 2  # x center
-    y[:, 1] = (x[:, 1] + x[:, 3]) / 2  # y center
-    y[:, 2] = x[:, 2] - x[:, 0]  # width
-    y[:, 3] = x[:, 3] - x[:, 1]  # height
-    return y
-
-
-def xywh2xyxy(x):
-    # Transform box coordinates from [x, y, w, h] to [x1, y1, x2, y2] (where xy1=top-left, xy2=bottom-right)
-    y = torch.zeros_like(x) if isinstance(x, torch.Tensor) else np.zeros_like(x)
-    y[:, 0] = x[:, 0] - x[:, 2] / 2  # top left x
-    y[:, 1] = x[:, 1] - x[:, 3] / 2  # top left y
-    y[:, 2] = x[:, 0] + x[:, 2] / 2  # bottom right x
-    y[:, 3] = x[:, 1] + x[:, 3] / 2  # bottom right y
-    return y
-
-
-def scale_coords(img1_shape, coords, img0_shape, ratio_pad=None):
-    # Rescale coords (xyxy) from img1_shape to img0_shape
-    if ratio_pad is None:  # calculate from img0_shape
-        gain = max(img1_shape) / max(img0_shape)  # gain  = old / new
-        pad = (img1_shape[1] - img0_shape[1] * gain) / 2, (
-                img1_shape[0] - img0_shape[0] * gain) / 2  # wh padding
-    else:
-        gain = ratio_pad[0][0]
-        pad = ratio_pad[1]
-
-    coords[:, [0, 2]] -= pad[0]  # x padding
-    coords[:, [1, 3]] -= pad[1]  # y padding
-    coords[:, :4] /= gain
-    clip_coords(coords, img0_shape)
-    return coords
-
-
-def clip_coords(boxes, image_shape):
-    # Clip bounding xyxy bounding boxes to image shape (height, width)
-    boxes[:, 0].clamp_(0, image_shape[1])  # x1
-    boxes[:, 1].clamp_(0, image_shape[0])  # y1
-    boxes[:, 2].clamp_(0, image_shape[1])  # x2
-    boxes[:, 3].clamp_(0, image_shape[0])  # y2
 
 
 def ap_per_class(tp, conf, pred_cls, target_cls):
@@ -213,126 +131,16 @@ def compute_ap(recall, precision):
     return ap
 
 
-def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False):
-    # Returns the IoU of box1 to box2. box1 is 4, box2 is nx4
-    box2 = box2.t()
-
-    # Get the coordinates of bounding boxes
-    if x1y1x2y2:  # x1, y1, x2, y2 = box1
-        b1_x1, b1_y1, b1_x2, b1_y2 = box1[0], box1[1], box1[2], box1[3]
-        b2_x1, b2_y1, b2_x2, b2_y2 = box2[0], box2[1], box2[2], box2[3]
-    else:  # transform from xywh to xyxy
-        b1_x1, b1_x2 = box1[0] - box1[2] / 2, box1[0] + box1[2] / 2
-        b1_y1, b1_y2 = box1[1] - box1[3] / 2, box1[1] + box1[3] / 2
-        b2_x1, b2_x2 = box2[0] - box2[2] / 2, box2[0] + box2[2] / 2
-        b2_y1, b2_y2 = box2[1] - box2[3] / 2, box2[1] + box2[3] / 2
-
-    # Intersection area
-    inter = (torch.min(b1_x2, b2_x2) - torch.max(b1_x1, b2_x1)).clamp(0) * \
-            (torch.min(b1_y2, b2_y2) - torch.max(b1_y1, b2_y1)).clamp(0)
-
-    # Union Area
-    w1, h1 = b1_x2 - b1_x1, b1_y2 - b1_y1
-    w2, h2 = b2_x2 - b2_x1, b2_y2 - b2_y1
-    union = (w1 * h1 + 1e-16) + w2 * h2 - inter
-
-    iou = inter / union  # iou
-    if GIoU or DIoU or CIoU:
-        cw = torch.max(b1_x2, b2_x2) - torch.min(b1_x1,
-                                                 b2_x1)  # convex (smallest enclosing box) width
-        ch = torch.max(b1_y2, b2_y2) - torch.min(b1_y1, b2_y1)  # convex height
-        if GIoU:  # Generalized IoU https://arxiv.org/pdf/1902.09630.pdf
-            c_area = cw * ch + 1e-16  # convex area
-            return iou - (c_area - union) / c_area  # GIoU
-        if DIoU or CIoU:  # Distance or Complete IoU https://arxiv.org/abs/1911.08287v1
-            # convex diagonal squared
-            c2 = cw ** 2 + ch ** 2 + 1e-16
-            # centerpoint distance squared
-            rho2 = ((b2_x1 + b2_x2) - (b1_x1 + b1_x2)) ** 2 / 4 + (
-                    (b2_y1 + b2_y2) - (b1_y1 + b1_y2)) ** 2 / 4
-            if DIoU:
-                return iou - rho2 / c2  # DIoU
-            elif CIoU:  # https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/box/box_utils.py#L47
-                v = (4 / math.pi ** 2) * torch.pow(torch.atan(w2 / h2) - torch.atan(w1 / h1), 2)
-                with torch.no_grad():
-                    alpha = v / (1 - iou + v)
-                return iou - (rho2 / c2 + v * alpha)  # CIoU
-
-    return iou
-
-
-# Source: https://github.com/pytorch/vision/blob/master/torchvision/ops/boxes.py
-def box_iou(boxes1, boxes2):
-    """ Return intersection-over-union (Jaccard index) of boxes.
-
-    Both sets of boxes are expected to be in (x1, y1, x2, y2) format.
-
-    Args:
-        boxes1 (Tensor[N, 4])
-        boxes2 (Tensor[M, 4])
-
-    Returns:
-        iou (Tensor[N, M]): the NxM matrix containing the pairwise
-            IoU values for every element in boxes1 and boxes2
-    """
-
-    def box_area(box):
-        # box = 4xn
-        return (box[2] - box[0]) * (box[3] - box[1])
-
-    area1 = box_area(boxes1.t())
-    area2 = box_area(boxes2.t())
-
-    lt = torch.max(boxes1[:, None, :2], boxes2[:, :2])  # [N,M,2]
-    rb = torch.min(boxes1[:, None, 2:], boxes2[:, 2:])  # [N,M,2]
-
-    inter = (rb - lt).clamp(0).prod(2)  # [N,M]
-    return inter / (area1[:, None] + area2 - inter)  # iou = inter / (area1 + area2 - inter)
-
-
-def wh_iou(wh1, wh2):
-    # Returns the nxm IoU matrix. wh1 is nx2, wh2 is mx2
-    wh1 = wh1[:, None]  # [N,1,2]
-    wh2 = wh2[None]  # [1,M,2]
-    inter = torch.min(wh1, wh2).prod(2)  # [N,M]
-    return inter / (wh1.prod(2) + wh2.prod(2) - inter)  # iou = inter / (area1 + area2 - inter)
-
-
-class FocalLoss(nn.Module):
-    # Wraps focal loss around existing loss_fcn(), i.e. criteria = FocalLoss(nn.BCEWithLogitsLoss(), gamma=1.5)
-    def __init__(self, loss_fcn, gamma=1.5, alpha=0.25):
-        super(FocalLoss, self).__init__()
-        self.loss_fcn = loss_fcn  # must be nn.BCEWithLogitsLoss()
-        self.gamma = gamma
-        self.alpha = alpha
-        self.reduction = loss_fcn.reduction
-        self.loss_fcn.reduction = "none"  # required to apply FL to each element
-
-    def forward(self, pred, true):
-        loss = self.loss_fcn(pred, true)
-
-        # TF implementation https://github.com/tensorflow/addons/blob/v0.7.1/tensorflow_addons/losses/focal_loss.py
-        pred_prob = torch.sigmoid(pred)  # prob from logits
-        p_t = true * pred_prob + (1 - true) * (1 - pred_prob)
-        alpha_factor = true * self.alpha + (1 - true) * (1 - self.alpha)
-        modulating_factor = (1.0 - p_t) ** self.gamma
-        loss *= alpha_factor * modulating_factor
-
-        if self.reduction == "mean":
-            return loss.mean()
-        elif self.reduction == "sum":
-            return loss.sum()
-        else:  # "none"
-            return loss
-
-
 def smooth_BCE(eps=0.1):
     # return positive, negative label smoothing BCE targets
     return 1.0 - 0.5 * eps, 0.5 * eps
 
 
 def compute_loss(p, targets, model):  # predictions, targets, model
-    ft = torch.cuda.FloatTensor if p[0].is_cuda else torch.Tensor
+    ft = torch.FloatTensor
+    if torch.cuda.is_available():
+        ft.cuda()
+    # ft = torch.cuda.FloatTensor if p[0].is_cuda else torch.Tensor
     lcls, lbox, lobj = ft([0]), ft([0]), ft([0])
     tcls, tbox, indices, anchor_vec = build_targets(model, targets)
     h = model.hyp  # hyperparameters
@@ -446,142 +254,6 @@ def build_targets(model, targets):
     return tcls, tbox, indices, anchor_vector
 
 
-def non_max_suppression(prediction,
-                        confidence_threshold=0.1,
-                        iou_threshold=0.6,
-                        multi_label=True,
-                        classes=None,
-                        agnostic=False):
-    """
-    Removes detections with lower object confidence score than "conf_thres"
-    Non-Maximum Suppression to further filter detections.
-    Returns detections with shape:
-        (x1, y1, x2, y2, object_conf, conf, class)
-    """
-
-    # Box constraints
-    min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
-
-    method = "vision_batch"
-    batched = "batch" in method  # run once per image, all classes simultaneously
-    nc = prediction[0].shape[1] - 5  # number of classes
-    multi_label &= nc > 1  # multiple labels per box
-    output = [None] * len(prediction)
-    for image_i, pred in enumerate(prediction):
-        # Apply conf constraint
-        pred = pred[pred[:, 4] > confidence_threshold]
-
-        # Apply width-height constraint
-        pred = pred[((pred[:, 2:4] > min_wh) & (pred[:, 2:4] < max_wh)).all(1)]
-
-        # If none remain process next image
-        if not pred.shape[0]:
-            continue
-
-        # Compute conf
-        pred[..., 5:] *= pred[..., 4:5]  # conf = obj_conf * cls_conf
-
-        # Box (center x, center y, width, height) to (x1, y1, x2, y2)
-        box = xywh2xyxy(pred[:, :4])
-
-        # Detections matrix nx6 (xyxy, conf, cls)
-        if multi_label:
-            i, j = (pred[:, 5:] > confidence_threshold).nonzero().t()
-            pred = torch.cat((box[i], pred[i, j + 5].unsqueeze(1), j.float().unsqueeze(1)), 1)
-        else:  # best class only
-            conf, j = pred[:, 5:].max(1)
-            pred = torch.cat((box, conf.unsqueeze(1), j.float().unsqueeze(1)), 1)
-
-        # Filter by class
-        if classes:
-            pred = pred[(j.view(-1, 1) == torch.tensor(classes, device=j.device)).any(1)]
-
-        # Apply finite constraint
-        if not torch.isfinite(pred).all():
-            pred = pred[torch.isfinite(pred).all(1)]
-
-        # If none remain process next image
-        if not pred.shape[0]:
-            continue
-
-        # Sort by confidence
-        if not method.startswith("vision"):
-            pred = pred[pred[:, 4].argsort(descending=True)]
-
-        # Batched NMS
-        if batched:
-            c = pred[:, 5] * 0 if agnostic else pred[:, 5]  # class-agnostic NMS
-            boxes, scores = pred[:, :4].clone(), pred[:, 4]
-            boxes += c.view(-1, 1) * max_wh
-            if method == "vision_batch":
-                i = torchvision.ops.boxes.nms(boxes, scores, iou_threshold)
-            elif method == "fast_batch":  # FastNMS from https://github.com/dbolya/yolact
-                iou = box_iou(boxes, boxes).triu_(diagonal=1)  # upper triangular iou matrix
-                i = iou.max(dim=0)[0] < iou_threshold
-
-            output[image_i] = pred[i]
-            continue
-
-        # All other NMS methods
-        det_max = []
-        cls = pred[:, -1]
-        for c in cls.unique():
-            dc = pred[cls == c]  # select class c
-            n = len(dc)
-            if n == 1:
-                det_max.append(dc)  # No NMS required if only 1 prediction
-                continue
-            elif n > 500:
-                dc = dc[:500]
-
-            if method == "vision":
-                det_max.append(dc[torchvision.ops.boxes.nms(dc[:, :4], dc[:, 4], iou_threshold)])
-
-            elif method == "or":  # default
-                while dc.shape[0]:
-                    det_max.append(dc[:1])  # save highest conf detection
-                    if len(dc) == 1:  # Stop if we"re at the last detection
-                        break
-                    iou = bbox_iou(dc[0], dc[1:])  # iou with other boxes
-                    dc = dc[1:][iou < iou_threshold]  # remove ious > threshold
-
-            elif method == "and":  # requires overlap, single boxes erased
-                while len(dc) > 1:
-                    iou = bbox_iou(dc[0], dc[1:])  # iou with other boxes
-                    if iou.max() > 0.5:
-                        det_max.append(dc[:1])
-                    dc = dc[1:][iou < iou_threshold]  # remove ious > threshold
-
-            elif method == "merge":  # weighted mixture box
-                while len(dc):
-                    if len(dc) == 1:
-                        det_max.append(dc)
-                        break
-                    i = bbox_iou(dc[0], dc) > iou_threshold  # iou with other boxes
-                    weights = dc[i, 4:5]
-                    dc[0, :4] = (weights * dc[i, :4]).sum(0) / weights.sum()
-                    det_max.append(dc[:1])
-                    dc = dc[i == 0]
-
-            elif method == "soft":  # soft-NMS https://arxiv.org/abs/1704.04503
-                sigma = 0.5  # soft-nms sigma parameter
-                while len(dc):
-                    if len(dc) == 1:
-                        det_max.append(dc)
-                        break
-                    det_max.append(dc[:1])
-                    iou = bbox_iou(dc[0], dc[1:])  # iou with other boxes
-                    dc = dc[1:]
-                    dc[:, 4] *= torch.exp(-iou ** 2 / sigma)  # decay confidences
-                    dc = dc[dc[:, 4] > iou_threshold]
-
-        if len(det_max):
-            det_max = torch.cat(det_max)  # concatenate
-            output[image_i] = det_max[(-det_max[:, 4]).argsort()]  # sort
-
-    return output
-
-
 def print_mutation(hyp, results):
     # Print mutation results to evolve.txt (for use with train.py --evolve)
     a = "%10s" * len(hyp) % tuple(hyp.keys())  # hyperparam keys
@@ -650,30 +322,6 @@ def plot_one_box(x, img, color=None, label=None, line_thickness=None):
                     lineType=cv2.LINE_AA)
 
 
-def plot_results_overlay(start=0, stop=0):  # from utils.utils import *; plot_results_overlay()
-    # Plot training results files "results*.txt", overlaying train and val losses
-    s = ["train", "train", "train", "Precision", "mAP@0.5", "val", "val", "val", "Recall",
-         "F1"]  # legends
-    t = ["GIoU", "Objectness", "Classification", "P-R", "mAP-F1"]  # titles
-    for f in sorted(glob.glob("results*.txt") + glob.glob("../../Downloads/results*.txt")):
-        results = np.loadtxt(f, usecols=[2, 3, 4, 8, 9, 12, 13, 14, 10, 11], ndmin=2).T
-        n = results.shape[1]  # number of rows
-        x = range(start, min(stop, n) if stop else n)
-        fig, ax = plt.subplots(1, 5, figsize=(14, 3.5))
-        ax = ax.ravel()
-        for i in range(5):
-            for j in [i, i + 5]:
-                y = results[j, x]
-                if i in [0, 1, 2]:
-                    y[y == 0] = np.nan  # dont show zero loss values
-                ax[i].plot(x, y, marker=".", label=s[j])
-            ax[i].set_title(t[i])
-            ax[i].legend()
-            ax[i].set_ylabel(f) if i == 0 else None  # add filename
-        fig.tight_layout()
-        fig.savefig(f.replace(".txt", ".png"), dpi=200)
-
-
 def plot_results(start=0, stop=0):  # from utils.utils import *; plot_results()
     # Plot training results files "results*.txt"
     fig, ax = plt.subplots(2, 5, figsize=(12, 6))
@@ -699,22 +347,3 @@ def plot_results(start=0, stop=0):  # from utils.utils import *; plot_results()
     fig.tight_layout()
     ax[1].legend()
     fig.savefig("result.png", dpi=200)
-
-
-def create_grids(self, image_size=416, ng=(13, 13), device="cpu",
-                 dtype=torch.float32):
-    nx, ny = ng  # x and y grid size
-    self.img_size = max(image_size)
-    self.stride = self.img_size / max(ng)
-
-    # build xy offsets
-    yv, xv = torch.meshgrid([torch.arange(ny), torch.arange(nx)])
-    self.grid_xy = torch.stack((xv, yv), 2).to(device).type(dtype).view(
-        (1, 1, ny, nx, 2))
-
-    # build wh gains
-    self.anchor_vec = self.anchors.to(device) / self.stride
-    self.anchor_wh = self.anchor_vec.view(1, self.na, 1, 1, 2).type(dtype)
-    self.ng = torch.Tensor(ng).to(device)
-    self.nx = nx
-    self.ny = ny

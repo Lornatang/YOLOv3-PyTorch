@@ -34,8 +34,8 @@ from easydet.data import LoadImagesAndLabels
 from utils import compute_loss
 from utils import fitness
 from easydet.utils import init_seeds
-from utils import labels_to_class_weights
-from utils import labels_to_image_weights
+from easydet.utils import labels_to_class_weights
+from easydet.utils import labels_to_image_weights
 from utils import plot_results
 from utils import print_mutation
 from easydet.utils import select_device

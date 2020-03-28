@@ -29,18 +29,18 @@ from models import Darknet
 from models import load_darknet_weights
 from easydet.data import LoadImagesAndLabels
 from utils import ap_per_class
-from utils import box_iou
-from utils import clip_coords
-from utils import coco80_to_coco91_class
+from easydet.utils import box_iou
+from easydet.utils import clip_coords
+from easydet.utils import coco80_to_coco91_class
 from utils import compute_loss
-from utils import load_classes
-from utils import non_max_suppression
-from utils import scale_coords
+from easydet.utils import load_classes
+from easydet.utils import non_max_suppression
+from easydet.utils import scale_coords
 from easydet.data import scale_image
 from easydet.utils import select_device
 from easydet.utils import time_synchronized
-from utils import xywh2xyxy
-from utils import xyxy2xywh
+from easydet.utils import xywh2xyxy
+from easydet.utils import xyxy2xywh
 
 try:
     from pycocotools.coco import COCO

@@ -12,12 +12,9 @@
 # limitations under the License.
 # ==============================================================================
 
-""" Load all function method names."""
-from .utils import ap_per_class
-from .utils import apply_classifier
-from .utils import compute_ap
-from .utils import compute_loss
-from .utils import fitness
-from .utils import plot_one_box
-from .utils import plot_results
-from .utils import print_mutation
+
+def load_classes(path):
+    # Loads *.names file at "path"
+    with open(path, "r") as f:
+        names = f.read().split("\n")
+    return list(filter(None, names))  # filter removes empty strings (such as last line)
