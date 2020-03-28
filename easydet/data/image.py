@@ -19,6 +19,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 import torch
+import torch.nn.functional as F
 from PIL import Image
 from torch.utils.data import Dataset
 from tqdm import tqdm
@@ -414,3 +415,13 @@ def load_image(self, index):
     else:
         return self.images[index], self.img_hw0[index], self.img_hw[
             index]  # img, hw_original, hw_resized
+
+
+def scale_image(image, ratio=1.0):  # image(16,3,256,416), ratio=1.0
+    # scales a batch of pytorch images while retaining same input shape (cropped or grey-padded)
+    height, width = image.shape[2:]
+    size = (int(height * ratio), int(width * ratio))  # new size
+    p = height - size[0], width - size[1]  # pad/crop pixels
+    image = F.interpolate(image, size=size, mode="bilinear", align_corners=False)  # resize
+    # pad/crop
+    return F.pad(image, [0, p[1], 0, p[0]], value=0.5) if ratio < 1.0 else image[:, :, :p[0], :p[1]]

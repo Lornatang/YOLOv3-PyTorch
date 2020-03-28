@@ -19,14 +19,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils import fuse_conv_and_bn
-from utils import model_info
 from easydet.config import parse_model_config
-from easydet.model import Swish
+from easydet.model import HSigmoid
 from easydet.model import HSwish
 from easydet.model import Mish
-from easydet.model import HSigmoid
 from easydet.model import SeModule
+from easydet.model import Swish
+from easydet.model import fuse_conv_and_bn
+from easydet.model import model_info
 
 ONNX_EXPORT = False
 

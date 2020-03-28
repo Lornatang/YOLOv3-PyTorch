@@ -11,30 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from .adjust import exif_size
-from .common import augment_hsv
-from .common import create_folder
-from .common import load_mosaic
-from .common import random_affine
-from .image import LoadImages
-from .image import LoadImagesAndLabels
-from .image import load_image
-from .image import scale_image
-from .pad_resize import letterbox
-from .video import LoadCamera
-from .video import LoadStreams
 
-__all__ = [
-    "exif_size",
-    "augment_hsv",
-    "create_folder",
-    "load_mosaic",
-    "random_affine",
-    "LoadImages",
-    "LoadImagesAndLabels",
-    "load_image",
-    "scale_image",
-    "letterbox",
-    "LoadCamera",
-    "LoadStreams",
-]
+
+def model_info(model):
+    # Plots a line-by-line description of a PyTorch model
+    parameter_num = sum(x.numel() for x in model.parameters())
+    gradient_num = sum(x.numel() for x in model.parameters() if x.requires_grad)
+
+    print(f"Model Summary: {len(list(model.parameters()))} layers, "
+          f"{parameter_num} parameters, {gradient_num} gradients")

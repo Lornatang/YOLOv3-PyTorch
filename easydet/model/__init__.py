@@ -11,6 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+from .classifier import load_classifier
+from .common import model_info
+from .fuse import fuse_conv_and_bn
 from .module import BasicConv2d
 from .module import ConvBNReLU
 from .module import DeepConv2d
@@ -22,6 +25,9 @@ from .module import SeModule
 from .module import Swish
 
 __all__ = [
+    "load_classifier",
+    "model_info",
+    "fuse_conv_and_bn",
     "BasicConv2d",
     "ConvBNReLU",
     "DeepConv2d",

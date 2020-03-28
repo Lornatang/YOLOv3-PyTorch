@@ -36,9 +36,9 @@ from utils import compute_loss
 from utils import load_classes
 from utils import non_max_suppression
 from utils import scale_coords
-from utils import scale_image
-from utils import select_device
-from utils import time_synchronized
+from easydet.data import scale_image
+from easydet.utils import select_device
+from easydet.utils import time_synchronized
 from utils import xywh2xyxy
 from utils import xyxy2xywh
 

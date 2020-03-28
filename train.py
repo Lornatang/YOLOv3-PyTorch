@@ -33,12 +33,12 @@ from test import evaluate
 from easydet.data import LoadImagesAndLabels
 from utils import compute_loss
 from utils import fitness
-from utils import init_seeds
+from easydet.utils import init_seeds
 from utils import labels_to_class_weights
 from utils import labels_to_image_weights
 from utils import plot_results
 from utils import print_mutation
-from utils import select_device
+from easydet.utils import select_device
 
 mixed_precision = True
 try:  # Mixed precision training https://github.com/NVIDIA/apex
