@@ -27,7 +27,7 @@ from tqdm import tqdm
 from easydet.config import parse_data_config
 from models import Darknet
 from models import load_darknet_weights
-from utils import LoadImagesAndLabels
+from easydet.data import LoadImagesAndLabels
 from utils import ap_per_class
 from utils import box_iou
 from utils import clip_coords
