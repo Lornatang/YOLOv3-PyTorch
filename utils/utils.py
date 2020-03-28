@@ -137,10 +137,7 @@ def smooth_BCE(eps=0.1):
 
 
 def compute_loss(p, targets, model):  # predictions, targets, model
-    ft = torch.FloatTensor
-    if torch.cuda.is_available():
-        ft.cuda()
-    # ft = torch.cuda.FloatTensor if p[0].is_cuda else torch.Tensor
+    ft = torch.cuda.FloatTensor if p[0].is_cuda else torch.Tensor
     lcls, lbox, lobj = ft([0]), ft([0]), ft([0])
     tcls, tbox, indices, anchor_vec = build_targets(model, targets)
     h = model.hyp  # hyperparameters
