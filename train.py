@@ -27,18 +27,18 @@ import torch.utils.data
 from tqdm import tqdm
 
 from easydet.config import parse_data_config
-from models import Darknet
-from models import load_darknet_weights
-from test import evaluate
 from easydet.data import LoadImagesAndLabels
-from utils import compute_loss
-from utils import fitness
 from easydet.utils import init_seeds
 from easydet.utils import labels_to_class_weights
 from easydet.utils import labels_to_image_weights
+from easydet.utils import select_device
+from models import Darknet
+from models import load_darknet_weights
+from test import evaluate
+from utils import compute_loss
+from utils import fitness
 from utils import plot_results
 from utils import print_mutation
-from easydet.utils import select_device
 
 mixed_precision = True
 try:  # Mixed precision training https://github.com/NVIDIA/apex
