@@ -11,10 +11,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+from .lr_scheduler import CosineDecayLR
+from .lr_scheduler import ModelEMA
 from .lr_scheduler import WarmupCosineLR
 from .lr_scheduler import WarmupMultiStepLR
 
 __all__ = [
+    "CosineDecayLR",
+    "ModelEMA",
     'WarmupCosineLR',
     'WarmupMultiStepLR',
 ]
