@@ -12,54 +12,28 @@
 # limitations under the License.
 # ==============================================================================
 import glob
-import math
 import os
 import random
-import shutil
-import time
 from pathlib import Path
-from threading import Thread
-import warnings
 
 import cv2
 import numpy as np
 import torch
-from PIL import Image, ExifTags
+from PIL import Image
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
+from easydet.data import exif_size
 from utils.utils import xyxy2xywh, xywh2xyxy
+from .common import augment_hsv
+from .common import create_folder
+from .common import load_mosaic
+from .common import random_affine
+from .pad_resize import letterbox
 
 help_url = "https://github.com/Lornatang/YOLOv3-PyTorch#train-on-custom-dataset"
 image_formats = [".bmp", ".jpg", ".jpeg", ".png", ".tif", ".dng"]
 video_formats = [".mov", ".avi", ".mp4"]
-
-# Get orientation exif tag
-for orientation in ExifTags.TAGS.keys():
-    if ExifTags.TAGS[orientation] == "Orientation":
-        break
-
-
-def exif_size(image):
-    """ Returns exif-corrected PIL size.
-
-    Args:
-        image (PngImageFile): Image matrix data.
-
-    Returns:
-        Size after image processing (width, height).
-    """
-    size = image.size
-    try:
-        rotation = dict(image._getexif().items())[orientation]
-        if rotation == 6:  # rotation 270
-            size = (size[1], size[0])
-        elif rotation == 8:  # rotation 90
-            size = (size[1], size[0])
-    except:
-        pass
-
-    return size
 
 
 class LoadImages:
@@ -122,7 +96,8 @@ class LoadImages:
                     ret_val, raw_image = self.capture.read()
 
             self.frame += 1
-            print(f"video {self.count + 1}/{self.files_num} ({self.frame}/{self.frames_num}) {path}: ", end="")
+            print(f"video {self.count + 1}/{self.files_num}"
+                  f"({self.frame}/{self.frames_num}) {path}: ", end="")
 
         else:
             # Read image
@@ -148,158 +123,6 @@ class LoadImages:
 
     def __len__(self):
         return self.files_num
-
-
-class LoadCamera:
-    """ Use only in the inference phase
-
-    Load the Camera in the local and convert them to the corresponding format.
-
-    Args:
-        pipe (int): Device index of camera. (default:``0``).
-        image_size (int): Size of loaded pictures. (default:``416``).
-    """
-
-    def __init__(self, pipe=0, image_size=416):
-        self.image_size = image_size
-
-        if pipe == "0":
-            # local camera
-            pipe = 0
-
-        self.pipe = pipe
-        self.capture = cv2.VideoCapture(pipe)  # video capture object
-        self.capture.set(cv2.CAP_PROP_BUFFERSIZE, 3)  # set buffer size
-
-    def __iter__(self):
-        self.count = -1
-        return self
-
-    def __next__(self):
-        self.count += 1
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            self.capture.release()
-            cv2.destroyAllWindows()
-            raise StopIteration
-
-        # Read frame
-        if self.pipe == 0:  # local camera
-            retval, raw_image = self.capture.read()
-            raw_image = cv2.flip(raw_image, 1)  # flip left-right
-        else:  # IP camera
-            n = 0
-            while True:
-                n += 1
-                self.capture.grab()
-                if n % 30 == 0:  # skip frames
-                    retval, raw_image = self.capture.retrieve()
-                    if retval:
-                        break
-
-        assert retval, f"Camera Error `{self.pipe}`"
-        image_path = "webcam.png"
-        print(f"Webcam {self.count}: ", end="")
-
-        # Padded resize operation
-        image = letterbox(raw_image, new_shape=self.image_size)[0]
-
-        # BGR convert to RGB (3 x 416 x 416)
-        image = image[:, :, ::-1].transpose(2, 0, 1)
-        # Return a contiguous array
-        image = np.ascontiguousarray(image)
-
-        return image_path, image, raw_image, None
-
-    def __len__(self):
-        return 0
-
-
-class LoadStreams:
-    """ For reading camera or network data
-
-    Load data types from data flow.
-
-    Args:
-        dataroot (str): Data flow file name.
-        image_size (int): Image size in default data flow. (default:``416``).
-    """
-
-    def __init__(self, dataroot, image_size=416):
-
-        self.mode = "images"
-        self.image_size = image_size
-
-        if os.path.isfile(dataroot):
-            with open(dataroot, "r") as f:
-                sources = [x.strip() for x in f.read().splitlines() if len(x.strip())]
-        else:
-            sources = [dataroot]
-
-        n = len(sources)
-        self.images = [None] * n
-        self.sources = sources
-        for i, s in enumerate(sources):
-            # Start the thread to read frames from the video stream
-            print(f"{i + 1}/{n}: {s}... ", end="")
-
-            capture = cv2.VideoCapture(0 if s == "0" else s)
-            assert capture.isOpened(), f"Failed to open {s}"
-
-            width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            fps = capture.get(cv2.CAP_PROP_FPS) % 100
-            _, self.images[i] = capture.read()  # guarantee first frame
-            thread = Thread(target=self.update, args=([i, capture]), daemon=True)
-            print(f"Success ({width}*{height} at {fps:.2f}FPS).")
-            thread.start()
-        print("")
-
-        # check for common shapes
-        s = np.stack([letterbox(x, new_shape=self.image_size)[0].shape for x in self.images], 0)  # inference shapes
-        self.rect = np.unique(s, axis=0).shape[0] == 1  # rect inference if all shapes equal
-        if not self.rect:
-            warnings.warn("WARNING: Different stream shapes detected. "
-                          "For optimal performance supply similarly-shaped streams.")
-
-    def update(self, index, capture):
-        # Read next stream frame in a daemon thread
-        num = 0
-        while capture.isOpened():
-            num += 1
-            # Grabs the next frame from video file or capturing device.
-            capture.grab()
-            # read every 4th frame
-            if num == 4:
-                _, self.images[index] = capture.retrieve()
-                num = 0
-            time.sleep(0.01)  # wait time
-
-    def __iter__(self):
-        self.count = -1
-        return self
-
-    def __next__(self):
-        self.count += 1
-        raw_image = self.images.copy()
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            cv2.destroyAllWindows()
-            raise StopIteration
-
-        # Letterbox
-        image = [letterbox(x, new_shape=self.image_size, auto=self.rect, interp=cv2.INTER_LINEAR)[0] for x in raw_image]
-
-        # Stack
-        image = np.stack(image, 0)
-
-        # BGR convert to RGB (batch_size 3 x 416 x 416)
-        image = image[:, :, :, ::-1].transpose(0, 3, 1, 2)  # BGR to RGB, to bsx3x416x416
-        # Return a contiguous array
-        image = np.ascontiguousarray(image)
-
-        return self.sources, image, raw_image, None
-
-    def __len__(self):
-        return 0
 
 
 class LoadImagesAndLabels(Dataset):
@@ -343,7 +166,8 @@ class LoadImagesAndLabels(Dataset):
         self.hyp = hyp
         self.image_weights = image_weights
         self.rect = False if image_weights else rect
-        self.mosaic = self.augment and not self.rect  # load 4 images at a time into a mosaic (only during training)
+        # load 4 images at a time into a mosaic (only during training)
+        self.mosaic = self.augment and not self.rect
 
         # Define labels
         self.label_files = [x.replace("images", "labels").replace(os.path.splitext(x)[-1], ".txt")
@@ -356,7 +180,8 @@ class LoadImagesAndLabels(Dataset):
                     s = [x.split() for x in f.read().splitlines()]
                     assert len(s) == self.image_files_num, "Shapefile out of sync"
             except:
-                s = [exif_size(Image.open(f)) for f in tqdm(self.image_files, desc="Reading image shapes")]
+                s = [exif_size(Image.open(f)) for f in
+                     tqdm(self.image_files, desc="Reading image shapes")]
                 np.savetxt(sp, s, fmt="%g")  # overwrites existing (if any)
 
             # Sort by aspect ratio
@@ -401,7 +226,8 @@ class LoadImagesAndLabels(Dataset):
                 if l.shape[0]:
                     assert l.shape[1] == 5, "> 5 label columns: %s" % file
                     assert (l >= 0).all(), "negative labels: %s" % file
-                    assert (l[:, 1:] <= 1).all(), "non-normalized or out of bounds coordinate labels: %s" % file
+                    assert (l[:,
+                            1:] <= 1).all(), "non-normalized or out of bounds coordinate labels: %s" % file
                     if np.unique(l, axis=0).shape[0] < l.shape[0]:  # duplicate rows
                         nd += 1  # print("WARNING: duplicate rows in %s" % self.label_files[i])  # duplicate rows
                     if single_cls:
@@ -427,7 +253,8 @@ class LoadImagesAndLabels(Dataset):
                         img = cv2.imread(str(p))
                         h, w = img.shape[:2]
                         for j, x in enumerate(l):
-                            f = "%s%sclassifier%s%g_%g_%s" % (p.parent.parent, os.sep, os.sep, x[0], j, p.name)
+                            f = "%s%sclassifier%s%g_%g_%s" % (
+                                p.parent.parent, os.sep, os.sep, x[0], j, p.name)
                             if not os.path.exists(Path(f).parent):
                                 os.makedirs(Path(f).parent)  # make new output folder
 
@@ -438,22 +265,24 @@ class LoadImagesAndLabels(Dataset):
 
                             b[[0, 2]] = np.clip(b[[0, 2]], 0, w)  # clip boxes outside of image
                             b[[1, 3]] = np.clip(b[[1, 3]], 0, h)
-                            assert cv2.imwrite(f, img[b[1]:b[3], b[0]:b[2]]), "Failure extracting classifier boxes"
+                            assert cv2.imwrite(f, img[b[1]:b[3],
+                                                  b[0]:b[2]]), "Failure extracting classifier boxes"
                 else:
                     # print("empty labels for image %s" % self.image_files[i])
                     # empty file
                     ne += 1
 
-                process_bar.desc = "Caching labels (%g found, %g missing, %g empty, %g duplicate, for %g images)" % (
-                    nf, nm, ne, nd, self.image_files_num)
-            assert nf > 0, "No labels found. See %s" % help_url
+                process_bar.desc = f"Caching labels ({nf} found, {nm} missing, {ne} empty, "
+                process_bar.desc += "{nd} duplicate, for {self.image_files_num} images)"
+            assert nf > 0, f"No labels found. See {help_url}"
 
         if cache_images:  # if training
             memory = 0  # Gigabytes of cached images
             process_bar = tqdm(range(len(self.image_files)), desc="Caching images")
             self.img_hw0, self.img_hw = [None] * self.image_files_num, [None] * self.image_files_num
             for i in process_bar:  # max 10k images
-                self.images[i], self.img_hw0[i], self.img_hw[i] = load_image(self, i)  # image, hw_original, hw_resized
+                # image, hw_original, hw_resized
+                self.images[i], self.img_hw0[i], self.img_hw[i] = load_image(self, i)
                 memory += self.images[i].nbytes
                 process_bar.desc = "Caching images (%.1fGB)" % (memory / 1E9)
 
@@ -488,9 +317,11 @@ class LoadImagesAndLabels(Dataset):
             images, (raw_height, raw_width), (height, width) = load_image(self, index)
 
             # Letterbox
-            shape = self.batch_shapes[self.batch[index]] if self.rect else self.image_size  # final letterboxed shape
+            shape = self.batch_shapes[
+                self.batch[index]] if self.rect else self.image_size  # final letterboxed shape
             images, ratio, pad = letterbox(images, shape, auto=False, scaleup=self.augment)
-            shapes = (raw_height, raw_width), ((height / raw_height, width / raw_width), pad)  # for COCO mAP rescaling
+            shapes = (raw_height, raw_width), (
+                (height / raw_height, width / raw_width), pad)  # for COCO mAP rescaling
 
             # Load labels
             labels = []
@@ -504,7 +335,8 @@ class LoadImagesAndLabels(Dataset):
                     # Normalized xywh to pixel xyxy format
                     labels = x.copy()
                     labels[:, 1] = ratio[0] * width * (x[:, 1] - x[:, 3] / 2) + pad[0]  # pad width
-                    labels[:, 2] = ratio[1] * height * (x[:, 2] - x[:, 4] / 2) + pad[1]  # pad height
+                    labels[:, 2] = ratio[1] * height * (x[:, 2] - x[:, 4] / 2) + pad[
+                        1]  # pad height
                     labels[:, 3] = ratio[0] * width * (x[:, 1] + x[:, 3] / 2) + pad[0]
                     labels[:, 4] = ratio[1] * height * (x[:, 2] + x[:, 4] / 2) + pad[1]
 
@@ -571,183 +403,14 @@ def load_image(self, index):
         assert image is not None, "Image Not Found " + image_path
         raw_height, raw_width = image.shape[:2]  # orig hw
         r = self.image_size / max(raw_height, raw_width)  # resize image to img_size
-        if r < 1 or (self.augment and (r != 1)):  # always resize down, only resize up if training with augmentation
-            interp = cv2.INTER_LINEAR if self.augment else cv2.INTER_AREA  # LINEAR for training, AREA for testing
-            image = cv2.resize(image, (int(raw_width * r), int(raw_height * r)), interpolation=interp)
+        if r < 1 or (self.augment and (
+                r != 1)):  # always resize down, only resize up if training with augmentation
+            # LINEAR for training, AREA for testing
+            interpolation = cv2.INTER_LINEAR if self.augment else cv2.INTER_AREA
+            image = cv2.resize(image,
+                               (int(raw_width * r), int(raw_height * r)),
+                               interpolation=interpolation)
         return image, (raw_height, raw_width), image.shape[:2]  # img, hw_original, hw_resized
     else:
-        return self.images[index], self.img_hw0[index], self.img_hw[index]  # img, hw_original, hw_resized
-
-
-def augment_hsv(image, hgain=0.5, sgain=0.5, vgain=0.5):
-    x = np.random.uniform(-1, 1, 3) * [hgain, sgain, vgain] + 1  # random gains
-    image_hsv = (cv2.cvtColor(image, cv2.COLOR_BGR2HSV) * x).clip(None, 255).astype(np.uint8)
-    np.clip(image_hsv[:, :, 0], None, 179, out=image_hsv[:, :, 0])  # inplace hue clip (0 - 179 deg)
-    cv2.cvtColor(image_hsv, cv2.COLOR_HSV2BGR, dst=image)  # no return needed
-
-
-def load_mosaic(self, index):
-    # loads images in a mosaic
-    labels4 = []
-    image_size = self.image_size
-    # mosaic center x, y
-    center_x, center_y = [int(random.uniform(image_size * 0.5, image_size * 1.5)) for _ in range(2)]
-    image4 = np.zeros((image_size * 2, image_size * 2, 3), dtype=np.uint8) + 128  # base image with 4 tiles
-    indices = [index] + [random.randint(0, len(self.labels) - 1) for _ in range(3)]  # 3 additional image indices
-    for i, index in enumerate(indices):
-        # Load image
-        image, _, (h, w) = load_image(self, index)
-
-        # place img in img4
-        if i == 0:  # top left
-            # xmin, ymin, xmax, ymax (large image)
-            x1a, y1a, x2a, y2a = max(center_x - w, 0), max(center_y - h, 0), center_x, center_y
-            x1b, y1b, x2b, y2b = w - (x2a - x1a), h - (y2a - y1a), w, h  # xmin, ymin, xmax, ymax (small image)
-        elif i == 1:  # top right
-            x1a, y1a, x2a, y2a = center_x, max(center_y - h, 0), min(center_x + w, image_size * 2), center_y
-            x1b, y1b, x2b, y2b = 0, h - (y2a - y1a), min(w, x2a - x1a), h
-        elif i == 2:  # bottom left
-            x1a, y1a, x2a, y2a = max(center_x - w, 0), center_y, center_x, min(image_size * 2, center_y + h)
-            x1b, y1b, x2b, y2b = w - (x2a - x1a), 0, max(center_x, w), min(y2a - y1a, h)
-        elif i == 3:  # bottom right
-            x1a, y1a, x2a, y2a = center_x, center_y, min(center_x + w, image_size * 2), min(image_size * 2,
-                                                                                            center_y + h)
-            x1b, y1b, x2b, y2b = 0, 0, min(w, x2a - x1a), min(y2a - y1a, h)
-
-        image4[y1a:y2a, x1a:x2a] = image[y1b:y2b, x1b:x2b]  # image4[ymin:ymax, xmin:xmax]
-        padw = x1a - x1b
-        padh = y1a - y1b
-
-        # Load labels
-        label_path = self.label_files[index]
-        if os.path.isfile(label_path):
-            x = self.labels[index]
-            if x is None:  # labels not preloaded
-                with open(label_path, "r") as f:
-                    x = np.array([x.split() for x in f.read().splitlines()], dtype=np.float32)
-
-            if x.size > 0:
-                # Normalized xywh to pixel xyxy format
-                labels = x.copy()
-                labels[:, 1] = w * (x[:, 1] - x[:, 3] / 2) + padw
-                labels[:, 2] = h * (x[:, 2] - x[:, 4] / 2) + padh
-                labels[:, 3] = w * (x[:, 1] + x[:, 3] / 2) + padw
-                labels[:, 4] = h * (x[:, 2] + x[:, 4] / 2) + padh
-            else:
-                labels = np.zeros((0, 5), dtype=np.float32)
-            labels4.append(labels)
-
-    # Concat/clip labels
-    if len(labels4):
-        labels4 = np.concatenate(labels4, 0)
-        np.clip(labels4[:, 1:], 0, 2 * image_size, out=labels4[:, 1:])  # use with random_affine
-
-    # Augment
-    image4, labels4 = random_affine(image4, labels4,
-                                    degrees=self.hyp["degrees"] * 1,
-                                    translate=self.hyp["translate"] * 1,
-                                    scale=self.hyp["scale"] * 1,
-                                    shear=self.hyp["shear"] * 1,
-                                    border=-image_size // 2)  # border to remove
-
-    return image4, labels4
-
-
-def letterbox(image, new_shape=(416, 416), color=(128, 128, 128),
-              auto=True, scaleFill=False, scaleup=True, interp=cv2.INTER_AREA):
-    shape = image.shape[:2]  # current shape [height, width]
-    if isinstance(new_shape, int):
-        new_shape = (new_shape, new_shape)
-
-    # Scale ratio (new / old)
-    r = max(new_shape) / max(shape)
-    if not scaleup:  # only scale down, do not scale up (for better test mAP)
-        r = min(r, 1.0)
-
-    # Compute padding
-    ratio = r, r  # width, height ratios
-    new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
-    dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]  # wh padding
-    if auto:  # minimum rectangle
-        dw, dh = np.mod(dw, 32), np.mod(dh, 32)  # wh padding
-    elif scaleFill:  # stretch
-        dw, dh = 0.0, 0.0
-        new_unpad = new_shape
-        ratio = new_shape[0] / shape[1], new_shape[1] / shape[0]  # width, height ratios
-
-    dw /= 2  # divide padding into 2 sides
-    dh /= 2
-
-    if shape[::-1] != new_unpad:  # resize
-        image = cv2.resize(image, new_unpad, interpolation=interp)  # INTER_AREA is better, INTER_LINEAR is faster
-    top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
-    left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-    image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
-    return image, ratio, (dw, dh)
-
-
-def random_affine(img, targets=(), degrees=10, translate=.1, scale=.1, shear=10, border=0):
-    # torchvision.transforms.RandomAffine(degrees=(-10, 10), translate=(.1, .1), scale=(.9, 1.1), shear=(-10, 10))
-
-    if targets is None:  # targets = [cls, xyxy]
-        targets = []
-    height = img.shape[0] + border * 2
-    width = img.shape[1] + border * 2
-
-    # Rotation and Scale
-    R = np.eye(3)
-    a = random.uniform(-degrees, degrees)
-    # a += random.choice([-180, -90, 0, 90])  # add 90deg rotations to small rotations
-    s = random.uniform(1 - scale, 1 + scale)
-    R[:2] = cv2.getRotationMatrix2D(angle=a, center=(img.shape[1] / 2, img.shape[0] / 2), scale=s)
-
-    # Translation
-    T = np.eye(3)
-    T[0, 2] = random.uniform(-translate, translate) * img.shape[0] + border  # x translation (pixels)
-    T[1, 2] = random.uniform(-translate, translate) * img.shape[1] + border  # y translation (pixels)
-
-    # Shear
-    S = np.eye(3)
-    S[0, 1] = math.tan(random.uniform(-shear, shear) * math.pi / 180)  # x shear (deg)
-    S[1, 0] = math.tan(random.uniform(-shear, shear) * math.pi / 180)  # y shear (deg)
-
-    # Combined rotation matrix
-    M = S @ T @ R  # ORDER IS IMPORTANT HERE!!
-    changed = (border != 0) or (M != np.eye(3)).any()
-    if changed:
-        img = cv2.warpAffine(img, M[:2], dsize=(width, height), flags=cv2.INTER_AREA, borderValue=(128, 128, 128))
-
-    # Transform label coordinates
-    n = len(targets)
-    if n:
-        # warp points
-        xy = np.ones((n * 4, 3))
-        xy[:, :2] = targets[:, [1, 2, 3, 4, 1, 4, 3, 2]].reshape(n * 4, 2)  # x1y1, x2y2, x1y2, x2y1
-        xy = (xy @ M.T)[:, :2].reshape(n, 8)
-
-        # create new boxes
-        x = xy[:, [0, 2, 4, 6]]
-        y = xy[:, [1, 3, 5, 7]]
-        xy = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, n).T
-
-        # reject warped points outside of image
-        xy[:, [0, 2]] = xy[:, [0, 2]].clip(0, width)
-        xy[:, [1, 3]] = xy[:, [1, 3]].clip(0, height)
-        w = xy[:, 2] - xy[:, 0]
-        h = xy[:, 3] - xy[:, 1]
-        area = w * h
-        area0 = (targets[:, 3] - targets[:, 1]) * (targets[:, 4] - targets[:, 2])
-        ar = np.maximum(w / (h + 1e-16), h / (w + 1e-16))  # aspect ratio
-        i = (w > 4) & (h > 4) & (area / (area0 + 1e-16) > 0.2) & (ar < 10)
-
-        targets = targets[i]
-        targets[:, 1:5] = xy[i]
-
-    return img, targets
-
-
-def create_folder(path="./output"):
-    # Create folder
-    if os.path.exists(path):
-        shutil.rmtree(path)  # delete output folder
-    os.makedirs(path)  # make new output folder
+        return self.images[index], self.img_hw0[index], self.img_hw[
+            index]  # img, hw_original, hw_resized

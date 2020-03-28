@@ -22,11 +22,11 @@ import cv2
 import torch.backends.cudnn as cudnn
 import torch.onnx
 
+from easydet.data import LoadImages
+from easydet.data import LoadStreams
 from models import Darknet
 from models import ONNX_EXPORT
 from models import load_darknet_weights
-from utils import LoadImages
-from utils import LoadStreams
 from utils import apply_classifier
 from utils import load_classes
 from utils import load_classifier

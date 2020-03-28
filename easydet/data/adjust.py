@@ -11,27 +11,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from .adjust import exif_size
-from .common import augment_hsv
-from .common import create_folder
-from .common import load_mosaic
-from .common import random_affine
-from .image import LoadImages
-from .image import LoadImagesAndLabels
-from .image import load_image
-from .pad_resize import letterbox
-from .video import LoadCamera
-from .video import LoadStreams
+from PIL import ExifTags
 
-__all__ = [
-    "exif_size",
-    "augment_hsv",
-    "create_folder",
-    "load_mosaic",
-    "random_affine",
-    "LoadImages",
-    "LoadImagesAndLabels",
-    "letterbox",
-    "LoadCamera",
-    "LoadStreams",
-]
+# Get orientation exif tag
+for orientation in ExifTags.TAGS.keys():
+    if ExifTags.TAGS[orientation] == "Orientation":
+        break
+
+
+def exif_size(image):
+    """ Returns exif-corrected PIL size.
+
+    Args:
+        image (PngImageFile): Image matrix data.
+
+    Returns:
+        Size after image processing (width, height).
+    """
+    size = image.size
+    try:
+        rotation = dict(image._getexif().items())[orientation]
+        if rotation == 6:  # rotation 270
+            size = (size[1], size[0])
+        elif rotation == 8:  # rotation 90
+            size = (size[1], size[0])
+    except:
+        pass
+
+    return size
