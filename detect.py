@@ -29,12 +29,12 @@ from models import ONNX_EXPORT
 from models import load_darknet_weights
 from utils import apply_classifier
 from utils import load_classes
-from utils import load_classifier
+from easydet.model import load_classifier
 from utils import non_max_suppression
 from utils import plot_one_box
 from utils import scale_coords
-from utils import select_device
-from utils import time_synchronized
+from easydet.utils import select_device
+from easydet.utils import time_synchronized
 
 
 def detect(save_image=False):
