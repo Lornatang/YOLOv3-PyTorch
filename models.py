@@ -22,10 +22,11 @@ import torch.nn.functional as F
 from utils import fuse_conv_and_bn
 from utils import model_info
 from utils import parse_model_config
-from utils import Swish
-from utils import HSwish
-from utils import Mish
-from utils import HSigmoid
+from easydet.model import Swish
+from easydet.model import HSwish
+from easydet.model import Mish
+from easydet.model import HSigmoid
+from easydet.model import SeModule
 
 ONNX_EXPORT = False
 
@@ -44,11 +45,12 @@ def create_modules(module_defines, image_size):
 
         if module["type"] == "convolutional":
             bn = module["batch_normalize"]
+            in_channels = module["in_features"] if "in_features" in module else output_filters[-1]
             filters = module["filters"]
             size = module["size"]
             stride = module["stride"] if "stride" in module else (
                 module["stride_y"], module["stride_x"])
-            modules.add_module("Conv2d", nn.Conv2d(in_channels=output_filters[-1],
+            modules.add_module("Conv2d", nn.Conv2d(in_channels=in_channels,
                                                    out_channels=filters,
                                                    kernel_size=size,
                                                    stride=stride,
@@ -93,6 +95,10 @@ def create_modules(module_defines, image_size):
         elif module["type"] == "avgpool":
             size = module["size"]
             modules.add_module("AdaptiveAvgPool2d", nn.AdaptiveAvgPool2d(output_size=size))
+
+        elif module["type"] == "semodule":
+            in_channels = module["in_features"]
+            modules.add_module("SeModule", SeModule(in_channels))
 
         elif module["type"] == "dense":
             bn = module["batch_normalize"]
