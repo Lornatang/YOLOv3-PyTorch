@@ -15,32 +15,21 @@ import os
 
 import numpy as np
 
-
-def parse_data_config(path):
-    # Parses the data configuration file
-    if not os.path.exists(path) and os.path.exists("data" + os.sep + path):  # add data/ prefix if omitted
-        path = "data" + os.sep + path
-
-    with open(path, "r") as f:
-        lines = f.readlines()
-
-    parameters = dict()
-    for line in lines:
-        line = line.strip()
-        # skip notes
-        if line == "" or line.startswith("#"):
-            continue
-        key, value = line.split("=")
-        parameters[key.strip()] = value.strip()
-
-    return parameters
+# Check all fields are supported
+supported = ["type", "in_features", "out_features", "num_features", "batch_normalize",
+             "filters", "size", "stride", "pad", "activation", "layers", "groups",
+             "from", "mask", "anchors", "classes", "num", "jitter", "ignore_thresh",
+             "truth_thresh", "random", "stride_x", "stride_y", "weights_type",
+             "weights_normalization", "scale_x_y", "beta_nms", "nms_kind", "iou_loss",
+             "iou_normalizer", "cls_normalizer", "iou_thresh", "expand_size", "semodules"]
 
 
 def parse_model_config(path):
     # Parse the yolo *.cfgs file and return module definitions path may be "cfgs/yolov3.cfgs", "yolov3.cfgs", or "yolov3"
     if not path.endswith(".cfg"):  # add .cfgs suffix if omitted
         path += ".cfg"
-    if not os.path.exists(path) and os.path.exists("cfgs" + os.sep + path):  # add cfgs/ prefix if omitted
+    if not os.path.exists(path) and os.path.exists(
+            "cfgs" + os.sep + path):  # add cfgs/ prefix if omitted
         path = "cfgs" + os.sep + path
 
     with open(path, "r") as f:
@@ -53,32 +42,30 @@ def parse_model_config(path):
             modules.append({})
             modules[-1]["type"] = line[1:-1].rstrip()
             if modules[-1]["type"] == "convolutional":
-                modules[-1]["batch_normalize"] = 0  # pre-populate with zeros (may be overwritten later)
+                modules[-1][
+                    "batch_normalize"] = 0  # pre-populate with zeros (may be overwritten later)
         else:
             key, value = line.split("=")
             key = key.rstrip()
 
             if key == "anchors":  # return numpy array
-                modules[-1][key] = np.array([float(x) for x in value.split(",")]).reshape((-1, 2))  # np anchors
+                modules[-1][key] = np.array([float(x) for x in value.split(",")]).reshape(
+                    (-1, 2))  # np anchors
             elif key in ["from", "layers", "mask"]:  # return array
                 modules[-1][key] = [int(x) for x in value.split(",")]
             else:
                 value = value.strip()
                 if value.isnumeric():  # return int or float
-                    modules[-1][key] = int(value) if (int(value) - float(value)) == 0 else float(value)
+                    modules[-1][key] = int(value) if (int(value) - float(value)) == 0 else float(
+                        value)
                 else:
                     modules[-1][key] = value  # return string
-
-    # Check all fields are supported
-    supported = ["type", "in_features", "out_features", "num_features", "batch_normalize", "filters", "size", "stride", "pad", "activation", "layers", "groups",
-                 "from", "mask", "anchors", "classes", "num", "jitter", "ignore_thresh", "truth_thresh", "random",
-                 "stride_x", "stride_y", "weights_type", "weights_normalization", "scale_x_y", "beta_nms", "nms_kind",
-                 "iou_loss", "iou_normalizer", "cls_normalizer", "iou_thresh", "expand_size", "semodules"]
 
     f = []  # fields
     for x in modules[1:]:
         [f.append(k) for k in x if k not in f]
     unsupported_field_list = [x for x in f if x not in supported]
-    assert not any(unsupported_field_list), f"Unsupported fields {unsupported_field_list} in {path}."
+    assert not any(
+        unsupported_field_list), f"Unsupported fields {unsupported_field_list} in {path}."
 
     return modules

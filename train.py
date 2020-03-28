@@ -26,6 +26,7 @@ import torch.nn.functional as F
 import torch.utils.data
 from tqdm import tqdm
 
+from easydet.config import parse_data_config
 from models import Darknet
 from models import load_darknet_weights
 from test import evaluate
@@ -35,7 +36,6 @@ from utils import fitness
 from utils import init_seeds
 from utils import labels_to_class_weights
 from utils import labels_to_image_weights
-from utils import parse_data_config
 from utils import plot_results
 from utils import print_mutation
 from utils import select_device

@@ -24,6 +24,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from easydet.config import parse_data_config
 from models import Darknet
 from models import load_darknet_weights
 from utils import LoadImagesAndLabels
@@ -34,7 +35,6 @@ from utils import coco80_to_coco91_class
 from utils import compute_loss
 from utils import load_classes
 from utils import non_max_suppression
-from utils import parse_data_config
 from utils import scale_coords
 from utils import scale_image
 from utils import select_device

@@ -21,7 +21,7 @@ import torch.nn.functional as F
 
 from utils import fuse_conv_and_bn
 from utils import model_info
-from utils import parse_model_config
+from easydet.config import parse_model_config
 from easydet.model import Swish
 from easydet.model import HSwish
 from easydet.model import Mish
