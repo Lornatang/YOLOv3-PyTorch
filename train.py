@@ -30,7 +30,7 @@ from easydet.config import parse_data_config
 from models import Darknet
 from models import load_darknet_weights
 from test import evaluate
-from utils import LoadImagesAndLabels
+from easydet.data import LoadImagesAndLabels
 from utils import compute_loss
 from utils import fitness
 from utils import init_seeds
