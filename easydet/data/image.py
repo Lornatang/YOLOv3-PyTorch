@@ -25,7 +25,8 @@ from torch.utils.data import Dataset
 from tqdm import tqdm
 
 from easydet.data import exif_size
-from utils.utils import xyxy2xywh, xywh2xyxy
+from easydet.utils import xywh2xyxy
+from easydet.utils import xyxy2xywh
 from .common import augment_hsv
 from .common import create_folder
 from .common import load_mosaic

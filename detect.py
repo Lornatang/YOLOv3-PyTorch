@@ -24,17 +24,17 @@ import torch.onnx
 
 from easydet.data import LoadImages
 from easydet.data import LoadStreams
+from easydet.model import load_classifier
+from easydet.utils import load_classes
+from easydet.utils import non_max_suppression
+from easydet.utils import scale_coords
+from easydet.utils import select_device
+from easydet.utils import time_synchronized
 from models import Darknet
 from models import ONNX_EXPORT
 from models import load_darknet_weights
 from utils import apply_classifier
-from utils import load_classes
-from easydet.model import load_classifier
-from utils import non_max_suppression
 from utils import plot_one_box
-from utils import scale_coords
-from easydet.utils import select_device
-from easydet.utils import time_synchronized
 
 
 def detect(save_image=False):
