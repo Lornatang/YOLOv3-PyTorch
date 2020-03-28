@@ -13,10 +13,6 @@
 # ==============================================================================
 
 """ Load all function method names."""
-from .activition import HSigmoid
-from .activition import HSwish
-from .activition import Mish
-from .activition import Swish
 from .datasets import LoadCamera
 from .datasets import LoadImages
 from .datasets import LoadImagesAndLabels
