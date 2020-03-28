@@ -14,10 +14,9 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
-from easydet.model import Mish
-from easydet.model import Swish
-from easydet.model import HSigmoid
-from easydet.model import HSwish
+from .activition import HSigmoid
+from .activition import Mish
+from .activition import Swish
 
 
 class BasicConv2d(nn.Module):
