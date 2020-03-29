@@ -226,7 +226,7 @@ def train():
     model.class_weights = labels_to_class_weights(train_dataset.labels, num_classes).to(device)
 
     # Model EMA
-    # ema = ModelEMA(model, decay=0.9998)
+    ema = ModelEMA(model, decay=0.9998)
 
     # Start training
     batches_num = len(train_dataloader)  # number of batches
@@ -326,7 +326,7 @@ def train():
             if ni % accumulate == 0:
                 optimizer.step()
                 optimizer.zero_grad()
-                # ema.update(model)
+                ema.update(model)
 
             # Print batch results
             # update mean losses
@@ -342,7 +342,7 @@ def train():
         scheduler.step()
 
         # Process epoch results
-        # ema.update_attr(model)
+        ema.update_attr(model)
         final_epoch = epoch + 1 == epochs
         if not args.notest or final_epoch:  # Calculate mAP
             coco = any([coco_name in data for coco_name in ["coco.data",
@@ -352,7 +352,7 @@ def train():
                                      data,
                                      batch_size=batch_size * 2,
                                      image_size=image_size_val,
-                                     model=model,
+                                     model=ema.ema,
                                      confidence_threshold=0.001 if final_epoch else 0.01,
                                      iou_threshold=0.6,
                                      save_json=final_epoch and coco,
@@ -387,8 +387,8 @@ def train():
                 state = {"epoch": epoch,
                          "best_fitness": best_fitness,
                          "training_results": f.read(),
-                         "model": model.module.state_dict()
-                         if hasattr(model, "module") else model.state_dict(),
+                         "model": ema.ema.module.state_dict()
+                         if hasattr(model, 'module') else ema.ema.state_dict(),
                          "optimizer": None
                          if final_epoch else optimizer.state_dict()}
 
