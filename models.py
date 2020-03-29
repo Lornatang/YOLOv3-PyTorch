@@ -51,14 +51,14 @@ def create_modules(module_defines, image_size):
             size = module["size"]
             stride = module["stride"] if "stride" in module else (
                 module["stride_y"], module["stride_x"])
+            groups = module["groups"] if "groups" in module else 1
             modules.add_module("Conv2d", nn.Conv2d(in_channels=in_channels,
                                                    out_channels=filters,
                                                    kernel_size=size,
                                                    stride=stride,
                                                    padding=(size - 1) // 2
                                                    if module["pad"] else 0,
-                                                   groups=module["groups"]
-                                                   if "groups" in module else 1,
+                                                   groups=groups,
                                                    bias=not bn))
             if bn:
                 modules.add_module("BatchNorm2d", nn.BatchNorm2d(num_features=filters,
