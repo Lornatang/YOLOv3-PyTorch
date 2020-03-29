@@ -28,6 +28,7 @@ from tqdm import tqdm
 
 from easydet.config import parse_data_config
 from easydet.data import LoadImagesAndLabels
+from easydet.solver import ModelEMA
 from easydet.utils import init_seeds
 from easydet.utils import labels_to_class_weights
 from easydet.utils import labels_to_image_weights
@@ -53,7 +54,7 @@ parameters = {"giou": 3.54,  # giou loss gain
               "obj_pw": 1.0,  # obj BCELoss positive_weight
               "iou_t": 0.225,  # iou training threshold
               "lr0": 0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
-              "lrf": -4.,  # final LambdaLR learning rate = lr0 * (10 ** lrf)
+              "lrf": 0.0005,  # final learning rate (with cos scheduler)
               "momentum": 0.937,  # SGD momentum
               "weight_decay": 0.000484,  # optimizer weight decay
               "fl_gamma": 0.0,  # focal loss gamma (default is gamma=1.5)
@@ -170,7 +171,7 @@ def train():
         # skip print amp info
         model, optimizer = amp.initialize(model, optimizer, opt_level="O1", verbosity=0)
     # source https://arxiv.org/pdf/1812.01187.pdf
-    lr_lambda = lambda lr: (1 + math.cos(lr * math.pi / epochs)) / 2
+    lr_lambda = lambda x: (((1 + math.cos(x * math.pi / epochs)) / 2) ** 1.0) * 0.95 + 0.05
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
                                                   lr_lambda=lr_lambda,
                                                   last_epoch=start_epoch - 1)
