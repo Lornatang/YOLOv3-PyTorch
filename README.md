@@ -84,9 +84,6 @@ $ python3 train.py --cfg cfgs/yolov3-voc.cfg  --data cfgs/voc2007.data --weights
 **Plot Training:** `from utils import utils; utils.plot_results()` plots training results from `coco_16image.data`, `coco_64image.data`, 2 example datasets available in the `data/` folder, which train and test on the first 16 and 64 images of the COCO2014-trainval dataset.
 
 #### Test
-```bash
-$ python3 test.py --cfg cfgs/yolov3-spp.cfg --weights weights/yolov3-spp.pth
-```
 
 - mAP@0.5 run at `--iou-thr 0.5`, mAP@0.5...0.95 run at `--iou-thr 0.7`
 - Darknet results: https://arxiv.org/abs/1804.02767
