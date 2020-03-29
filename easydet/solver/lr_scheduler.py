@@ -76,11 +76,13 @@ class ModelEMA:
     GPU assignment and distributed training wrappers.
     """
 
-    def __init__(self, model, decay=0.9998, device=''):
+    def __init__(self, model, decay=0.9999, device=''):
         # make a copy of the model for accumulating moving average of weights
         self.ema = deepcopy(model)
         self.ema.eval()
-        self.decay = decay
+        self.updates = 0  # number of EMA updates
+        # decay exponential ramp (to help early epochs)
+        self.decay = lambda x: decay * (1 - math.exp(-x / 1000))
         self.device = device  # perform ema on different device from model if set
         if device:
             self.ema.to(device=device)
@@ -88,12 +90,14 @@ class ModelEMA:
             p.requires_grad_(False)
 
     def update(self, model):
-        d = self.decay
+        self.updates += 1
+        d = self.decay(self.updates)
         with torch.no_grad():
             if type(model) in (nn.parallel.DataParallel, nn.parallel.DistributedDataParallel):
                 msd, esd = model.module.state_dict(), self.ema.module.state_dict()
             else:
                 msd, esd = model.state_dict(), self.ema.state_dict()
+
             for k, v in esd.items():
                 if v.dtype.is_floating_point:
                     v *= d
