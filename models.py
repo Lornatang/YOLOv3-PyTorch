@@ -105,7 +105,7 @@ def create_modules(module_defines, image_size):
 
         elif module["type"] == "shuffle":
             groups = module["groups"]
-            modules.add_module("SeModule", ShuffleBlock(groups))
+            modules.add_module("ShuffleBlock", ShuffleBlock(groups))
 
         elif module["type"] == "dense":
             bn = module["batch_normalize"]
