@@ -24,6 +24,7 @@ from easydet.model import HSigmoid
 from easydet.model import HSwish
 from easydet.model import Mish
 from easydet.model import SeModule
+from easydet.model import ShuffleBlock
 from easydet.model import Swish
 from easydet.model import fuse_conv_and_bn
 from easydet.model import model_info
@@ -94,11 +95,17 @@ def create_modules(module_defines, image_size):
 
         elif module["type"] == "avgpool":
             size = module["size"]
-            modules.add_module("AdaptiveAvgPool2d", nn.AdaptiveAvgPool2d(output_size=size))
+            stride = module["stride"]
+            modules.add_module("AvgPool2d", nn.AvgPool2d(kernel_size=size, stride=stride,
+                                                         padding=(size - 1) // 2))
 
         elif module["type"] == "semodule":
             in_channels = module["in_features"]
             modules.add_module("SeModule", SeModule(in_channels))
+
+        elif module["type"] == "shuffle":
+            groups = module["groups"]
+            modules.add_module("SeModule", ShuffleBlock(groups))
 
         elif module["type"] == "dense":
             bn = module["batch_normalize"]
