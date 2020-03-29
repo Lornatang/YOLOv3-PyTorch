@@ -20,6 +20,7 @@ from .conv import ConvBNReLU
 from .conv import DeepConv2d
 from .conv import SeModule
 from .res import ResidualBlock
+from .shuffle import ShuffleBlock
 
 __all__ = [
     "BasicConv2d",
@@ -31,4 +32,5 @@ __all__ = [
     "Swish",
     "SeModule",
     "ResidualBlock",
+    "ShuffleBlock",
 ]

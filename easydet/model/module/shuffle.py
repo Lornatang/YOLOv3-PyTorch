@@ -11,32 +11,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from .classifier import load_classifier
-from .common import model_info
-from .fuse import fuse_conv_and_bn
-from .module import BasicConv2d
-from .module import ConvBNReLU
-from .module import DeepConv2d
-from .module import HSigmoid
-from .module import HSwish
-from .module import Mish
-from .module import ResidualBlock
-from .module import SeModule
-from .module import ShuffleBlock
-from .module import Swish
+import torch.nn as nn
 
-__all__ = [
-    "load_classifier",
-    "model_info",
-    "fuse_conv_and_bn",
-    "BasicConv2d",
-    "ConvBNReLU",
-    "DeepConv2d",
-    "HSigmoid",
-    "HSwish",
-    "Mish",
-    "ResidualBlock",
-    "SeModule",
-    "ShuffleBlock",
-    "Swish",
-]
+
+class ShuffleBlock(nn.Module):
+    def __init__(self, groups):
+        super(ShuffleBlock, self).__init__()
+        self.groups = groups
+
+    def forward(self, x):
+        n, c, h, w = x.size()
+        assert c % self.groups == 0
+        x = x.view(n, self.groups, c // self.groups, h, w).permute(0, 2, 1, 3, 4)
+        x = x.contiguous().view(n, c, h, w)
+        return x
