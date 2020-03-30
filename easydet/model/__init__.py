@@ -11,11 +11,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+from .classifier import apply_classifier
 from .classifier import load_classifier
+from .common import ONNX_EXPORT
+from .common import create_grids
 from .common import model_info
+from .fuse import WeightFeatureFusion
 from .fuse import fuse_conv_and_bn
 from .module import BasicConv2d
 from .module import ConvBNReLU
+from .module import Darknet
 from .module import DeepConv2d
 from .module import HSigmoid
 from .module import HSwish
@@ -24,13 +29,21 @@ from .module import ResidualBlock
 from .module import SeModule
 from .module import ShuffleBlock
 from .module import Swish
+from .module import YOLOLayer
+from .module import create_modules
+from .module import get_yolo_layers
 
 __all__ = [
+    "apply_classifier",
     "load_classifier",
+    "ONNX_EXPORT",
+    "create_grids",
     "model_info",
+    "WeightFeatureFusion",
     "fuse_conv_and_bn",
     "BasicConv2d",
     "ConvBNReLU",
+    "Darknet",
     "DeepConv2d",
     "HSigmoid",
     "HSwish",
@@ -39,4 +52,7 @@ __all__ = [
     "SeModule",
     "ShuffleBlock",
     "Swish",
+    "YOLOLayer",
+    "create_modules",
+    "get_yolo_layers",
 ]

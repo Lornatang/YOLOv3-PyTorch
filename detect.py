@@ -24,17 +24,17 @@ import torch.onnx
 
 from easydet.data import LoadImages
 from easydet.data import LoadStreams
+from easydet.model import Darknet
+from easydet.model import ONNX_EXPORT
+from easydet.model import apply_classifier
 from easydet.model import load_classifier
 from easydet.utils import load_classes
+from easydet.utils import load_darknet_weights
 from easydet.utils import non_max_suppression
+from easydet.utils import plot_one_box
 from easydet.utils import scale_coords
 from easydet.utils import select_device
 from easydet.utils import time_synchronized
-from models import Darknet
-from models import ONNX_EXPORT
-from models import load_darknet_weights
-from utils import apply_classifier
-from utils import plot_one_box
 
 
 def detect(save_image=False):
@@ -69,7 +69,7 @@ def detect(save_image=False):
     classify = False
     if classify:
         # init model
-        model_classifier = load_classifier(name="resnet101", n=2)
+        model_classifier = load_classifier(name="resnet101", classes=2)
         # load model
         model_classifier.load_state_dict(
             torch.load("weights/resnet101.pth", map_location=device)["model"])

@@ -7,7 +7,7 @@
 ### Overview
 The inspiration for this project comes from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) Thanks.
 
-This project is a [YOLOv3](http://xxx.itp.ac.cn/abs/1804.02767) object detection system. Development framework by [PyTorch](https://pytorch.org/).
+This project is a [YOLOv3](http://arxiv.org/abs/1804.02767) object detection system. Development framework by [PyTorch](https://pytorch.org/).
 
 The goal of this implementation is to be simple, highly extensible, and easy to integrate into your own projects. This implementation is a work in progress -- new features are currently being implemented.  
 
@@ -84,7 +84,7 @@ $ python3 train.py --cfg cfgs/yolov3-voc.cfg  --data cfgs/voc2007.data --weights
 
 #### Test
 
-- mAP@0.5 run at `--iou-thr 0.5`, mAP@0.5...0.95 run at `--iou-thr 0.7`
+- mAP@0.5 run at `--iou-threshold 0.5`, mAP@0.5...0.95 run at `--iou-threshold 0.7`
 - Darknet results: https://arxiv.org/abs/1804.02767
 
 |     Method   |  Size   |COCO mAP<br>@0.5...0.95 |COCO mAP<br>@0.5 |  
@@ -156,7 +156,7 @@ better mAP and less computation than the original architecture.
 |MobileNet-v2      |VOC07+12 |VOC07 |0.116              |0.004                |5.8           |**62.3**|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv2.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv2-b63c09ce.pth)|
 |MobileNet-v3-small|VOC07+12 |VOC07 |**0.073**          |**0.003**            |**1.9**       |53.3    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv3-small.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-small-cbb8f75e.pth)|
 |MobileNet-v3-large|VOC07+12 |VOC07 |0.125              |0.004                |5.7           |59.5    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv3-large.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-large-55b6226b.pth)|
-|ShuffleNet-v1     |VOC07+12 |VOC07 |0.183              |-                |3.6           |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv1.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-large-55b6226b.pth)|
+|ShuffleNet-v1     |VOC07+12 |VOC07 |0.183              |0.004                |3.6           |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv1.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-large-55b6226b.pth)|
 |ShuffleNet-v2     |VOC07+12 |VOC07 |-              |-                |-           |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv2.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-large-55b6226b.pth)|
 
 
@@ -212,11 +212,11 @@ Add `--weights weights/darknet53.conv.74` to train using a backend pretrained on
 $ git clone https://github.com/Lornatang/YOLOv3-PyTorch && cd YOLOv3-PyTorch
 
 # convert darknet cfgs/weights to pytorch model
-$ python3  -c "from models import *; convert('cfgs/yolov3-spp.cfgs', 'weights/yolov3-spp.weights')"
+$ python3  -c "from easydet.utils import convert; convert('cfgs/yolov3-spp.cfgs', 'weights/yolov3-spp.weights')"
 Success: converted 'weights/yolov3-spp.weights' to 'converted.pth'
 
 # convert cfgs/pytorch model to darknet weights
-$ python3  -c "from models import *; convert('cfgs/yolov3-spp.cfgs', 'weights/yolov3-spp.pth')"
+$ python3  -c "from easydet.utils import convert; convert('cfgs/yolov3-spp.cfgs', 'weights/yolov3-spp.pth')"
 Success: converted 'weights/yolov3-spp.pth' to 'converted.weights'
 ```
 
