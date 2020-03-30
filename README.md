@@ -201,7 +201,7 @@ In `data/custom/train.txt` and `data/custom/valid.txt`, add paths to images that
 To train on the custom dataset run:
 
 ```bash
-$ python3 train.py --cfg cfg/yolov3-custom.cfg --data cfg/custom.data --epochs 100 --multi-scale
+$ python3 train.py --cfg cfgs/yolov3-custom.cfg --data cfg/custom.data --epochs 100 --multi-scale
 ```
 
 Add `--weights weights/darknet53.conv.74` to train using a backend pretrained on ImageNet.
