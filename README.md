@@ -156,8 +156,8 @@ better mAP and less computation than the original architecture.
 |MobileNet-v2      |VOC07+12 |VOC07 |0.116              |0.004                |5.8           |**62.3**|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv2.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv2-b63c09ce.pth)|
 |MobileNet-v3-small|VOC07+12 |VOC07 |**0.073**          |**0.003**            |**1.9**       |53.3    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv3-small.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-small-cbb8f75e.pth)|
 |MobileNet-v3-large|VOC07+12 |VOC07 |0.125              |0.004                |5.7           |59.5    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv3-large.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-large-55b6226b.pth)|
-|ShuffleNet-v1     |VOC07+12 |VOC07 |0.183              |0.004                |3.6           |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv1.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-large-55b6226b.pth)|
-|ShuffleNet-v2     |VOC07+12 |VOC07 |-              |-                |-           |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv2.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-large-55b6226b.pth)|
+|ShuffleNet-v1     |VOC07+12 |VOC07 |0.125              |0.004                |2.1           |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv1.cfg)|-|
+|ShuffleNet-v2     |VOC07+12 |VOC07 |-                  |-                    |-             |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv2.cfg)|-|
 
 
 ### Image Augmentation
