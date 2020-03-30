@@ -12,6 +12,7 @@
 # limitations under the License.
 # ==============================================================================
 import torch
+import torch.nn as nn
 
 
 def fuse_conv_and_bn(conv, bn):
@@ -39,3 +40,43 @@ def fuse_conv_and_bn(conv, bn):
         fusedconv.bias.copy_(torch.mm(w_bn, b_conv.reshape(-1, 1)).reshape(-1) + b_bn)
 
         return fusedconv
+
+
+class WeightFeatureFusion(nn.Module):
+    """Weighted sum of 2 or more layers https://arxiv.org/abs/1911.09070"""
+
+    def __init__(self, layers, weight=False):
+        super(WeightFeatureFusion, self).__init__()
+        self.layers = layers  # layer indices
+        self.weight = weight  # apply weights boolean
+        self.num_layers = len(layers) + 1  # number of layers
+        if weight:
+            # layer weights
+            self.w = torch.nn.Parameter(torch.zeros(self.num_layers),
+                                        requires_grad=True)
+
+    def forward(self, x, outputs):
+        # Weights
+        if self.weight:
+            # sigmoid weights (0-1)
+            w = torch.sigmoid(self.w) * (2 / self.num_layers)
+            x = x * w[0]
+
+        # Fusion
+        nc = x.shape[1]  # input channels
+        for i in range(self.num_layers - 1):
+            # feature to add
+            a = outputs[self.layers[i]] * w[i + 1] if self.weight else outputs[
+                self.layers[i]]
+            ac = a.shape[1]  # feature channels
+            dc = nc - ac  # delta channels
+
+            # Adjust channels
+            if dc > 0:  # slice input
+                # or a = nn.ZeroPad2d((0, 0, 0, 0, 0, dc))(a); x = x + a
+                x[:, :ac] = x[:, :ac] + a
+            elif dc < 0:  # slice feature
+                x = x + a[:, :nc]
+            else:  # same shape
+                x = x + a
+        return x

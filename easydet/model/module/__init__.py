@@ -19,6 +19,10 @@ from .conv import BasicConv2d
 from .conv import ConvBNReLU
 from .conv import DeepConv2d
 from .conv import SeModule
+from .layer import Darknet
+from .layer import YOLOLayer
+from .layer import create_modules
+from .layer import get_yolo_layers
 from .res import ResidualBlock
 from .shuffle import ShuffleBlock
 
@@ -31,6 +35,10 @@ __all__ = [
     "Mish",
     "Swish",
     "SeModule",
+    "Darknet",
+    "YOLOLayer",
+    "create_modules",
+    "get_yolo_layers",
     "ResidualBlock",
     "ShuffleBlock",
 ]
