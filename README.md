@@ -176,9 +176,9 @@ HS**V** Intensity | +/- 50%
 Run the commands below to create a custom model definition, replacing `<num-classes>` with the number of classes in your dataset.
 
 ```bash
-# move to config dir
-$ cd cfg/
-# create custom model 'yolov3-custom.cfgs'. (In fact, it is OK to modify two lines of parameters, see `create_model.sh`)                              
+# move to configs dir
+$ cd cfgs/
+# create custom model 'yolov3-custom.cfg'. (In fact, it is OK to modify two lines of parameters, see `create_model.sh`)                              
 $ bash create_model.sh your-dataset-num-classes
 ```
 
