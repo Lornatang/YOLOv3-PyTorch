@@ -118,7 +118,6 @@ Using CUDA
 ```
 
 #### Inference
-Uses pretrained weights to make predictions on images. Below table displays the inference times when using as inputs images scaled to 256x256. The ResNet backbone measurements are taken from the YOLOv3 paper. The Darknet-53 measurement marked shows the inference time of this implementation on my 1080ti card.
 
 `detect.py` runs inference on any sources:
 
