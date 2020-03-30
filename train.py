@@ -198,7 +198,7 @@ def train():
                                         single_cls=args.single_cls)
     # No apply augmentation hyperparameters and rectangular inference
     valid_dataset = LoadImagesAndLabels(valid_path, image_size_val,
-                                        batch_size * 2,
+                                        batch_size,
                                         augment=False,
                                         hyp=parameters,
                                         rect=True,
@@ -213,7 +213,7 @@ def train():
                                                    pin_memory=True,
                                                    collate_fn=collate_fn)
     valid_dataloader = torch.utils.data.DataLoader(valid_dataset,
-                                                   batch_size=batch_size * 2,
+                                                   batch_size=batch_size,
                                                    num_workers=args.workers,
                                                    shuffle=False,
                                                    pin_memory=True,
@@ -351,7 +351,7 @@ def train():
                                                             "coco2017.data"]]) and model.nc == 80
             results, maps = evaluate(cfg,
                                      data,
-                                     batch_size=batch_size * 2,
+                                     batch_size=batch_size,
                                      image_size=image_size_val,
                                      model=ema.ema,
                                      confidence_threshold=0.001 if final_epoch else 0.01,
