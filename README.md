@@ -5,7 +5,8 @@
 <p align="center"><img src="assets/zidane.jpg" width="1280" alt=""></p>
 
 ### Overview
-This project is based on [ultralytics/yolov3](https://github.com/ultralytics/yolov3).Thanks.
+The inspiration for this project comes from [ultralytics/yolov3](https://github.com/ultralytics/yolov3).Thanks.
+
 This project is a [YOLOv3](http://xxx.itp.ac.cn/abs/1804.02767) object detection system. Development framework by [PyTorch](https://pytorch.org/).
 
 The goal of this implementation is to be simple, highly extensible, and easy to integrate into your own projects. This implementation is a work in progress -- new features are currently being implemented.  
@@ -81,14 +82,12 @@ $ python3 train.py --cfg cfgs/yolov3-voc.cfg  --data cfgs/voc2007.data --weights
 
 **Resume Training:** `python3 train.py --resume` to resume training from `weights/checkpoint.pth`.
 
-**Plot Training:** `from utils import utils; utils.plot_results()` plots training results from `coco_16image.data`, `coco_64image.data`, 2 example datasets available in the `data/` folder, which train and test on the first 16 and 64 images of the COCO2014-trainval dataset.
-
 #### Test
 
 - mAP@0.5 run at `--iou-thr 0.5`, mAP@0.5...0.95 run at `--iou-thr 0.7`
 - Darknet results: https://arxiv.org/abs/1804.02767
 
-<i></i>                      |Size |COCO mAP<br>@0.5...0.95 |COCO mAP<br>@0.5 
+|     Method   |  Size   |COCO mAP<br>@0.5...0.95 |COCO mAP<br>@0.5 |  
 ---                          | ---         | ---         | ---
 YOLOv3-tiny<br>YOLOv3<br>YOLOv3-SPP<br>    |320          |14.0<br>28.7<br>30.5<br>|29.1<br>51.8<br>52.3<br>
 YOLOv3-tiny<br>YOLOv3<br>YOLOv3-SPP<br>    |416          |16.0<br>31.2<br>33.9<br>|33.0<br>55.4<br>56.9<br>
@@ -146,7 +145,9 @@ In addition to some architectures given by the author, we also add
 some commonly used neural network architectures, which usually have 
 better mAP and less computation than the original architecture.
 
-* All training and tests at image size:(416 x 416) for GeForce RTX 2080 SUPER
+* All training and tests at image size:(416 x 416) for GeForce RTX 2080 SUPER.
+
+**Note**: The training mode of this project is for coco data set, not for VOC data set. At present, it only tests their performance
 
 |     Backbone     |  Train  | Test |train time (s/iter)|inference time (s/im)|train mem (GB)|mAP     |  Cfg  |  Weights   |  
 |:-----------------|:-------:|:----:|:-----------------:|:-------------------:|:------------:|:------:|:-----:|:----------:|
@@ -155,6 +156,8 @@ better mAP and less computation than the original architecture.
 |MobileNet-v2      |VOC07+12 |VOC07 |0.116              |0.004                |5.8           |**62.3**|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv2.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv2-b63c09ce.pth)|
 |MobileNet-v3-small|VOC07+12 |VOC07 |**0.073**          |**0.003**            |**1.9**       |53.3    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv3-small.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-small-cbb8f75e.pth)|
 |MobileNet-v3-large|VOC07+12 |VOC07 |0.125              |0.004                |5.7           |59.5    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv3-large.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-large-55b6226b.pth)|
+|ShuffleNet-v1     |VOC07+12 |VOC07 |0.183              |-                |3.6           |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv1.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-large-55b6226b.pth)|
+|ShuffleNet-v2     |VOC07+12 |VOC07 |-              |-                |-           |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv2.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-large-55b6226b.pth)|
 
 
 ### Image Augmentation
