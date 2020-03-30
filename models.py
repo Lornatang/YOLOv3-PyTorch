@@ -508,7 +508,7 @@ def convert(config="cfgs/yolov3.cfg", weight="weights/yolov3.weights"):
 
     # Load weights and save
     if weight.endswith(".pth"):
-        model.load_state_dict(torch.load(weight, map_location="cpu")["model"])
+        model.load_state_dict(torch.load(weight, map_location="cpu")["state_dict"])
         save_weights(model, path="converted.weights", cutoff=-1)
         print(f"Success: converted `{weight}` to `converted.weights`")
 
@@ -526,19 +526,3 @@ def convert(config="cfgs/yolov3.cfg", weight="weights/yolov3.weights"):
 
     else:
         print("Error: extension not supported.")
-
-
-def exchange(config="cfgs/yolov3.cfg", weight="weights/yolov3.pth"):
-    # Initialize model
-    model = Darknet(config)
-
-    # Load weights and save
-    if weight.endswith(".pth"):
-        model.load_state_dict(torch.load(weight, map_location="cpu")["model"])
-        state = {"epoch": -1,
-                 "best_fitness": None,
-                 "training_results": None,
-                 "state_dict": model.state_dict(),
-                 "optimizer": None}
-        torch.save(state, weight)
-        print("Success")
