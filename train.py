@@ -138,7 +138,7 @@ def train():
         state = torch.load(weights, map_location=device)
         # load model
         try:
-            state["model"] = {k: v for k, v in state["model"].items()
+            state["state_dict"] = {k: v for k, v in state["state_dict"].items()
                               if model.state_dict()[k].numel() == v.numel()}
             model.load_state_dict(state["model"], strict=False)
         except KeyError as e:
@@ -388,7 +388,7 @@ def train():
                 state = {"epoch": epoch,
                          "best_fitness": best_fitness,
                          "training_results": f.read(),
-                         "model": ema.ema.module.state_dict()
+                         "state_dict": ema.ema.module.state_dict()
                          if hasattr(model, 'module') else ema.ema.state_dict(),
                          "optimizer": None
                          if final_epoch else optimizer.state_dict()}
@@ -401,7 +401,7 @@ def train():
             state = {"epoch": -1,
                      "best_fitness": None,
                      "training_results": None,
-                     "model": model.state_dict(),
+                     "state_dict": model.state_dict(),
                      "optimizer": None}
             torch.save(state, "weights/model_best.pth")
 
