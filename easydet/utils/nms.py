@@ -75,9 +75,9 @@ def non_max_suppression(prediction,
             continue
 
         # Batched NMS
-        classes = x[:, 5] * 0 if agnostic else x[:, 5]
+        c = x[:, 5] * 0 if agnostic else x[:, 5]  # classes
         # boxes (offset by class), scores
-        boxes, scores = x[:, :4].clone() + classes.view(-1, 1) * max_wh, x[:, 4]
+        boxes, scores = x[:, :4].clone() + c.view(-1, 1) * max_wh, x[:, 4]
         i = 0.
         if method == "merge":  # Merge NMS (boxes merged using weighted mean)
             i = torchvision.ops.boxes.nms(boxes, scores, iou_threshold)
