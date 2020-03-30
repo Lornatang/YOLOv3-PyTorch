@@ -95,7 +95,7 @@ YOLOv3-tiny<br>YOLOv3<br>YOLOv3-SPP<br>    |512          |16.6<br>32.7<br>35.6<b
 YOLOv3-tiny<br>YOLOv3<br>YOLOv3-SPP<br>    |608          |16.6<br>33.1<br>37.0<br>|35.4<br>58.2<br>60.7<br>
 
 ```bash
-$ python3 test.py --cfg cfg/yolov3-spp.cfg --weights weights/yolov3-spp.pth --augment --save-json --image-size 608 
+$ python3 test.py --cfg cfgs/yolov3-spp.cfg --weights weights/yolov3-spp.pth --augment --save-json --image-size 608 
 ```
 
 ```text
