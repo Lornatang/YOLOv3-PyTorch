@@ -5,7 +5,7 @@
 <p align="center"><img src="assets/zidane.jpg" width="1280" alt=""></p>
 
 ### Overview
-The inspiration for this project comes from [ultralytics/yolov3](https://github.com/ultralytics/yolov3).Thanks.
+The inspiration for this project comes from [ultralytics/yolov3](https://github.com/ultralytics/yolov3) Thanks.
 
 This project is a [YOLOv3](http://xxx.itp.ac.cn/abs/1804.02767) object detection system. Development framework by [PyTorch](https://pytorch.org/).
 
