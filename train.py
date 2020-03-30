@@ -139,8 +139,8 @@ def train():
         # load model
         try:
             state["state_dict"] = {k: v for k, v in state["state_dict"].items()
-                              if model.state_dict()[k].numel() == v.numel()}
-            model.load_state_dict(state["model"], strict=False)
+                                   if model.state_dict()[k].numel() == v.numel()}
+            model.load_state_dict(state["state_dict"], strict=False)
         except KeyError as e:
             error_msg = f"{args.weights} is not compatible with {args.cfg}. "
             error_msg += f"Specify --weights `` or specify a --cfg "
