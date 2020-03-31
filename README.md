@@ -144,9 +144,13 @@ In addition to some architectures given by the author, we also add
 some commonly used neural network architectures, which usually have 
 better mAP and less computation than the original architecture.
 
-* All training and tests at image size:(416 x 416) for GeForce RTX 2080 SUPER.
+* All training and tests at image size:(416 x 416) for GeForce RTX 2080 Ti.
 
-**Note**: The training mode of this project is for coco data set, not for VOC data set. At present, it only tests their performance
+**Note**: All commands use the following parameters.
+
+```text
+python3 train.py --cfg <cfg-path> --data cfgs/voc2007.data --multi-scale --cache-image --batch-size 4
+```
 
 |     Backbone     |  Train  | Test |train time (s/iter)|inference time (s/im)|train mem (GB)|mAP     |  Cfg  |  Weights   |  
 |:-----------------|:-------:|:----:|:-----------------:|:-------------------:|:------------:|:------:|:-----:|:----------:|
@@ -157,6 +161,8 @@ better mAP and less computation than the original architecture.
 |MobileNet-v3-large|VOC07+12 |VOC07 |0.125              |0.004                |5.7           |59.5    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv3-large.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-large-55b6226b.pth)|
 |ShuffleNet-v1     |VOC07+12 |VOC07 |0.125              |0.004                |2.1           |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv1.cfg)|-|
 |ShuffleNet-v2     |VOC07+12 |VOC07 |-                  |-                    |-             |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv2.cfg)|-|
+|AlexNet           |VOC07+12 |VOC07 |-                  |-                    |-             |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/alexnet.cfg)|-|
+|VGG16             |VOC07+12 |VOC07 |-                  |-                    |-             |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/vgg16.cfg)|-|
 
 
 ### Image Augmentation
