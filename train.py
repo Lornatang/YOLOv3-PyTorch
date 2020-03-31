@@ -282,12 +282,17 @@ def train():
             images = images.to(device).float() / 255.0
             targets = targets.to(device)
 
-            # Hyper parameter Burn-in
-            n_burn = 200  # number of burn-in batches
+            # Hyperparameter Burn-in
+            n_burn = 300  # number of burn-in batches
             if ni <= n_burn:
-                for m in model.named_modules():
-                    if m[0].endswith("BatchNorm2d"):
-                        m[1].track_running_stats = ni == n_burn
+                g = (ni / n_burn) ** 2  # gain
+                for x in model.named_modules():  # initial stats may be poor, wait to track
+                    if x[0].endswith('BatchNorm2d'):
+                        x[1].track_running_stats = ni == n_burn
+                for x in optimizer.param_groups:
+                    x['lr'] = x['initial_lr'] * lr_lambda(epoch) * g  # gain rises from 0 - 1
+                    if 'momentum' in x:
+                        x['momentum'] = parameters['momentum'] * g
 
             # Multi-Scale training
             if args.multi_scale:
@@ -421,7 +426,7 @@ def train():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=273,
-                        help="500200 is yolov3 max batches. (default: 237)"
+                        help="500200 is yolov3 max batches. (default: 273)"
                              "Formula: Epochs = 500200 / (117263 / 64).")
     parser.add_argument("--batch-size", type=int, default=16,
                         help="mini-batch size (default: 16), this is the total "
