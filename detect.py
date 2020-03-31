@@ -218,8 +218,8 @@ if __name__ == "__main__":
                         help="Image input source. (default=data/examples)")
     parser.add_argument("--output", type=str, default="output",
                         help="Output result folder. (default=output)")
-    parser.add_argument("--image-size", type=int, default=416,
-                        help="Size of processing picture. (default=416)")
+    parser.add_argument("--image-size", type=int, default=608,
+                        help="Size of processing picture. (default=608)")
     parser.add_argument("--confidence-threshold", type=float, default=0.3,
                         help="Object confidence threshold. (default=0.3)")
     parser.add_argument("--iou-threshold", type=float, default=0.6,
