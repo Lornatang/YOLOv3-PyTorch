@@ -65,14 +65,14 @@ def bbox_iou(box1, box2, x1y1x2y2=True, GIoU=False, DIoU=False, CIoU=False):
 
 
 # Source: https://github.com/pytorch/vision/blob/master/torchvision/ops/boxes.py
-def box_iou(boxes1, boxes2):
+def box_iou(box1, box2):
     """ Return intersection-over-union (Jaccard index) of boxes.
 
     Both sets of boxes are expected to be in (x1, y1, x2, y2) format.
 
     Args:
-        boxes1 (Tensor[N, 4])
-        boxes2 (Tensor[M, 4])
+        box1 (Tensor[N, 4])
+        box2 (Tensor[M, 4])
 
     Returns:
         iou (Tensor[N, M]): the NxM matrix containing the pairwise
@@ -83,13 +83,11 @@ def box_iou(boxes1, boxes2):
         # box = 4xn
         return (box[2] - box[0]) * (box[3] - box[1])
 
-    area1 = box_area(boxes1.t())
-    area2 = box_area(boxes2.t())
+    area1 = box_area(box1.t())
+    area2 = box_area(box2.t())
 
-    lt = torch.max(boxes1[:, None, :2], boxes2[:, :2])  # [N,M,2]
-    rb = torch.min(boxes1[:, None, 2:], boxes2[:, 2:])  # [N,M,2]
-
-    inter = (rb - lt).clamp(0).prod(2)  # [N,M]
+    inter = (torch.min(box1[:, None, 2:], box2[:, 2:]) - torch.max(box1[:, None, :2],
+                                                                   box2[:, :2])).clamp(0).prod(2)
     return inter / (area1[:, None] + area2 - inter)  # iou = inter / (area1 + area2 - inter)
 
 
