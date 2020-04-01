@@ -35,6 +35,7 @@ from .nms import non_max_suppression
 from .plot import plot_one_box
 from .plot import plot_results
 from .weights import convert
+from .weights import convert_to_best
 from .weights import labels_to_class_weights
 from .weights import labels_to_image_weights
 from .weights import load_darknet_weights
@@ -65,6 +66,7 @@ __all__ = [
     "plot_one_box",
     "plot_results",
     "convert",
+    "convert_to_best",
     "labels_to_class_weights",
     "labels_to_image_weights",
     "load_darknet_weights",
