@@ -260,8 +260,8 @@ def train():
 
         # Update image weights (optional)
         if train_dataset.image_weights:
-            class_weights = model.class_weights.cpu().numpy() * (
-                    1 - maps) ** 2  # class weights
+            # class weights
+            class_weights = model.class_weights.cpu().numpy() * (1 - maps) ** 2
             image_weights = labels_to_image_weights(train_dataset.labels,
                                                     num_classes=num_classes,
                                                     class_weights=class_weights)
@@ -318,8 +318,8 @@ def train():
                 warnings.warn(f"WARNING: Non-finite loss, ending training {loss_items}")
                 return results
 
-            # Scale loss by nominal batch_size of 64
-            loss *= batch_size / 64
+            # Scale loss by nominal batch_size of (16 * 4 = 64)
+            loss *= batch_size / (batch_size * accumulate)
 
             # Compute gradient
             if mixed_precision:
