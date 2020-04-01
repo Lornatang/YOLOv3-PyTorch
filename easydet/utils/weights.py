@@ -47,6 +47,28 @@ def convert(config="cfgs/yolov3.cfg", weight="weights/yolov3.weights"):
         print("Error: extension not supported.")
 
 
+def convert_to_best(config="cfgs/yolov3.cfg", weight="weights/checkpoint.pth"):
+    # Converts between PyTorch and Darknet format per extension (i.e. *.weights convert to *.pt and vice versa)
+    # from models import *; convert('cfgs/yolov3.cfg', 'weights/yolov3.weights')
+
+    # Initialize model
+    model = Darknet(config)
+
+    # Load weights and save
+    if weight.endswith(".pth"):
+        model.load_state_dict(torch.load(weight, map_location="cpu")["state_dict"])
+        state = {"epoch": -1,
+                 "best_fitness": None,
+                 "training_results": None,
+                 "state_dict": model.state_dict(),
+                 "optimizer": None}
+        torch.save(state, "model_best.pth")
+        print(f"Success: converted `{weight}` to `model_best.pth`")
+
+    else:
+        print("Error: Only support PyTorch weights file.")
+
+
 def labels_to_class_weights(labels, num_classes=80):
     # Get class weights (inverse frequency) from training labels
     if labels[0] is None:  # no labels loaded
