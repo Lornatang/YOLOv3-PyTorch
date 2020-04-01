@@ -423,9 +423,8 @@ def train():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--epochs", type=int, default=273,
-                        help="500200 is yolov3 max batches. (default: 273)"
-                             "Formula: Epochs = 500200 / (117263 / 64).")
+    parser.add_argument("--epochs", type=int, default=300,
+                        help="500200 is yolov3 max batches. (default: 300)")
     parser.add_argument("--batch-size", type=int, default=16,
                         help="mini-batch size (default: 16), this is the total "
                              "batch size of all GPUs on the current node when "
