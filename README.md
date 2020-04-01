@@ -162,7 +162,7 @@ python3 train.py --cfg <cfg-path> --data cfgs/voc2007.data --multi-scale --cache
 |ShuffleNet-v1     |VOC07+12 |VOC07 |0.125              |0.004                |2.1           |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv1.cfg)|-|
 |ShuffleNet-v2     |VOC07+12 |VOC07 |-                  |-                    |-             |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv2.cfg)|-|
 |AlexNet           |VOC07+12 |VOC07 |-                  |-                    |-             |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/alexnet.cfg)|-|
-|VGG16             |VOC07+12 |VOC07 |-                  |-                    |-             |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/vgg16.cfg)|-|
+|VGG16             |VOC07+12 |VOC07 |0.133              |0.010                |4.8           |73.7    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/vgg16.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/vgg16-830bb8f5.pth)|
 
 
 ### Image Augmentation
