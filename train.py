@@ -359,8 +359,6 @@ def train():
                                      batch_size=batch_size,
                                      image_size=image_size_val,
                                      model=ema.ema,
-                                     confidence_threshold=0.001 if final_epoch else 0.01,
-                                     iou_threshold=0.6,
                                      save_json=final_epoch and coco,
                                      single_cls=args.single_cls,
                                      dataloader=valid_dataloader)
