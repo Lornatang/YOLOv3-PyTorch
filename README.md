@@ -22,10 +22,9 @@ The goal of this implementation is to be simple, highly extensible, and easy to 
     * [Test](#test)
     * [Inference](#inference)
 4. [Backbone](#backbone)
-5. [Image Augmentation](#image-augmentation)
-6. [Train on Custom Dataset](#train-on-custom-dataset)
-7. [Darknet Conversion](#darknet-conversion)
-8. [Credit](#credit) 
+5. [Train on Custom Dataset](#train-on-custom-dataset)
+6. [Darknet Conversion](#darknet-conversion)
+7. [Credit](#credit) 
 
 ### About YOLOv3
 We present some updates to YOLO! We made a bunch of little design changes to make it better. We also trained this new network that's pretty swell. It's a little bigger than last time but more accurate. It's still fast though, don't worry. At 320x320 YOLOv3 runs in 22 ms at 28.2 mAP, as accurate as SSD but three times faster. When we look at the old .5 IOU mAP detection metric YOLOv3 is quite good. It achieves 57.9 mAP@50 in 51 ms on a Titan X, compared to 57.5 mAP@50 in 198 ms by RetinaNet, similar performance but 3.8x faster. As always, all the code is online at this https URL
@@ -163,21 +162,6 @@ python3 train.py --cfg <cfg-path> --data cfgs/voc2007.data --multi-scale --cache
 |ShuffleNet-v2     |VOC07+12 |VOC07 |-                  |-                    |-             |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv2.cfg)|-|
 |AlexNet           |VOC07+12 |VOC07 |-                  |-                    |-             |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/alexnet.cfg)|-|
 |VGG16             |VOC07+12 |VOC07 |0.194              |0.010                |7.8           |73.7    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/vgg16.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/vgg16-830bb8f5.pth)|
-
-
-### Image Augmentation
-
-`datasets.py` applies random OpenCV-powered (https://opencv.org/) augmentation to the input images in accordance with the following specifications. Augmentation is applied **only** during training, not during inference. Bounding boxes are automatically tracked and updated with the images. 416 x 416 examples pictured below.
-
-Augmentation | Description
---- | ---
-Translation | +/- 10% (vertical and horizontal)
-Rotation | +/- 5 degrees
-Shear | +/- 2 degrees (vertical and horizontal)
-Scale | +/- 10%
-Reflection | 50% probability (horizontal-only)
-H**S**V Saturation | +/- 50%
-HS**V** Intensity | +/- 50%
 
 
 ### Train on Custom Dataset
