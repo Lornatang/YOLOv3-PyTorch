@@ -40,5 +40,12 @@ def model_info(model):
     parameter_num = sum(x.numel() for x in model.parameters())
     gradient_num = sum(x.numel() for x in model.parameters() if x.requires_grad)
 
+    try:
+        from thop import profile
+        macs, _ = profile(model, inputs=(torch.zeros(1, 3, 640, 640),))
+        FLOPs = f', {macs / 1E9 * 2:.1f} GFLOPS'
+    except:
+        FLOPs = ''
+
     print(f"Model Summary: {len(list(model.parameters()))} layers, "
-          f"{parameter_num} parameters, {gradient_num} gradients")
+          f"{parameter_num} parameters, {gradient_num} gradients{FLOPs}")
