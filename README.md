@@ -151,17 +151,17 @@ better mAP and less computation than the original architecture.
 python3 train.py --cfg <cfg-path> --data cfgs/voc2007.data --multi-scale --cache-image --batch-size 8
 ```
 
-|     Backbone     |  Train  | Test |train time (s/iter)|inference time (s/im)|train mem (GB)|mAP     |  Cfg  |  Weights   |  
-|:-----------------|:-------:|:----:|:-----------------:|:-------------------:|:------------:|:------:|:-----:|:----------:|
-|YOLOv3-tiny       |VOC07+12 |VOC07 |0.047              |0.005                |2.7           |57.7    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/yolov3-tiny.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/yolov3-tiny-f8ffbd77.pth)|
-|MobileNet-v1      |VOC07+12 |VOC07 |0.090              |0.004                |2.8           |61.4    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv1.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv1-189a5a58.pth)|
-|MobileNet-v2      |VOC07+12 |VOC07 |0.116              |0.004                |5.8           |**62.3**|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv2.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv2-b63c09ce.pth)|
-|MobileNet-v3-small|VOC07+12 |VOC07 |**0.073**          |**0.003**            |**1.9**       |53.3    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv3-small.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-small-cbb8f75e.pth)|
-|MobileNet-v3-large|VOC07+12 |VOC07 |0.125              |0.004                |5.7           |59.5    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv3-large.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-large-55b6226b.pth)|
-|ShuffleNet-v1     |VOC07+12 |VOC07 |0.125              |0.004                |2.1           |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv1.cfg)|-|
-|ShuffleNet-v2     |VOC07+12 |VOC07 |-                  |-                    |-             |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv2.cfg)|-|
-|AlexNet           |VOC07+12 |VOC07 |-                  |-                    |-             |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/alexnet.cfg)|-|
-|VGG16             |VOC07+12 |VOC07 |0.194              |0.010                |7.8           |73.7    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/vgg16.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/vgg16-830bb8f5.pth)|
+|     Backbone     |  Train  | Test |train time (s/iter)|inference time (ms/im)|train mem (GB)|mAP     |  Cfg  |  Weights   |  
+|:-----------------|:-------:|:----:|:-----------------:|:--------------------:|:------------:|:------:|:-----:|:----------:|
+|YOLOv3-tiny       |VOC07+12 |VOC07 |0.047              |1.9                   |2.7           |57.7    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/yolov3-tiny.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/yolov3-tiny-b1f88f62.pth)|
+|MobileNet-v1      |VOC07+12 |VOC07 |0.090              |0.004                 |2.8           |61.4    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv1.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv1-189a5a58.pth)|
+|MobileNet-v2      |VOC07+12 |VOC07 |0.116              |0.004                 |5.8           |**62.3**|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv2.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv2-b63c09ce.pth)|
+|MobileNet-v3-small|VOC07+12 |VOC07 |**0.073**          |**0.003**             |**1.9**       |53.3    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv3-small.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-small-cbb8f75e.pth)|
+|MobileNet-v3-large|VOC07+12 |VOC07 |0.125              |0.004                 |5.7           |59.5    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv3-large.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-large-55b6226b.pth)|
+|ShuffleNet-v1     |VOC07+12 |VOC07 |0.125              |0.004                 |2.1           |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv1.cfg)|-|
+|ShuffleNet-v2     |VOC07+12 |VOC07 |-                  |-                     |-             |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv2.cfg)|-|
+|AlexNet           |VOC07+12 |VOC07 |-                  |-                     |-             |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/alexnet.cfg)|-|
+|VGG16             |VOC07+12 |VOC07 |0.194              |0.010                 |7.8           |73.7    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/vgg16.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/vgg16-830bb8f5.pth)|
 
 
 ### Train on Custom Dataset
