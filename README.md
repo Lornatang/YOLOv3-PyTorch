@@ -165,7 +165,7 @@ python3 train.py --cfg <cfg-path> --data cfgs/voc2007.data --multi-scale --cache
 
 
 ### Train on Custom Dataset
-Run the commands below to create a custom model definition, replacing `<num-classes>` with the number of classes in your dataset.
+Run the commands below to create a custom model definition, replacing `your-dataset-num-classes` with the number of classes in your dataset.
 
 ```bash
 # move to configs dir
