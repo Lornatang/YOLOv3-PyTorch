@@ -222,7 +222,7 @@ def train():
     # Model parameters
     model.nc = num_classes  # attach number of classes to model
     model.hyp = parameters  # attach hyperparameters to model
-    model.gr = 0.0  # giou loss ratio (obj_loss = 1.0 or giou)
+    model.gr = 1.0  # giou loss ratio (obj_loss = 1.0 or giou)
     # attach class weights
     model.class_weights = labels_to_class_weights(train_dataset.labels, num_classes).to(device)
 
@@ -231,7 +231,7 @@ def train():
 
     # Start training
     batches_num = len(train_dataloader)  # number of batches
-    prebias = start_epoch == 0
+    burns = max(3 * batches_num, 300)  # burn-in iterations, max(3 epochs, 300 iterations)
     maps = np.zeros(num_classes)  # mAP per class
     # "P", "R", "mAP", "F1", "val GIoU", "val Objectness", "val Classification"
     results = (0, 0, 0, 0, 0, 0, 0)
@@ -241,22 +241,6 @@ def train():
     start_time = time.time()
     for epoch in range(start_epoch, args.epochs):
         model.train()
-
-        # Prebias
-        if prebias:
-            warmup_epoch = 3  # number of prebias epochs
-            warmup_parameter = 0.1, 0.9  # (lr=0.1, momentum=0.9)
-
-            if epoch == warmup_epoch:
-                # normal training settings
-                warmup_parameter = parameters["lr0"], parameters["momentum"]
-                model.gr = 1.0  # giou loss ratio (obj_loss = giou)
-                prebias = False
-
-            # Bias optimizer settings
-            optimizer.param_groups[2]["lr"] = warmup_parameter[0]
-            if optimizer.param_groups[2].get("momentum") is not None:
-                optimizer.param_groups[2]["momentum"] = warmup_parameter[1]
 
         # Update image weights (optional)
         if train_dataset.image_weights:
@@ -283,16 +267,20 @@ def train():
             targets = targets.to(device)
 
             # Hyperparameter Burn-in
-            n_burn = 300  # number of burn-in batches
-            if ni <= n_burn:
-                g = (ni / n_burn) ** 2  # gain
-                for x in model.named_modules():  # initial stats may be poor, wait to track
-                    if x[0].endswith('BatchNorm2d'):
-                        x[1].track_running_stats = ni == n_burn
-                for x in optimizer.param_groups:
-                    x['lr'] = x['initial_lr'] * lr_lambda(epoch) * g  # gain rises from 0 - 1
+            if ni <= burns:
+                model.gr = np.interp(ni, [0, burns],
+                                     [0.0, 1.0])  # giou loss ratio (obj_loss = 1.0 or giou)
+                if ni == burns:  # burnin complete
+                    print_model_biases(model)
+
+                for j, x in enumerate(optimizer.param_groups):
+                    # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
+                    x['lr'] = np.interp(ni,
+                                        [0, burns],
+                                        [0.1 if j == 2 else 0.0,
+                                         x['initial_lr'] * lr_lambda(epoch)])
                     if 'momentum' in x:
-                        x['momentum'] = parameters['momentum'] * g
+                        x['momentum'] = np.interp(ni, [0, burns], [0.9, parameters['momentum']])
 
             # Multi-Scale training
             if args.multi_scale:
@@ -392,7 +380,7 @@ def train():
                          "best_fitness": best_fitness,
                          "training_results": f.read(),
                          "state_dict": ema.ema.module.state_dict()
-                         if hasattr(model, 'module') else ema.ema.state_dict(),
+                         if hasattr(model, "module") else ema.ema.state_dict(),
                          "optimizer": None
                          if final_epoch else optimizer.state_dict()}
 
@@ -400,7 +388,7 @@ def train():
         torch.save(state, "weights/checkpoint.pth")
 
         # Save best checkpoint
-        if best_fitness == fitness_i:
+        if (best_fitness == fitness_i) and not final_epoch:
             state = {"epoch": -1,
                      "best_fitness": None,
                      "training_results": None,
