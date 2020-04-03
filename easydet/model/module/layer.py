@@ -26,15 +26,15 @@ from .activition import Swish
 from .conv import SeModule
 from .shuffle import ShuffleBlock
 from ..common import ONNX_EXPORT
-from ..common import create_grids
 from ..common import model_info
 from ..fuse import WeightFeatureFusion
 from ..fuse import fuse_conv_and_bn
 
 
 def create_modules(module_defines, image_size):
-    # Constructs module list of layer blocks from module configuration in module_defs
-
+    # Constructs module list of layer blocks from module configuration in module_defines
+    # expand if necessary
+    image_size = [image_size] * 2 if isinstance(image_size, int) else image_size
     hyper_params = module_defines.pop(0)
     output_filters = [int(hyper_params["channels"])]
     module_list = nn.ModuleList()
@@ -62,7 +62,7 @@ def create_modules(module_defines, image_size):
                                                    bias=not bn))
             if bn:
                 modules.add_module("BatchNorm2d", nn.BatchNorm2d(num_features=filters,
-                                                                 momentum=0.003,
+                                                                 momentum=0.03,
                                                                  eps=1E-4))
             else:
                 routs.append(i)  # detection output (goes into yolo layer)
@@ -148,13 +148,15 @@ def create_modules(module_defines, image_size):
 
         elif module["type"] == "yolo":
             yolo_index += 1
+            stride = [32, 16, 8, 4, 2][yolo_index]  # P3-P7 stride
             layers = module["from"] if "from" in module else []
             modules = YOLOLayer(anchors=module["anchors"][module["mask"]],
                                 # anchor list
                                 nc=module["classes"],  # number of classes
-                                img_size=image_size,  # (416, 416)
+                                image_size=image_size,  # (416, 416)
                                 yolo_index=yolo_index,  # 0, 1, 2...
-                                layers=layers)  # output layers
+                                layers=layers,  # output layers
+                                stride=stride)
 
             # Initialize preceding Conv2d() bias (https://arxiv.org/pdf/1708.02002.pdf section 3.3)
             try:
@@ -261,23 +263,37 @@ class Darknet(nn.Module):
 
 
 class YOLOLayer(nn.Module):
-    def __init__(self, anchors, nc, img_size, yolo_index, layers):
+    def __init__(self, anchors, nc, image_size, yolo_index, layers, stride):
         super(YOLOLayer, self).__init__()
         self.anchors = torch.Tensor(anchors)
         self.index = yolo_index  # index of this layer in layers
         self.layers = layers  # model output layer indices
+        self.stride = stride  # layer stride
         self.nl = len(layers)  # number of output layers (3)
         self.na = len(anchors)  # number of anchors (3)
         self.nc = nc  # number of classes (80)
         self.no = nc + 5  # number of outputs (85)
-        self.nx = 0  # initialize number of x gridpoints
-        self.ny = 0  # initialize number of y gridpoints
+        self.nx, self.ny = 0, 0  # initialize number of x, y gridpoints
+        self.anchor_vec = self.anchors / self.stride
+        self.anchor_wh = self.anchor_vec.view(1, self.na, 1, 1, 2)
 
         if ONNX_EXPORT:
-            stride = [32, 16, 8][yolo_index]  # stride of this layer
-            nx = img_size[1] // stride  # number x grid points
-            ny = img_size[0] // stride  # number y grid points
-            create_grids(self, img_size, (nx, ny))
+            # number x, y grid points
+            self.create_grids((image_size[1] // stride, image_size[0] // stride))
+
+    def create_grids(self, ng=(13, 13), device='cpu'):
+        self.nx, self.ny = ng  # x and y grid size
+        self.ng = torch.Tensor(ng).to(device)
+
+        # build xy offsets
+        if not self.training:
+            yv, xv = torch.meshgrid([torch.arange(self.ny, device=device),
+                                     torch.arange(self.nx, device=device)])
+            self.grid = torch.stack((xv, yv), 2).view((1, 1, self.ny, self.nx, 2))
+
+        if self.anchor_vec.device != device:
+            self.anchor_vec = self.anchor_vec.to(device)
+            self.anchor_wh = self.anchor_wh.to(device)
 
     def forward(self, pred, image_size, out):
         ASFF = False  # https://arxiv.org/abs/1911.09516
@@ -286,11 +302,7 @@ class YOLOLayer(nn.Module):
             pred = out[self.layers[i]]
             bs, _, ny, nx = pred.shape  # bs, 255, 13, 13
             if (self.nx, self.ny) != (nx, ny):
-                create_grids(self,
-                             image_size=image_size,
-                             ng=(nx, ny),
-                             device=pred.device,
-                             dtype=pred.dtype)
+                self.create_grids((nx, ny), pred.device)
 
             # outputs and weights
             # sigmoid weights (faster)
@@ -311,11 +323,7 @@ class YOLOLayer(nn.Module):
         else:
             bs, _, ny, nx = pred.shape  # bs, 255, 13, 13
             if (self.nx, self.ny) != (nx, ny):
-                create_grids(self,
-                             image_size=image_size,
-                             ng=(nx, ny),
-                             device=pred.device,
-                             dtype=pred.dtype)
+                self.create_grids((nx, ny), pred.device)
 
         # p.view(bs, 255, 13, 13) -- > (bs, 3, 13, 13, 85)  # (bs, anchors, grid, grid, classes + xywh)
         pred = pred.view(bs, self.na, self.no, self.ny, self.nx).permute(
@@ -328,12 +336,12 @@ class YOLOLayer(nn.Module):
             # Avoid broadcasting for ANE operations
             m = self.na * self.nx * self.ny
             ng = 1 / self.ng.repeat((m, 1))
-            grid_xy = self.grid_xy.repeat((1, self.na, 1, 1, 1)).view(m, 2)
+            grid = self.grid.repeat((1, self.na, 1, 1, 1)).view(m, 2)
             anchor_wh = self.anchor_wh.repeat(
                 (1, 1, self.nx, self.ny, 1)).view(m, 2) * ng
 
             pred = pred.view(m, self.no)
-            xy = torch.sigmoid(pred[:, 0:2]) + grid_xy  # x, y
+            xy = torch.sigmoid(pred[:, 0:2]) + grid  # x, y
             wh = torch.exp(pred[:, 2:4]) * anchor_wh  # width, height
             p_cls = torch.sigmoid(
                 pred[:, 4:5]) if self.nc == 1 else torch.sigmoid(
@@ -342,7 +350,7 @@ class YOLOLayer(nn.Module):
 
         else:  # inference
             io = pred.clone()  # inference output
-            io[..., :2] = torch.sigmoid(io[..., :2]) + self.grid_xy  # xy
+            io[..., :2] = torch.sigmoid(io[..., :2]) + self.grid  # xy
             # wh yolo method
             io[..., 2:4] = torch.exp(io[..., 2:4]) * self.anchor_wh
             io[..., :4] *= self.stride
