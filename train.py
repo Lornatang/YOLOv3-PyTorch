@@ -268,17 +268,17 @@ def train():
 
             # Hyperparameter Burn-in
             if ni <= burns:
-                model.gr = np.interp(ni, [0, burns],
-                                     [0.0, 1.0])  # giou loss ratio (obj_loss = 1.0 or giou)
+                # giou loss ratio (obj_loss = 1.0 or giou)
+                model.gr = np.interp(ni, [0, burns], [0.0, 1.0])
 
                 for j, x in enumerate(optimizer.param_groups):
                     # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
-                    x['lr'] = np.interp(ni,
+                    x["lr"] = np.interp(ni,
                                         [0, burns],
                                         [0.1 if j == 2 else 0.0,
-                                         x['initial_lr'] * lr_lambda(epoch)])
-                    if 'momentum' in x:
-                        x['momentum'] = np.interp(ni, [0, burns], [0.9, parameters['momentum']])
+                                         x["initial_lr"] * lr_lambda(epoch)])
+                    if "momentum" in x:
+                        x["momentum"] = np.interp(ni, [0, burns], [0.9, parameters["momentum"]])
 
             # Multi-Scale training
             if args.multi_scale:
