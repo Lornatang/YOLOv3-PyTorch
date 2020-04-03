@@ -270,8 +270,6 @@ def train():
             if ni <= burns:
                 model.gr = np.interp(ni, [0, burns],
                                      [0.0, 1.0])  # giou loss ratio (obj_loss = 1.0 or giou)
-                if ni == burns:  # burnin complete
-                    print_model_biases(model)
 
                 for j, x in enumerate(optimizer.param_groups):
                     # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
