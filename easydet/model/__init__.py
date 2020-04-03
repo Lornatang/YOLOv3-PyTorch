@@ -14,7 +14,6 @@
 from .classifier import apply_classifier
 from .classifier import load_classifier
 from .common import ONNX_EXPORT
-from .common import create_grids
 from .common import model_info
 from .fuse import WeightFeatureFusion
 from .fuse import fuse_conv_and_bn
@@ -37,7 +36,6 @@ __all__ = [
     "apply_classifier",
     "load_classifier",
     "ONNX_EXPORT",
-    "create_grids",
     "model_info",
     "WeightFeatureFusion",
     "fuse_conv_and_bn",
