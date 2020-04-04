@@ -23,13 +23,14 @@ from .module import Darknet
 from .module import DeepConv2d
 from .module import HSigmoid
 from .module import HSwish
+from .module import InvertedResidual
 from .module import Mish
 from .module import MixConv2d
 from .module import ResidualBlock
 from .module import SeModule
-from .module import ShuffleBlock
 from .module import Swish
 from .module import YOLOLayer
+from .module import channel_shuffle
 from .module import create_modules
 from .module import get_yolo_layers
 
@@ -46,13 +47,14 @@ __all__ = [
     "DeepConv2d",
     "HSigmoid",
     "HSwish",
+    "InvertedResidual",
     "Mish",
     "MixConv2d",
     "ResidualBlock",
     "SeModule",
-    "ShuffleBlock",
     "Swish",
     "YOLOLayer",
+    "channel_shuffle",
     "create_modules",
     "get_yolo_layers",
 ]

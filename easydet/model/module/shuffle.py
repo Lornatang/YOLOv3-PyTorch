@@ -11,17 +11,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-import torch.nn as nn
+import torch
 
 
-class ShuffleBlock(nn.Module):
-    def __init__(self, groups):
-        super(ShuffleBlock, self).__init__()
-        self.groups = groups
+def channel_shuffle(x, groups):
+    batchsize, num_channels, height, width = x.data.size()
+    channels_per_group = num_channels // groups
 
-    def forward(self, x):
-        n, c, h, w = x.size()
-        assert c % self.groups == 0
-        x = x.view(n, self.groups, c // self.groups, h, w).permute(0, 2, 1, 3, 4)
-        x = x.contiguous().view(n, c, h, w)
-        return x
+    # reshape
+    x = x.view(batchsize, groups,
+               channels_per_group, height, width)
+
+    x = torch.transpose(x, 1, 2).contiguous()
+
+    # flatten
+    x = x.view(batchsize, -1, height, width)
+
+    return x
