@@ -18,6 +18,7 @@ from .activition import Swish
 from .conv import BasicConv2d
 from .conv import ConvBNReLU
 from .conv import DeepConv2d
+from .conv import MixConv2d
 from .conv import SeModule
 from .layer import Darknet
 from .layer import YOLOLayer
@@ -30,6 +31,7 @@ __all__ = [
     "BasicConv2d",
     "ConvBNReLU",
     "DeepConv2d",
+    "MixConv2d",
     "HSigmoid",
     "HSwish",
     "Mish",

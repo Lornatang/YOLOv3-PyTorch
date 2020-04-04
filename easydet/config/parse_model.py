@@ -51,7 +51,7 @@ def parse_model_config(path):
             if key == "anchors":  # return numpy array
                 modules[-1][key] = np.array([float(x) for x in value.split(",")]).reshape(
                     (-1, 2))  # np anchors
-            elif key in ["from", "layers", "mask"]:  # return array
+            elif (key in ["from", "layers", "mask"]) or (key == "size" and "," in value):
                 modules[-1][key] = [int(x) for x in value.split(",")]
             else:
                 value = value.strip()

@@ -29,6 +29,7 @@ from ..common import ONNX_EXPORT
 from ..common import model_info
 from ..fuse import WeightFeatureFusion
 from ..fuse import fuse_conv_and_bn
+from .conv import MixConv2d
 
 
 def create_modules(module_defines, image_size):
@@ -52,14 +53,22 @@ def create_modules(module_defines, image_size):
             stride = module["stride"] if "stride" in module else (
                 module["stride_y"], module["stride_x"])
             groups = module["groups"] if "groups" in module else 1
-            modules.add_module("Conv2d", nn.Conv2d(in_channels=in_channels,
-                                                   out_channels=filters,
-                                                   kernel_size=size,
-                                                   stride=stride,
-                                                   padding=(size - 1) // 2
-                                                   if module["pad"] else 0,
-                                                   groups=groups,
-                                                   bias=not bn))
+            if isinstance(size, int):  # single-size conv
+                modules.add_module("Conv2d", nn.Conv2d(in_channels=in_channels,
+                                                       out_channels=filters,
+                                                       kernel_size=size,
+                                                       stride=stride,
+                                                       padding=(size - 1) // 2
+                                                       if module["pad"] else 0,
+                                                       groups=groups,
+                                                       bias=not bn))
+            else:  # multiple-size conv
+                modules.add_module("MixConv2d", MixConv2d(in_channels=in_channels,
+                                                          out_channels=filters,
+                                                          kernel_size=size,
+                                                          stride=stride,
+                                                          bias=not bn))
+
             if bn:
                 modules.add_module("BatchNorm2d", nn.BatchNorm2d(num_features=filters,
                                                                  momentum=0.03,

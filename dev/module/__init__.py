@@ -15,7 +15,20 @@ from .activition import Mish
 from .activition import Swish
 from .conv import BasicConv2d
 from .conv import DeepConv2d
+from .conv import MixConv2d
 from .fpn import FPN
 from .res import ResidualBlock
 from .route import Route
 from .upsampling import Upsample
+
+__all__ = [
+    "Mish",
+    "Swish",
+    "BasicConv2d",
+    "DeepConv2d",
+    "MixConv2d",
+    "FPN",
+    "ResidualBlock",
+    "Route",
+    "Upsample",
+]
