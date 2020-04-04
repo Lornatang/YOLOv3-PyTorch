@@ -24,6 +24,7 @@ from .module import DeepConv2d
 from .module import HSigmoid
 from .module import HSwish
 from .module import Mish
+from .module import MixConv2d
 from .module import ResidualBlock
 from .module import SeModule
 from .module import ShuffleBlock
@@ -46,6 +47,7 @@ __all__ = [
     "HSigmoid",
     "HSwish",
     "Mish",
+    "MixConv2d",
     "ResidualBlock",
     "SeModule",
     "ShuffleBlock",
