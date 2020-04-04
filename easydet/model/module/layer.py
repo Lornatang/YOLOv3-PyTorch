@@ -35,8 +35,8 @@ def create_modules(module_defines, image_size):
     # Constructs module list of layer blocks from module configuration in module_defines
     # expand if necessary
     image_size = [image_size] * 2 if isinstance(image_size, int) else image_size
-    hyper_params = module_defines.pop(0)
-    output_filters = [int(hyper_params["channels"])]
+    _ = module_defines.pop(0)  # cfg training hyperparams (unused)
+    output_filters = [3]  # input channels
     module_list = nn.ModuleList()
     routs = []  # list of layers which rout to deeper layers
     yolo_index = -1
@@ -81,6 +81,10 @@ def create_modules(module_defines, image_size):
                 modules.add_module("activation", HSwish())
             elif module["activation"] == "hsigmoid":
                 modules.add_module("activation", HSigmoid())
+
+        elif module["type"] == "BatchNorm2d":
+            filters = output_filters[-1]
+            modules = nn.BatchNorm2d(filters, momentum=0.03, eps=1E-4)
 
         elif module["type"] == "maxpool":
             size = module["size"]
@@ -289,7 +293,7 @@ class YOLOLayer(nn.Module):
         if not self.training:
             yv, xv = torch.meshgrid([torch.arange(self.ny, device=device),
                                      torch.arange(self.nx, device=device)])
-            self.grid = torch.stack((xv, yv), 2).view((1, 1, self.ny, self.nx, 2))
+            self.grid = torch.stack((xv, yv), 2).view((1, 1, self.ny, self.nx, 2)).float()
 
         if self.anchor_vec.device != device:
             self.anchor_vec = self.anchor_vec.to(device)
