@@ -379,8 +379,7 @@ def train():
                          "training_results": f.read(),
                          "state_dict": ema.ema.module.state_dict()
                          if hasattr(model, "module") else ema.ema.state_dict(),
-                         "optimizer": None
-                         if final_epoch else optimizer.state_dict()}
+                         "optimizer": None if final_epoch else optimizer.state_dict()}
 
         # Save last checkpoint
         torch.save(state, "weights/checkpoint.pth")
@@ -488,11 +487,10 @@ if __name__ == "__main__":
                 x = x[np.argsort(-fitness(x))][:n]  # top n mutations
                 w = fitness(x) - fitness(x).min()  # weights
                 if parent == "single" or len(x) == 1:
-                    x = x[random.choices(range(n), weights=w)[
-                        0]]  # weighted selection
+                    # weighted selection
+                    x = x[random.choices(range(n), weights=w)[0]]
                 elif parent == "weighted":
-                    x = (x * w.reshape(n, 1)).sum(
-                        0) / w.sum()  # weighted combination
+                    x = (x * w.reshape(n, 1)).sum(0) / w.sum()  # weighted combination
 
                 # Mutate
                 method, mp, s = 3, 0.9, 0.2  # method, mutation probability, sigma
