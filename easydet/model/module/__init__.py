@@ -24,8 +24,9 @@ from .layer import Darknet
 from .layer import YOLOLayer
 from .layer import create_modules
 from .layer import get_yolo_layers
+from .res import InvertedResidual
 from .res import ResidualBlock
-from .shuffle import ShuffleBlock
+from .shuffle import channel_shuffle
 
 __all__ = [
     "BasicConv2d",
@@ -41,6 +42,7 @@ __all__ = [
     "YOLOLayer",
     "create_modules",
     "get_yolo_layers",
+    "InvertedResidual",
     "ResidualBlock",
-    "ShuffleBlock",
+    "channel_shuffle",
 ]

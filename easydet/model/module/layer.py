@@ -24,7 +24,7 @@ from .activition import HSwish
 from .activition import Mish
 from .activition import Swish
 from .conv import SeModule
-from .shuffle import ShuffleBlock
+from .res import InvertedResidual
 from ..common import ONNX_EXPORT
 from ..common import model_info
 from ..fuse import WeightFeatureFusion
@@ -116,9 +116,13 @@ def create_modules(module_defines, image_size):
             in_channels = module["in_features"]
             modules.add_module("SeModule", SeModule(in_channels))
 
-        elif module["type"] == "shuffle":
-            groups = module["groups"]
-            modules.add_module("ShuffleBlock", ShuffleBlock(groups))
+        elif module["type"] == "InvertedResidual":
+            in_channels = module["in_channels"]
+            out_channels = module["out_channels"]
+            stride = module["stride"]
+            modules.add_module("InvertedResidual", InvertedResidual(in_channels=in_channels,
+                                                                    out_channels=out_channels,
+                                                                    stride=stride).cuda())
 
         elif module["type"] == "dense":
             bn = module["batch_normalize"]
