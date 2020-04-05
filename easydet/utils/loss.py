@@ -91,6 +91,7 @@ def compute_loss(p, targets, model):  # predictions, targets, model
 
     # Compute losses
     np, ng = 0, 0  # number grid points, targets
+    tobj = 0.
     for i, pi in enumerate(p):  # layer index, layer predictions
         b, a, gj, gi = indices[i]  # image, anchor, gridy, gridx
         tobj = torch.zeros_like(pi[..., 0])  # target obj
