@@ -357,11 +357,11 @@ def train():
 
         # Write Tensorboard results
         if tb_writer:
-            titles = ["GIoU", "Objectness", "Classification", "Train loss",
-                      "Precision", "Recall", "mAP", "F1", "val GIoU",
-                      "val Objectness", "val Classification"]
-            for xi, title in zip(list(mean_losses) + list(results), titles):
-                tb_writer.add_scalar(title, xi, epoch)
+            tags = ["train/giou_loss", "train/obj_loss", "train/cls_loss",
+                    "metrics/precision", "metrics/recall", "metrics/mAP_0.5", "metrics/F1",
+                    "val/giou_loss", "val/obj_loss", "val/cls_loss"]
+            for x, tag in zip(list(mean_losses[:-1]) + list(results), tags):
+                tb_writer.add_scalar(tag, x, epoch)
 
         # Update best mAP
         # fitness_i = weighted combination of [P, R, mAP, F1]
