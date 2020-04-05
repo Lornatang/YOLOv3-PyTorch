@@ -153,16 +153,15 @@ python3 train.py --cfg <cfg-path> --data cfgs/voc2007.data --multi-scale --cache
 
 |     Backbone     |  Train  | Test |train time (s/iter)|inference time (ms/im)|train mem (GB)|mAP     |  Cfg  |  Weights   |  
 |:-----------------|:-------:|:----:|:-----------------:|:--------------------:|:------------:|:------:|:-----:|:----------:|
-|YOLOv3-tiny       |VOC07+12 |VOC07 |0.047              |1.9                   |2.7           |57.7    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/yolov3-tiny.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/yolov3-tiny-b1f88f62.pth)|
+|YOLOv3-tiny       |VOC07+12 |VOC07 |**0.047**          |1.9                   |2.7           |57.7    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/yolov3-tiny.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/yolov3-tiny-b1f88f62.pth)|
 |MobileNet-v1      |VOC07+12 |VOC07 |0.056              |2.4                   |2.9           |65.2    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv1.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv1-cc428dab.pth)|
 |MobileNet-v2      |VOC07+12 |VOC07 |0.116              |2.5                   |3.1           |65.6    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv2.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv2-46ffd599.pth)|
-|MobileNet-v3-small|VOC07+12 |VOC07 |0.050              |1.8                   |1.0           |57.7    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv3-small.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-small-d5e26fae.pth)|
+|MobileNet-v3-small|VOC07+12 |VOC07 |0.050              |**1.8**               |**1.0**       |57.7    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv3-small.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-small-d5e26fae.pth)|
 |MobileNet-v3-large|VOC07+12 |VOC07 |0.080              |2.6                   |3.1           |60.4    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/mobilenetv3-large.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/mobilenetv3-large-26a31426.pth)|
 |ShuffleNet-v1     |VOC07+12 |VOC07 |-                  |-                     |-             |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv1.cfg)|-|
 |ShuffleNet-v2     |VOC07+12 |VOC07 |-                  |-                     |-             |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/shufflenetv2.cfg)|-|
-|AlexNet           |VOC07+12 |VOC07 |-                  |-                     |-             |-       |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/alexnet.cfg)|-|
-|VGG16             |VOC07+12 |VOC07 |0.194              |0.010                 |7.8           |73.7    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/vgg16.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/vgg16-830bb8f5.pth)|
-
+|AlexNet           |VOC07+12 |VOC07 |0.065              |2.5                   |1.5           |55.2    |[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/alexnet.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/alexnet-f3de3049.pth)|
+|VGG16             |VOC07+12 |VOC07 |0.194              |7.9                   |7.7           |**73.7**|[Link](https://github.com/Lornatang/YOLOv3-PyTorch/blob/master/cfgs/voc/vgg16.cfg)|[weights](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/1.0/vgg16-830bb8f5.pth)|
 
 ### Train on Custom Dataset
 Run the commands below to create a custom model definition, replacing `your-dataset-num-classes` with the number of classes in your dataset.
