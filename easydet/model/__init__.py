@@ -15,6 +15,7 @@ from .classifier import apply_classifier
 from .classifier import load_classifier
 from .common import ONNX_EXPORT
 from .common import model_info
+from .concat import FeatureConcat
 from .fuse import WeightFeatureFusion
 from .fuse import fuse_conv_and_bn
 from .module import BasicConv2d
@@ -39,6 +40,7 @@ __all__ = [
     "load_classifier",
     "ONNX_EXPORT",
     "model_info",
+    "FeatureConcat",
     "WeightFeatureFusion",
     "fuse_conv_and_bn",
     "BasicConv2d",

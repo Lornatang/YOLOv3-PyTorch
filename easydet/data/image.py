@@ -203,7 +203,7 @@ class LoadImagesAndLabels(Dataset):
                 elif mini > 1:
                     shapes[i] = [1, 1 / mini]
 
-            self.batch_shapes = np.ceil(np.array(shapes) * image_size / 32.).astype(np.int) * 32
+            self.batch_shapes = np.ceil(np.array(shapes) * image_size / 64.).astype(np.int) * 64
 
         # Preload labels (required for weighted CE training)
         self.images = [None] * self.image_files_num
@@ -423,8 +423,8 @@ def load_mosaic(self, index):
     # mosaic center x, y
     center_x, center_y = [int(random.uniform(image_size * 0.5, image_size * 1.5)) for _ in
                           range(2)]
-    image4 = np.zeros((image_size * 2, image_size * 2, 3),
-                      dtype=np.uint8) + 128  # base image with 4 tiles
+    # base image with 4 tiles
+    image4 = np.full((image_size * 2, image_size * 2, 3), 114, dtype=np.uint8)
     indices = [index] + [random.randint(0, len(self.labels) - 1) for _ in
                          range(3)]  # 3 additional image indices
     for i, index in enumerate(indices):

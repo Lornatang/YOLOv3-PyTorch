@@ -28,26 +28,27 @@ def create_folder(path="./output"):
     os.makedirs(path)  # make new output folder
 
 
-def random_affine(img, targets=(), degrees=10, translate=.1, scale=.1, shear=10, border=0):
+def random_affine(image, targets=(), degrees=10, translate=.1, scale=.1, shear=10, border=0):
     # torchvision.transforms.RandomAffine(degrees=(-10, 10), translate=(.1, .1), scale=(.9, 1.1), shear=(-10, 10))
 
     if targets is None:  # targets = [cls, xyxy]
         targets = []
-    height = img.shape[0] + border * 2
-    width = img.shape[1] + border * 2
+    height = image.shape[0] + border * 2
+    width = image.shape[1] + border * 2
 
     # Rotation and Scale
     R = np.eye(3)
     a = random.uniform(-degrees, degrees)
     # a += random.choice([-180, -90, 0, 90])  # add 90deg rotations to small rotations
     s = random.uniform(1 - scale, 1 + scale)
-    R[:2] = cv2.getRotationMatrix2D(angle=a, center=(img.shape[1] / 2, img.shape[0] / 2), scale=s)
+    R[:2] = cv2.getRotationMatrix2D(angle=a, center=(image.shape[1] / 2, image.shape[0] / 2),
+                                    scale=s)
 
     # Translation
     T = np.eye(3)
-    T[0, 2] = random.uniform(-translate, translate) * img.shape[
+    T[0, 2] = random.uniform(-translate, translate) * image.shape[
         0] + border  # x translation (pixels)
-    T[1, 2] = random.uniform(-translate, translate) * img.shape[
+    T[1, 2] = random.uniform(-translate, translate) * image.shape[
         1] + border  # y translation (pixels)
 
     # Shear
@@ -59,8 +60,8 @@ def random_affine(img, targets=(), degrees=10, translate=.1, scale=.1, shear=10,
     M = S @ T @ R  # ORDER IS IMPORTANT HERE!!
     changed = (border != 0) or (M != np.eye(3)).any()
     if changed:
-        img = cv2.warpAffine(img, M[:2], dsize=(width, height), flags=cv2.INTER_AREA,
-                             borderValue=(128, 128, 128))
+        image = cv2.warpAffine(image, M[:2], dsize=(width, height), flags=cv2.INTER_AREA,
+                               borderValue=(114, 114, 114))
 
     # Transform label coordinates
     n = len(targets)
@@ -88,4 +89,4 @@ def random_affine(img, targets=(), degrees=10, translate=.1, scale=.1, shear=10,
         targets = targets[i]
         targets[:, 1:5] = xy[i]
 
-    return img, targets
+    return image, targets

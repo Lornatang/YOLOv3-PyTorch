@@ -129,12 +129,12 @@ def detect(save_image=False):
 
         # Inference
         t1 = time_synchronized()
-        predict = model(image)[0]
+        predict = model(image, augment=args.augment)[0]
         t2 = time_synchronized()
 
         # Apply NMS
-        predict = non_max_suppression(predict, args.confidence_threshold,
-                                      args.iou_threshold, classes=args.classes,
+        predict = non_max_suppression(predict, args.confidence_threshold, args.iou_threshold,
+                                      multi_label=False, classes=args.classes,
                                       agnostic=args.agnostic_nms)
 
         # Apply Classifier
@@ -236,6 +236,8 @@ if __name__ == "__main__":
                         help="Filter by class")
     parser.add_argument("--agnostic-nms", action="store_true",
                         help="Class-agnostic NMS")
+    parser.add_argument("--augment", action="store_true",
+                        help="augmented inference")
     args = parser.parse_args()
     print(args)
 
