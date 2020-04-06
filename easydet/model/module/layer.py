@@ -23,13 +23,14 @@ from .activition import HSigmoid
 from .activition import HSwish
 from .activition import Mish
 from .activition import Swish
+from .conv import MixConv2d
 from .conv import SeModule
 from .res import InvertedResidual
 from ..common import ONNX_EXPORT
 from ..common import model_info
+from ..concat import FeatureConcat
 from ..fuse import WeightFeatureFusion
 from ..fuse import fuse_conv_and_bn
-from .conv import MixConv2d
 
 
 def create_modules(module_defines, image_size):
@@ -94,6 +95,10 @@ def create_modules(module_defines, image_size):
         elif module["type"] == "BatchNorm2d":
             filters = output_filters[-1]
             modules = nn.BatchNorm2d(filters, momentum=0.03, eps=1E-4)
+            if i == 0 and filters == 3:  # normalize RGB image
+                # imagenet mean and var https://pytorch.org/docs/stable/torchvision/models.html#classification
+                modules.running_mean = torch.tensor([0.485, 0.456, 0.406])
+                modules.running_var = torch.tensor([0.0524, 0.0502, 0.0506])
 
         elif module["type"] == "maxpool":
             size = module["size"]
@@ -153,10 +158,11 @@ def create_modules(module_defines, image_size):
                            for layer in layers])
             routs.extend([i + layer if layer < 0 else layer
                           for layer in layers])
+            modules = FeatureConcat(layers=layers)
 
         # nn.Sequential() placeholder for "shortcut" layer
         elif module["type"] == "shortcut":
-            layers = module['from']
+            layers = module["from"]
             filters = output_filters[-1]
             routs.extend([i + layer if layer < 0 else layer
                           for layer in layers])
@@ -209,7 +215,7 @@ def create_modules(module_defines, image_size):
 class Darknet(nn.Module):
     # YOLOv3 object detection model
 
-    def __init__(self, config, image_size=(416, 416)):
+    def __init__(self, config, image_size=(416, 416), verbose=False):
         super(Darknet, self).__init__()
 
         self.module_defines = parse_model_config(config)
@@ -228,25 +234,14 @@ class Darknet(nn.Module):
         image_size = x.shape[-2:]
         yolo_out, out = [], []
 
-        for i, (module_define, module) in enumerate(
-                zip(self.module_defines, self.module_list)):
-            module_type = module_define["type"]
-            if module_type in ["convolutional", "upsample", "maxpool"]:
-                x = module(x)
-            elif module_type == "shortcut":  # sum
-                x = module(x, out)  # weightedFeatureFusion()
-            elif module_type == "route":  # concat
-                layers = module_define["layers"]
-                if len(layers) == 1:
-                    x = out[layers[0]]
-                else:
-                    try:
-                        x = torch.cat([out[i] for i in layers], 1)
-                    except:  # apply stride 2 for darknet reorg layer
-                        out[layers[1]] = F.interpolate(out[layers[1]], scale_factor=[0.5, 0.5])
-                        x = torch.cat([out[i] for i in layers], 1)
-            elif module_type == "yolo":
+        for i, module in enumerate(self.module_list):
+            name = module.__class__.__name__
+            if name in ["WeightedFeatureFusion", "FeatureConcat"]:  # sum, concat
+                x = module(x, out)  # WeightedFeatureFusion(), FeatureConcat()
+            elif module_type == "YOLOLayer":
                 yolo_out.append(module(x, image_size, out))
+            else:
+                x = module(x)
             out.append(x if self.routs[i] else [])
 
         if self.training:  # train
