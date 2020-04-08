@@ -490,14 +490,15 @@ def load_mosaic(self, index):
     return image4, labels4
 
 
-def scale_image(image, ratio=1.0):  # image(16,3,256,416), ratio=1.0
-    # scales a batch of pytorch images while retaining same input shape (cropped or grey-padded)
-    height, width = image.shape[2:]
-    size = (int(height * ratio), int(width * ratio))  # new size
-    p = height - size[0], width - size[1]  # pad/crop pixels
-    image = F.interpolate(image, size=size, mode="bilinear", align_corners=False)  # resize
-    # pad/crop
-    return F.pad(image, [0, p[1], 0, p[0]], value=0.5) if ratio < 1.0 else image[:, :, :p[0], :p[1]]
+def scale_image(image, ratio=1.0, same_shape=True):  # img(16,3,256,416), r=ratio
+    # scales img(bs,3,y,x) by ratio
+    h, w = image.shape[2:]
+    s = (int(h * ratio), int(w * ratio))  # new size
+    image = F.interpolate(image, size=s, mode="bilinear", align_corners=False)  # resize
+    if not same_shape:  # pad/crop img
+        gs = 64  # (pixels) grid size
+        h, w = [math.ceil(x * ratio / gs) * gs for x in (h, w)]
+    return F.pad(image, [0, w - s[1], 0, h - s[0]], value=0.447)  # value = imagenet mean
 
 
 def augment_hsv(image, hgain=0.5, sgain=0.5, vgain=0.5):
