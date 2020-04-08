@@ -303,9 +303,6 @@ class LoadImagesAndLabels(Dataset):
         if self.image_weights:
             index = self.indices[index]
 
-        image_path = self.image_files[index]
-        label_path = self.label_files[index]
-
         hyp = self.hyp
         if self.mosaic:
             # Load mosaic
@@ -317,28 +314,22 @@ class LoadImagesAndLabels(Dataset):
             images, (raw_height, raw_width), (height, width) = load_image(self, index)
 
             # Letterbox
-            shape = self.batch_shapes[
-                self.batch[index]] if self.rect else self.image_size  # final letterboxed shape
+            # final letterboxed shape
+            shape = self.batch_shapes[self.batch[index]] if self.rect else self.image_size
             images, ratio, pad = letterbox(images, shape, auto=False, scaleup=self.augment)
-            shapes = (raw_height, raw_width), (
-                (height / raw_height, width / raw_width), pad)  # for COCO mAP rescaling
+            # for COCO mAP rescaling
+            shapes = (raw_height, raw_width), ((height / raw_height, width / raw_width), pad)
 
             # Load labels
             labels = []
-            if os.path.isfile(label_path):
-                x = self.labels[index]
-                if x is None:  # labels not preloaded
-                    with open(label_path, "r") as f:
-                        x = np.array([x.split() for x in f.read().splitlines()], dtype=np.float32)
-
-                if x.size > 0:
-                    # Normalized xywh to pixel xyxy format
-                    labels = x.copy()
-                    labels[:, 1] = ratio[0] * width * (x[:, 1] - x[:, 3] / 2) + pad[0]  # pad width
-                    labels[:, 2] = ratio[1] * height * (x[:, 2] - x[:, 4] / 2) + pad[
-                        1]  # pad height
-                    labels[:, 3] = ratio[0] * width * (x[:, 1] + x[:, 3] / 2) + pad[0]
-                    labels[:, 4] = ratio[1] * height * (x[:, 2] + x[:, 4] / 2) + pad[1]
+            x = self.labels[index]
+            if x is not None and x.size > 0:
+                # Normalized xywh to pixel xyxy format
+                labels = x.copy()
+                labels[:, 1] = ratio[0] * width * (x[:, 1] - x[:, 3] / 2) + pad[0]  # pad width
+                labels[:, 2] = ratio[1] * height * (x[:, 2] - x[:, 4] / 2) + pad[1]  # pad height
+                labels[:, 3] = ratio[0] * width * (x[:, 1] + x[:, 3] / 2) + pad[0]
+                labels[:, 4] = ratio[1] * height * (x[:, 2] + x[:, 4] / 2) + pad[1]
 
         if self.augment:
             # Augment imagespace
@@ -384,7 +375,7 @@ class LoadImagesAndLabels(Dataset):
         images = images[:, :, ::-1].transpose(2, 0, 1)  # BGR to RGB, to 3x416x416
         images = np.ascontiguousarray(images)
 
-        return torch.from_numpy(images), labels_out, image_path, shapes
+        return torch.from_numpy(images), labels_out, self.image_files[index], shapes
 
     @staticmethod
     def collate_fn(batch):
