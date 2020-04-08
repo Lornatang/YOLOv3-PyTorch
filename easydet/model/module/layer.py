@@ -19,6 +19,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from easydet.config import parse_model_config
+from easydet.data.image import scale_image
 from .activition import HSigmoid
 from .activition import HSwish
 from .activition import Mish
@@ -230,9 +231,15 @@ class Darknet(nn.Module):
         self.seen = np.array([0], dtype=np.int64)
         self.info()  # print model description
 
-    def forward(self, x):
+    def forward(self, x, augment=False):
         image_size = x.shape[-2:]
         yolo_out, out = [], []
+
+        # Augment images (inference and test only)
+        if augment:
+            flip_lr_image = scale_image(x.flip(3), 0.83)  # flip-lr and scale
+            scale = scale_image(x, 0.67)  # scale
+            x = torch.cat((x, flip_lr_image, scale), 0)
 
         for i, module in enumerate(self.module_list):
             name = module.__class__.__name__
@@ -250,8 +257,15 @@ class Darknet(nn.Module):
             x = [torch.cat(x, 0) for x in zip(*yolo_out)]
             return x[0], torch.cat(x[1:3], 1)  # scores, boxes: 3780x80, 3780x4
         else:  # test
-            io, p = zip(*yolo_out)  # inference output, training output
-            return torch.cat(io, 1), p
+            x, p = zip(*yolo_out)  # inference output, training output
+            x = torch.cat(x, 1)  # cat yolo outputs
+            if augment:  # de-augment results
+                x = torch.split(x, x.shape[0], dim=0)
+                x[1][..., :4] /= 0.83  # scale
+                x[1][..., 0] = image_size[1] - x[1][..., 0]  # flip lr
+                x[2][..., :4] /= 0.67  # scale
+                x = torch.cat(x, 1)
+            return x, p
 
     def fuse(self):
         # Fuse Conv2d + BatchNorm2d layers throughout model
