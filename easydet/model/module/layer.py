@@ -232,13 +232,34 @@ class Darknet(nn.Module):
         self.info()  # print model description
 
     def forward(self, x, augment=False):
+
+        if not augment:
+            return self.forward_once(x)
+        else:
+            image_size = x.shape[-2:]  # height, width
+            s = [0.83, 0.67]  # scales
+            y = []
+            flip_lr_image = scale_image(x.flip(3), s[0], same_shape=False)  # flip-lr and scale
+            scale = scale_image(x, s[1], same_shape=False)  # scale
+            for i, xi in enumerate((x, flip_lr_image, scale)):
+                y.append(self.forward_once(xi)[0])
+
+            y[1][..., :4] /= s[0]  # scale
+            y[1][..., 0] = image_size[1] - y[1][..., 0]  # flip lr
+            y[2][..., :4] /= s[1]  # scale
+
+            y = torch.cat(y, 1)
+            return y, None
+
+    def forward_once(self, x, augment=False):
         image_size = x.shape[-2:]
         yolo_out, out = [], []
 
         # Augment images (inference and test only)
+        s = [0.83, 0.67]  # scales
         if augment:
-            flip_lr_image = scale_image(x.flip(3), 0.83)  # flip-lr and scale
-            scale = scale_image(x, 0.67)  # scale
+            flip_lr_image = scale_image(x.flip(3), s[0])  # flip-lr and scale
+            scale = scale_image(x, s[1])  # scale
             x = torch.cat((x, flip_lr_image, scale), 0)
 
         for i, module in enumerate(self.module_list):
@@ -261,9 +282,9 @@ class Darknet(nn.Module):
             x = torch.cat(x, 1)  # cat yolo outputs
             if augment:  # de-augment results
                 x = torch.split(x, x.shape[0], dim=0)
-                x[1][..., :4] /= 0.83  # scale
+                x[1][..., :4] /= s[0]  # scale
                 x[1][..., 0] = image_size[1] - x[1][..., 0]  # flip lr
-                x[2][..., :4] /= 0.67  # scale
+                x[2][..., :4] /= s[1]  # scale
                 x = torch.cat(x, 1)
             return x, p
 
