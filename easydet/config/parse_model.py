@@ -20,7 +20,7 @@ supported = ["type", "in_channels", "out_channels", "in_features", "out_features
              "num_features", "batch_normalize", "filters", "size", "stride", "pad", "activation",
              "layers", "groups", "from", "mask", "anchors", "classes", "num", "jitter",
              "ignore_thresh", "truth_thresh", "random", "stride_x", "stride_y", "weights_type",
-             "weights_normalization", "scale_x_y", "beta_nms", "nms_kind", "iou_loss",
+             "weights_normalization", "scale_x_y", "beta_nms", "nms_kind", "iou_loss", "padding",
              "iou_normalizer", "cls_normalizer", "iou_thresh", "expand_size", "semodules"]
 
 
@@ -42,8 +42,8 @@ def parse_model_config(path):
             modules.append({})
             modules[-1]["type"] = line[1:-1].rstrip()
             if modules[-1]["type"] == "convolutional":
-                modules[-1][
-                    "batch_normalize"] = 0  # pre-populate with zeros (may be overwritten later)
+                # pre-populate with zeros (may be overwritten later)
+                modules[-1]["batch_normalize"] = 0
         else:
             key, value = line.split("=")
             key = key.rstrip()

@@ -19,7 +19,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from easydet.config import parse_model_config
-from easydet.data.image import scale_image
 from .activition import HSigmoid
 from .activition import HSwish
 from .activition import Mish
@@ -104,8 +103,8 @@ def create_modules(module_defines, image_size):
         elif module["type"] == "maxpool":
             size = module["size"]
             stride = module["stride"]
-            maxpool = nn.MaxPool2d(kernel_size=size, stride=stride,
-                                   padding=(size - 1) // 2)
+            padding = module["padding"]
+            maxpool = nn.MaxPool2d(kernel_size=size, stride=stride, padding=padding)
             if size == 2 and stride == 1:  # yolov3-tiny
                 modules.add_module("ZeroPad2d", nn.ZeroPad2d((0, 1, 0, 1)))
                 modules.add_module("MaxPool2d", maxpool)
@@ -266,7 +265,7 @@ class Darknet(nn.Module):
             name = module.__class__.__name__
             if name in ["WeightedFeatureFusion", "FeatureConcat"]:  # sum, concat
                 x = module(x, out)  # WeightedFeatureFusion(), FeatureConcat()
-            elif module_type == "YOLOLayer":
+            elif name == "YOLOLayer":
                 yolo_out.append(module(x, image_size, out))
             else:
                 x = module(x)
@@ -407,5 +406,5 @@ class YOLOLayer(nn.Module):
 
 
 def get_yolo_layers(model):
-    return [i for i, x in enumerate(model.module_defines) if
-            x["type"] == "yolo"]  # [82, 94, 106] for yolov3
+    # [82, 94, 106] for yolov3
+    return [i for i, x in enumerate(model.module_defines) if x["type"] == "yolo"]
