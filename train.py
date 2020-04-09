@@ -88,14 +88,17 @@ def train():
     weights = args.weights
 
     # Initialize
+    gs = 32  # (pixels) grid size
+    assert math.fmod(image_size, gs) == 0, f"--image-size must be a {gs}-multiple"
+
     init_seeds()
     image_size_min = 6.6  # 320 / 32 / 1.5
     image_size_max = 28.5  # 320 / 32 / 28.5
     if args.multi_scale:
-        image_size_min = round(image_size / 32 / 1.5)
-        image_size_max = round(image_size / 32 * 1.5)
-        image_size = image_size_max * 32  # initiate with maximum multi_scale size
-        print(f"Using multi-scale {image_size_min * 32} - {image_size}")
+        image_size_min = round(image_size / gs / 1.5) + 1
+        image_size_max = round(image_size / gs * 1.5)
+        image_size = image_size_max * gs  # initiate with maximum multi_scale size
+        print(f"Using multi-scale {image_size_min * gs} - {image_size}")
 
     # Configure run
     dataset_dict = parse_data_config(data)
@@ -231,7 +234,7 @@ def train():
 
     # Start training
     batches_num = len(train_dataloader)  # number of batches
-    burns = max(3 * batches_num, 300)  # burn-in iterations, max(3 epochs, 300 iterations)
+    burns = max(3 * batches_num, 500)  # burn-in iterations, max(3 epochs, 500 iterations)
     maps = np.zeros(num_classes)  # mAP per class
     # "P", "R", "mAP", "F1", "val GIoU", "val Objectness", "val Classification"
     results = (0, 0, 0, 0, 0, 0, 0)
@@ -267,9 +270,9 @@ def train():
             targets = targets.to(device)
 
             # Hyperparameter Burn-in
-            if ni <= burns:
+            if ni <= burns * 2:
                 # giou loss ratio (obj_loss = 1.0 or giou)
-                model.gr = np.interp(ni, [0, burns], [0.0, 1.0])
+                model.gr = np.interp(ni, [0, burns * 2], [0.0, 1.0])
 
                 for j, x in enumerate(optimizer.param_groups):
                     # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
@@ -284,11 +287,11 @@ def train():
             if args.multi_scale:
                 #  adjust img_size (67% - 150%) every 1 batch
                 if ni / accumulate % 1 == 0:
-                    image_size = random.randrange(image_size_min, image_size_max + 1) * 32
+                    image_size = random.randrange(image_size_min, image_size_max + 1) * gs
                 scale_ratio = image_size / max(images.shape[2:])
                 if scale_ratio != 1:
                     # new shape (stretched to 32-multiple)
-                    new_size = [math.ceil(size * scale_ratio / 32.) * 32
+                    new_size = [math.ceil(size * scale_ratio / gs) * gs
                                 for size in images.shape[2:]]
                     images = F.interpolate(images,
                                            size=new_size,

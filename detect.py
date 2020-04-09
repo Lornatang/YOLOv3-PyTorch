@@ -120,6 +120,8 @@ def detect(save_image=False):
 
     # Run inference
     start_time = time.time()
+    # run once
+    _ = model(torch.zeros((1, 3, img_size, img_size), device=device)) if device.type != "cpu" else None
     for image_path, image, im0s, video_capture in dataset:
         image = torch.from_numpy(image).to(device)
         image = image.float()  # uint8 to fp16/32
