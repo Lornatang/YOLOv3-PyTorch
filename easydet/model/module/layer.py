@@ -103,8 +103,7 @@ def create_modules(module_defines, image_size):
         elif module["type"] == "maxpool":
             size = module["size"]
             stride = module["stride"]
-            padding = module["padding"]
-            maxpool = nn.MaxPool2d(kernel_size=size, stride=stride, padding=padding)
+            maxpool = nn.MaxPool2d(kernel_size=size, stride=stride, padding=(size - 1) // 2)
             if size == 2 and stride == 1:  # yolov3-tiny
                 modules.add_module("ZeroPad2d", nn.ZeroPad2d((0, 1, 0, 1)))
                 modules.add_module("MaxPool2d", maxpool)
