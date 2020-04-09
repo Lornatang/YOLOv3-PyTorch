@@ -323,6 +323,7 @@ class YOLOLayer(nn.Module):
         self.anchor_wh = self.anchor_vec.view(1, self.na, 1, 1, 2)
 
         if ONNX_EXPORT:
+            self.training = False
             # number x, y grid points
             self.create_grids((image_size[1] // stride, image_size[0] // stride))
 

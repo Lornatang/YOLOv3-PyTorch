@@ -214,6 +214,7 @@ class LoadImagesAndLabels(Dataset):
             create_datasubset = False
             process_bar = tqdm(self.label_files, desc="Caching labels")
             nm, nf, ne, ns, nd = 0, 0, 0, 0, 0  # number missing, found, empty, datasubset, duplicate
+            file = None
             for i, file in enumerate(process_bar):
                 try:
                     with open(file, "r") as f:
@@ -265,16 +266,14 @@ class LoadImagesAndLabels(Dataset):
 
                             b[[0, 2]] = np.clip(b[[0, 2]], 0, w)  # clip boxes outside of image
                             b[[1, 3]] = np.clip(b[[1, 3]], 0, h)
-                            assert cv2.imwrite(f, img[b[1]:b[3],
-                                                  b[0]:b[2]]), "Failure extracting classifier boxes"
+                            assert cv2.imwrite(f, img[b[1]:b[3], b[0]:b[2]]), "Failure extracting classifier boxes"
                 else:
                     # print("empty labels for image %s" % self.image_files[i])
                     # empty file
                     ne += 1
-
                 process_bar.desc = f"Caching labels ({nf} found, {nm} missing, {ne} empty, "
                 process_bar.desc += f"{nd} duplicate, for {self.image_files_num} images)"
-            assert nf > 0, f"No labels found. See {help_url}"
+            assert nf > 0, f"No labels found in {os.path.dirname(file) + os.sep}. See {help_url}"
 
         if cache_images:  # if training
             memory = 0  # Gigabytes of cached images
