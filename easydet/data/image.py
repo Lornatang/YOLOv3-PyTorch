@@ -394,9 +394,9 @@ def load_image(self, index):
         raw_height, raw_width = image.shape[:2]  # orig hw
         r = self.image_size / max(raw_height, raw_width)  # resize image to img_size
         # always resize down, only resize up if training with augmentation
-        if r < 1 or (self.augment and (r != 1)):
+        if r < 1 or (self.augment and r != 1):
             # LINEAR for training, AREA for testing
-            interpolation = cv2.INTER_LINEAR if self.augment else cv2.INTER_AREA
+            interpolation = cv2.INTER_AREA if r < 1 and not self.augment else cv2.INTER_LINEAR
             image = cv2.resize(image,
                                (int(raw_width * r), int(raw_height * r)),
                                interpolation=interpolation)
@@ -413,8 +413,6 @@ def load_mosaic(self, index):
     # mosaic center x, y
     center_x, center_y = [int(random.uniform(image_size * 0.5, image_size * 1.5)) for _ in
                           range(2)]
-    # base image with 4 tiles
-    image4 = np.full((image_size * 2, image_size * 2, 3), 114, dtype=np.uint8)
     indices = [index] + [random.randint(0, len(self.labels) - 1) for _ in
                          range(3)]  # 3 additional image indices
     for i, index in enumerate(indices):
@@ -423,6 +421,8 @@ def load_mosaic(self, index):
 
         # place img in img4
         if i == 0:  # top left
+            # base image with 4 tiles
+            image4 = np.full((image_size * 2, image_size * 2, 3), 114, dtype=np.uint8)
             # xmin, ymin, xmax, ymax (large image)
             x1a, y1a, x2a, y2a = max(center_x - w, 0), max(center_y - h, 0), center_x, center_y
             x1b, y1b, x2b, y2b = w - (x2a - x1a), h - (

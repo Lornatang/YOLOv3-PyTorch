@@ -16,7 +16,7 @@ import numpy as np
 
 
 def letterbox(image, new_shape=(416, 416), color=(114, 114, 114),
-              auto=True, scale_fill=False, scaleup=True, interp=cv2.INTER_AREA):
+              auto=True, scale_fill=False, scaleup=True):
     shape = image.shape[:2]  # current shape [height, width]
     if isinstance(new_shape, int):
         new_shape = (new_shape, new_shape)
@@ -42,7 +42,7 @@ def letterbox(image, new_shape=(416, 416), color=(114, 114, 114),
 
     if shape[::-1] != new_unpad:  # resize
         # INTER_AREA is better, INTER_LINEAR is faster
-        image = cv2.resize(image, new_unpad, interpolation=interp)
+        image = cv2.resize(image, new_unpad, interpolation=cv2.INTER_LINEAR)
     top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
     left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
     image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT,
