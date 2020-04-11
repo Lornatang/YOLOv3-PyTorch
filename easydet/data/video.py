@@ -159,8 +159,7 @@ class LoadStreams:
             raise StopIteration
 
         # Letterbox
-        image = [letterbox(x, new_shape=self.image_size, auto=self.rect, interp=cv2.INTER_LINEAR)[0]
-                 for x in raw_image]
+        image = [letterbox(x, new_shape=self.image_size, auto=self.rect)[0] for x in raw_image]
 
         # Stack
         image = np.stack(image, 0)
