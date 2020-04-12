@@ -407,4 +407,4 @@ class YOLOLayer(nn.Module):
 
 def get_yolo_layers(model):
     # [82, 94, 106] for yolov3
-    return [i for i, x in enumerate(model.module_defines) if x["type"] == "yolo"]
+    return [i for i, m in enumerate(model.module_defines) if m.__class__.__name__ == "YOLOLayer"]
