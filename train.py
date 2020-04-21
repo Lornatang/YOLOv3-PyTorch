@@ -183,7 +183,7 @@ def train():
     if device.type != "cpu" and torch.cuda.device_count() > 1 and torch.distributed.is_available():
         dist.init_process_group(backend="nccl",  # "distributed backend"
                                 # distributed training init method
-                                init_method="tcp://127.0.0.1:8888",
+                                init_method="tcp://127.0.0.1:18888",
                                 # number of nodes for distributed training
                                 world_size=1,
                                 # distributed training node rank
