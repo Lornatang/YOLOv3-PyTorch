@@ -71,8 +71,7 @@ def detect(save_image=False):
         # init model
         model_classifier = load_classifier(name="resnet101", classes=2)
         # load model
-        model_classifier.load_state_dict(
-            torch.load("weights/resnet101.pth", map_location=device)["model"])
+        model_classifier.load_state_dict(torch.load("weights/resnet101.pth", map_location=device)["model"])
         model_classifier.to(device)
         model_classifier.eval()
     else:
@@ -121,7 +120,7 @@ def detect(save_image=False):
     # Run inference
     start_time = time.time()
     # run once
-    _ = model(torch.zeros((1, 3, img_size, img_size), device=device)) if device.type != "cpu" else None
+    _ = model(torch.zeros((1, 3, image_size, image_size), device=device)) if device.type != "cpu" else None
     for image_path, image, im0s, video_capture in dataset:
         image = torch.from_numpy(image).to(device)
         image = image.float()  # uint8 to fp16/32
