@@ -21,7 +21,6 @@ import warnings
 
 import numpy as np
 import torch.distributed as dist
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.data
 from tqdm import tqdm
@@ -47,64 +46,63 @@ try:  # Mixed precision training https://github.com/NVIDIA/apex
 except:
     mixed_precision = False  # not installed
 
-parameters = {"giou": 3.54,  # giou loss gain
+hyper_parameters = {"giou": 3.54,  # giou loss gain
               "cls": 37.4,  # cls loss gain
               "cls_pw": 1.0,  # cls BCELoss positive_weight
               "obj": 64.3,  # obj loss gain (*=img_size/320 if img_size != 320)
               "obj_pw": 1.0,  # obj BCELoss positive_weight
-              "iou_t": 0.225,  # iou training threshold
+              "iou_t": 0.20,  # iou training threshold
               "lr0": 0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
               "lrf": 0.0005,  # final learning rate (with cos scheduler)
               "momentum": 0.937,  # SGD momentum
               "weight_decay": 0.000484,  # optimizer weight decay
               "fl_gamma": 0.0,  # focal loss gamma (default is gamma=1.5)
-              "hsv_h": 0.0138,  # image HSV-Hue augmentation (fraction)
-              "hsv_s": 0.678,  # image HSV-Saturation augmentation (fraction)
-              "hsv_v": 0.36,  # image HSV-Value augmentation (fraction)
-              "degrees": 1.98 * 0,  # image rotation (+/- deg)
-              "translate": 0.05 * 0,  # image translation (+/- fraction)
-              "scale": 0.05 * 0,  # image scale (+/- gain)
-              "shear": 0.641 * 0}  # image shear (+/- deg)
+                    "hsv_h": 0.0138,  # image HSV-Hue augmentation (fraction)
+                    "hsv_s": 0.678,  # image HSV-Saturation augmentation (fraction)
+                    "hsv_v": 0.36,  # image HSV-Value augmentation (fraction)
+                    "degrees": 1.98 * 0,  # image rotation (+/- deg)
+                    "translate": 0.05 * 0,  # image translation (+/- fraction)
+                    "scale": 0.05 * 0,  # image scale (+/- gain)
+                    "shear": 0.641 * 0}  # image shear (+/- deg)
 
 # Overwrite hyp with hyp*.txt
 parameter_file = glob.glob("hyp*.txt")
 if parameter_file:
     print(f"Using {parameter_file[0]}")
-    for keys, value in zip(parameters.keys(), np.loadtxt(parameter_file[0])):
-        parameters[keys] = value
+    for keys, value in zip(hyper_parameters.keys(), np.loadtxt(parameter_file[0])):
+        hyper_parameters[keys] = value
 
 
 def train():
     cfg = args.cfg
     data = args.data
-    if len(args.image_size) == 2:
-        image_size, image_size_val = args.image_size[0], args.image_size[1]
-    else:
-        image_size, image_size_val = args.image_size[0], args.image_size[0]
 
     epochs = args.epochs
     batch_size = args.batch_size
-    accumulate = args.accumulate
+    accumulate = max(round(64 / batch_size), 1)  # accumulate n times before optimizer update (bs 64)
     weights = args.weights
 
-    # Initialize
-    gs = 32  # (pixels) grid size
-    assert math.fmod(image_size, gs) == 0, f"--image-size must be a {gs}-multiple"
+    image_size_min, image_size_max, image_size_val = args.image_size  # image sizes (min, max, test)
 
-    init_seeds()
-    image_size_min = 6.6  # 320 / 32 / 1.5
-    image_size_max = 28.5  # 320 / 32 / 28.5
+    # Image Sizes
+    gs = 64  # (pixels) grid size
+    assert math.fmod(image_size_min, gs) == 0, f"--image-size must be a {gs}-multiple"
+
     if args.multi_scale:
-        image_size_min = round(image_size / gs / 1.5) + 1
-        image_size_max = round(image_size / gs * 1.5)
-        image_size = image_size_max * gs  # initiate with maximum multi_scale size
-        print(f"Using multi-scale {image_size_min * gs} - {image_size}")
+        if image_size_min == image_size_max:
+            image_size_min //= 1.5
+            image_size_max //= 0.667
+        grid_min, grid_max = image_size_min // gs, image_size_max // gs
+        image_size_min, image_size_max = grid_min * gs, grid_max * gs
+    image_size = image_size_max  # initialize with max size
 
     # Configure run
+    init_seeds()
     dataset_dict = parse_data_config(data)
     train_path = dataset_dict["train"]
     valid_path = dataset_dict["valid"]
     num_classes = 1 if args.single_cls else int(dataset_dict["classes"])
+    hyper_parameters["cls"] = num_classes / 80  # update coco-tuned parameters["cls"] to current dataset
 
     # Remove previous results
     for files in glob.glob("results.txt"):
@@ -124,16 +122,15 @@ def train():
             pg0 += [model_value]  # all else
 
     optimizer = torch.optim.SGD(pg0,
-                                lr=parameters["lr0"],
-                                momentum=parameters["momentum"],
+                                lr=hyper_parameters["lr0"],
+                                momentum=hyper_parameters["momentum"],
                                 nesterov=True)
     optimizer.add_param_group({"params": pg1,
                                # add pg1 with weight_decay
-                               "weight_decay": parameters["weight_decay"]})
+                               "weight_decay": hyper_parameters["weight_decay"]})
     optimizer.add_param_group({"params": pg2})  # add pg2 with biases
     del pg0, pg1, pg2
 
-    epoch = 0
     start_epoch = 0
     best_fitness = 0.0
     context = None
@@ -175,9 +172,8 @@ def train():
         model, optimizer = amp.initialize(model, optimizer, opt_level="O1", verbosity=0)
     # source https://arxiv.org/pdf/1812.01187.pdf
     lr_lambda = lambda x: (((1 + math.cos(x * math.pi / epochs)) / 2) ** 1.0) * 0.95 + 0.05
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
-                                                  lr_lambda=lr_lambda,
-                                                  last_epoch=start_epoch - 1)
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
+    scheduler.last_epoch = start_epoch - 1  # see link below
 
     # Initialize distributed training
     if device.type != "cpu" and torch.cuda.device_count() > 1 and torch.distributed.is_available():
@@ -193,9 +189,10 @@ def train():
 
     # Dataset
     # Apply augmentation hyperparameters (option: rectangular training)
-    train_dataset = LoadImagesAndLabels(train_path, image_size, batch_size,
+    train_dataset = LoadImagesAndLabels(train_path, image_size,
+                                        batch_size,
                                         augment=True,
-                                        hyp=parameters,
+                                        hyper_parameters=hyper_parameters,
                                         rect=args.rect,
                                         cache_images=args.cache_images,
                                         single_cls=args.single_cls)
@@ -203,7 +200,7 @@ def train():
     valid_dataset = LoadImagesAndLabels(valid_path, image_size_val,
                                         batch_size,
                                         augment=False,
-                                        hyp=parameters,
+                                        hyper_parameters=hyper_parameters,
                                         rect=True,
                                         cache_images=args.cache_images,
                                         single_cls=args.single_cls)
@@ -224,7 +221,7 @@ def train():
 
     # Model parameters
     model.nc = num_classes  # attach number of classes to model
-    model.hyp = parameters  # attach hyperparameters to model
+    model.hyper_parameters = hyper_parameters  # attach hyperparameters to model
     model.gr = 1.0  # giou loss ratio (obj_loss = 1.0 or giou)
     # attach class weights
     model.class_weights = labels_to_class_weights(train_dataset.labels, num_classes).to(device)
@@ -281,7 +278,7 @@ def train():
                                         [0.1 if j == 2 else 0.0,
                                          x["initial_lr"] * lr_lambda(epoch)])
                     if "momentum" in x:
-                        x["momentum"] = np.interp(ni, [0, burns], [0.9, parameters["momentum"]])
+                        x["momentum"] = np.interp(ni, [0, burns], [0.9, hyper_parameters["momentum"]])
 
             # Multi-Scale training
             if args.multi_scale:
@@ -308,7 +305,7 @@ def train():
                 return results
 
             # Scale loss by nominal batch_size of (16 * 4 = 64)
-            loss *= batch_size / (batch_size * accumulate)
+            loss *= batch_size / 64
 
             # Compute gradient
             if mixed_precision:
@@ -412,15 +409,12 @@ def train():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=300,
-                        help="500200 is yolov3 max batches. (default: 300)")
+                        help="500200 is YOLOv3 max batches. (default: 300)")
     parser.add_argument("--batch-size", type=int, default=16,
                         help="mini-batch size (default: 16), this is the total "
                              "batch size of all GPUs on the current node when "
                              "using Data Parallel or Distributed Data Parallel"
                              "Effective batch size is batch_size * accumulate.")
-    parser.add_argument("--accumulate", type=int, default=4,
-                        help="Batches to accumulate before optimizing. "
-                             "(default: 4)")
     parser.add_argument("--cfg", type=str, default="cfgs/yolov3.cfg",
                         help="Neural network profile path. "
                              "(default: cfgs/yolov3.cfg)")
@@ -430,8 +424,8 @@ if __name__ == "__main__":
                         help="Number of data loading workers (default: 4)")
     parser.add_argument("--multi-scale", action="store_true",
                         help="adjust (67% - 150%) img_size every 10 batches")
-    parser.add_argument("--image-size", nargs="+", type=int, default=[416],
-                        help="Size of processing picture. (default: [416])")
+    parser.add_argument("--image-size", nargs="+", type=int, default=[320, 640],
+                        help="Size of processing picture. (default: [320, 640])")
     parser.add_argument("--rect", action="store_true",
                         help="rectangular training for faster training.")
     parser.add_argument("--resume", action="store_true",
@@ -454,6 +448,7 @@ if __name__ == "__main__":
     args.weights = "weights/checkpoint.pth" if args.resume else args.weights
 
     print(args)
+    args.image_size.extend([args.image_size[-1]] * (3 - len(args.image_size)))  # extend to 3 sizes (min, max, test)
 
     device = select_device(args.device, apex=mixed_precision,
                            batch_size=args.batch_size)
@@ -517,8 +512,8 @@ if __name__ == "__main__":
                              np.random.randn(ng) *
                              np.random.random() * s + 1).clip(0.3, 3.0)
                 for i, k in enumerate(
-                        parameters.keys()):  # plt.hist(v.ravel(), 300)
-                    parameters[k] = x[i + 7] * v[i]  # mutate
+                        hyper_parameters.keys()):  # plt.hist(v.ravel(), 300)
+                    hyper_parameters[k] = x[i + 7] * v[i]  # mutate
 
             # Clip to limits
             keys = ["lr0", "iou_t", "momentum", "weight_decay", "hsv_s",
@@ -526,10 +521,10 @@ if __name__ == "__main__":
             limits = [(1e-5, 1e-2), (0.00, 0.70), (0.60, 0.98), (0, 0.001),
                       (0, .9), (0, .9), (0, .9), (0, .9), (0, 3)]
             for k, v in zip(keys, limits):
-                parameters[k] = np.clip(parameters[k], v[0], v[1])
+                hyper_parameters[k] = np.clip(hyper_parameters[k], v[0], v[1])
 
             # Train mutation
             res = train()
 
             # Write mutation results
-            print_mutation(parameters, res)
+            print_mutation(hyper_parameters, res)
