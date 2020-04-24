@@ -215,7 +215,7 @@ class Darknet(nn.Module):
 
         for i, module in enumerate(self.module_list):
             name = module.__class__.__name__
-            if name in ["WeightedFeatureFusion", "FeatureConcat"]:  # sum, concat
+            if name in ["WeightFeatureFusion", "FeatureConcat"]:  # sum, concat
                 x = module(x, out)  # WeightedFeatureFusion(), FeatureConcat()
             elif name == "YOLOLayer":
                 yolo_out.append(module(x, out))
