@@ -46,7 +46,6 @@ def build_targets(pred, targets, model):
 
             # reject anchors below iou_thres (OPTIONAL, increases P, lowers R)
             if reject:
-                print(model.hyper_parameters["iou_t"])
                 j = iou.view(-1) > model.hyper_parameters["iou_t"]  # iou threshold hyperparameter
                 t, a = t[j], a[j]
 
