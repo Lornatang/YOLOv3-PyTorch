@@ -121,6 +121,9 @@ dmypy.json
 .DS_Store
 
 # custom
+cfgs/yolov3-tiny-voc.cfg
+cfgs/masks.cfg
+cfgs/masks.data
 logs/
 output/
 data/masks.names
