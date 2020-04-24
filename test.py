@@ -94,7 +94,7 @@ def evaluate(cfg,
 
     # Dataloader
     if dataloader is None:
-        dataset = LoadImagesAndLabels(path, image_size, batch_size, rect=True)
+        dataset = LoadImagesAndLabels(path, image_size, batch_size, rect=True, single_cls=args.single_cls)
         batch_size = min(batch_size, len(dataset))
         dataloader = DataLoader(dataset,
                                 batch_size=batch_size,
@@ -104,6 +104,7 @@ def evaluate(cfg,
 
     seen = 0
     model.eval()
+    _ = model(torch.zeros((1, 3, image_size, image_size), device=device)) if device.type != 'cpu' else None  # run once
     coco91class = coco80_to_coco91_class()
     s = ("%20s" + "%10s" * 6) % ("Class", "Images", "Targets", "P", "R", "mAP@0.5", "F1")
     p, r, f1, mp, mr, map, mf1, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
@@ -117,26 +118,13 @@ def evaluate(cfg,
 
         # Disable gradients
         with torch.no_grad():
-            # Test the effect of image enhancement
-            if augment:
-                fs_image = scale_image(images.flip(3), 0.9)  # flip-lr and scale
-                s_image = scale_image(images, 0.7)  # scale
-                images = torch.cat((images, fs_image, s_image), 0)
-
             # Run model
             start_time = time_synchronized()
             inference_outputs, training_outputs = model(images)
             t0 += time_synchronized() - start_time
 
-            if augment:
-                x = torch.split(inference_outputs, batch_size, dim=0)
-                x[1][..., :4] /= 0.9  # scale
-                x[1][..., 0] = width - x[1][..., 0]  # flip lr
-                x[2][..., :4] /= 0.7  # scale
-                inference_outputs = torch.cat(x, 1)
-
             # Compute loss
-            if hasattr(model, "hyp"):  # if model has loss hyperparameters
+            if hasattr(model, "hyper_parameters"):  # if model has loss hyperparameters
                 # GIoU, obj, cls
                 loss += compute_loss(training_outputs, targets, model)[1][:3].cpu()
 
