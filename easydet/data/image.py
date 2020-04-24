@@ -12,6 +12,7 @@
 # limitations under the License.
 # ==============================================================================
 import glob
+import math
 import os
 import random
 from pathlib import Path
@@ -135,7 +136,7 @@ class LoadImagesAndLabels(Dataset):
         image_size (int, optional): Size of loaded pictures. (default:``416``).
         batch_size (int, optional): How many samples per batch to load. (default: ``16``).
         augment (bool, optional): Whether image enhancement technology is needed. (default: ``False``).
-        hyp (dict, optional): List of super parameters. (default: ``None``).
+        hyper_parameters (dict, optional): List of super parameters. (default: ``None``).
         rect (bool, optional): Whether to adjust to matrix training. (default: ``False``).
         image_weights (bool, optional): None. (default:``False``).
         cache_labels (bool, optional): Cache images into memory for faster training
@@ -145,7 +146,7 @@ class LoadImagesAndLabels(Dataset):
         single_cls(bool, optional):  Force dataset into single-class mode. (default:``False``).
     """
 
-    def __init__(self, dataset, image_size=416, batch_size=16, augment=False, hyp=None, rect=False,
+    def __init__(self, dataset, image_size=416, batch_size=16, augment=False, hyper_parameters=None, rect=False,
                  image_weights=False, cache_labels=True, cache_images=False, single_cls=False):
 
         path = str(Path(dataset))
@@ -163,7 +164,7 @@ class LoadImagesAndLabels(Dataset):
         self.batch = batch_index  # batch index of image
         self.image_size = image_size
         self.augment = augment
-        self.hyp = hyp
+        self.hyper_parameters = hyper_parameters
         self.image_weights = image_weights
         self.rect = False if image_weights else rect
         # load 4 images at a time into a mosaic (only during training)
@@ -302,7 +303,7 @@ class LoadImagesAndLabels(Dataset):
         if self.image_weights:
             index = self.indices[index]
 
-        hyp = self.hyp
+        parameters = self.hyper_parameters
         if self.mosaic:
             # Load mosaic
             images, labels = load_mosaic(self, index)
@@ -330,18 +331,6 @@ class LoadImagesAndLabels(Dataset):
                 labels[:, 3] = ratio[0] * width * (x[:, 1] + x[:, 3] / 2) + pad[0]
                 labels[:, 4] = ratio[1] * height * (x[:, 2] + x[:, 4] / 2) + pad[1]
 
-        if self.augment:
-            # Augment imagespace
-            if not self.mosaic:
-                images, labels = random_affine(images, labels,
-                                               degrees=hyp["degrees"],
-                                               translate=hyp["translate"],
-                                               scale=hyp["scale"],
-                                               shear=hyp["shear"])
-
-            # Augment colorspace
-            augment_hsv(images, hgain=hyp["hsv_h"], sgain=hyp["hsv_s"], vgain=hyp["hsv_v"])
-
         labels_num = len(labels)  # number of labels
         if labels_num:
             # convert xyxy to xywh
@@ -350,21 +339,6 @@ class LoadImagesAndLabels(Dataset):
             # Normalize coordinates 0 - 1
             labels[:, [2, 4]] /= images.shape[0]  # height
             labels[:, [1, 3]] /= images.shape[1]  # width
-
-        if self.augment:
-            # random left-right flip
-            fliplr = True
-            if fliplr and random.random() < 0.5:
-                images = np.fliplr(images)
-                if labels_num:
-                    labels[:, 1] = 1 - labels[:, 1]
-
-            # random up-down flip
-            flipud = False
-            if flipud and random.random() < 0.5:
-                images = np.flipud(images)
-                if labels_num:
-                    labels[:, 2] = 1 - labels[:, 2]
 
         labels_out = torch.zeros((labels_num, 6))
         if labels_num:
@@ -471,10 +445,10 @@ def load_mosaic(self, index):
 
     # Augment
     image4, labels4 = random_affine(image4, labels4,
-                                    degrees=self.hyp["degrees"] * 1,
-                                    translate=self.hyp["translate"] * 1,
-                                    scale=self.hyp["scale"] * 1,
-                                    shear=self.hyp["shear"] * 1,
+                                    degrees=self.hyper_parameters["degrees"] * 1,
+                                    translate=self.hyper_parameters["translate"] * 1,
+                                    scale=self.hyper_parameters["scale"] * 1,
+                                    shear=self.hyper_parameters["shear"] * 1,
                                     border=-image_size // 2)  # border to remove
 
     return image4, labels4
@@ -482,13 +456,13 @@ def load_mosaic(self, index):
 
 def scale_image(image, ratio=1.0, same_shape=True):  # img(16,3,256,416), r=ratio
     # scales img(bs,3,y,x) by ratio
-    h, w = image.shape[2:]
-    s = (int(h * ratio), int(w * ratio))  # new size
-    image = F.interpolate(image, size=s, mode="bilinear", align_corners=False)  # resize
+    height, width = image.shape[2:]
+    size = (int(height * ratio), int(width * ratio))  # new size
+    image = F.interpolate(image, size=size, mode="bilinear", align_corners=False)  # resize
     if not same_shape:  # pad/crop img
         gs = 64  # (pixels) grid size
-        h, w = [math.ceil(x * ratio / gs) * gs for x in (h, w)]
-    return F.pad(image, [0, w - s[1], 0, h - s[0]], value=0.447)  # value = imagenet mean
+        height, width = [math.ceil(x * ratio / gs) * gs for x in (height, width)]
+    return F.pad(image, [0, width - size[1], 0, height - size[0]], value=0.447)  # value = imagenet mean
 
 
 def augment_hsv(image, hgain=0.5, sgain=0.5, vgain=0.5):
