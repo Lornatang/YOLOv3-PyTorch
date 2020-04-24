@@ -47,16 +47,16 @@ except:
     mixed_precision = False  # not installed
 
 hyper_parameters = {"giou": 3.54,  # giou loss gain
-              "cls": 37.4,  # cls loss gain
-              "cls_pw": 1.0,  # cls BCELoss positive_weight
-              "obj": 64.3,  # obj loss gain (*=img_size/320 if img_size != 320)
-              "obj_pw": 1.0,  # obj BCELoss positive_weight
-              "iou_t": 0.20,  # iou training threshold
-              "lr0": 0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
-              "lrf": 0.0005,  # final learning rate (with cos scheduler)
-              "momentum": 0.937,  # SGD momentum
-              "weight_decay": 0.000484,  # optimizer weight decay
-              "fl_gamma": 0.0,  # focal loss gamma (default is gamma=1.5)
+                    "cls": 37.4,  # cls loss gain
+                    "cls_pw": 1.0,  # cls BCELoss positive_weight
+                    "obj": 64.3,  # obj loss gain (*=img_size/320 if img_size != 320)
+                    "obj_pw": 1.0,  # obj BCELoss positive_weight
+                    "iou_t": 0.20,  # iou training threshold
+                    "lr0": 0.01,  # initial learning rate (SGD=5E-3, Adam=5E-4)
+                    "lrf": 0.0005,  # final learning rate (with cos scheduler)
+                    "momentum": 0.937,  # SGD momentum
+                    "weight_decay": 0.000484,  # optimizer weight decay
+                    "fl_gamma": 0.0,  # focal loss gamma (default is gamma=1.5)
                     "hsv_h": 0.0138,  # image HSV-Hue augmentation (fraction)
                     "hsv_s": 0.678,  # image HSV-Saturation augmentation (fraction)
                     "hsv_v": 0.36,  # image HSV-Value augmentation (fraction)
@@ -87,6 +87,7 @@ def train():
     # Image Sizes
     gs = 64  # (pixels) grid size
     assert math.fmod(image_size_min, gs) == 0, f"--image-size must be a {gs}-multiple"
+    args.multi_scale |= image_size_min != image_size_max  # multi if different (min, max)
 
     if args.multi_scale:
         if image_size_min == image_size_max:
@@ -389,7 +390,7 @@ def train():
             state = {"epoch": -1,
                      "best_fitness": None,
                      "training_results": None,
-                     "state_dict": model.state_dict(),
+                     "state_dict": ema.ema.state_dict(),
                      "optimizer": None}
             torch.save(state, "weights/model_best.pth")
 
@@ -420,8 +421,8 @@ if __name__ == "__main__":
                              "(default: cfgs/yolov3.cfg)")
     parser.add_argument("--data", type=str, default="data/coco2014.data",
                         help="Path to dataset. (default: cfgs/coco2014.data)")
-    parser.add_argument("--workers", default=4, type=int, metavar="N",
-                        help="Number of data loading workers (default: 4)")
+    parser.add_argument("--workers", default=8, type=int, metavar="N",
+                        help="Number of data loading workers (default: 8)")
     parser.add_argument("--multi-scale", action="store_true",
                         help="adjust (67% - 150%) img_size every 10 batches")
     parser.add_argument("--image-size", nargs="+", type=int, default=[320, 640],
