@@ -61,7 +61,7 @@ def detect(save_image=False):
 
     # Load weight
     if weights.endswith(".pth"):
-        model.load_state_dict(torch.load(weights, map_location=device)["model"])
+        model.load_state_dict(torch.load(weights, map_location=device)["state_dict"])
     else:
         load_darknet_weights(model, weights)
 
@@ -71,7 +71,7 @@ def detect(save_image=False):
         # init model
         model_classifier = load_classifier(name="resnet101", classes=2)
         # load model
-        model_classifier.load_state_dict(torch.load("weights/resnet101.pth", map_location=device)["model"])
+        model_classifier.load_state_dict(torch.load("weights/resnet101.pth", map_location=device))
         model_classifier.to(device)
         model_classifier.eval()
     else:
@@ -130,7 +130,7 @@ def detect(save_image=False):
 
         # Inference
         t1 = time_synchronized()
-        predict = model(image, augment=args.augment)[0]
+        predict = model(image)[0]
         t2 = time_synchronized()
 
         # Apply NMS
