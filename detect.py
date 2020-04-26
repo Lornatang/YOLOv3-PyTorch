@@ -39,7 +39,7 @@ from easydet.utils import time_synchronized
 
 def detect(save_image=False):
     # (320, 192) or (416, 256) or (608, 352) for (height, width)
-    image_size = (608, 352) if ONNX_EXPORT else args.image_size
+    image_size = args.image_size
     output = args.output
     source = args.source
     weights = args.weights
@@ -81,26 +81,6 @@ def detect(save_image=False):
     model.to(device)
     # set eval model mode
     model.eval()
-
-    # Export mode
-    if ONNX_EXPORT:
-        model.fuse()
-        image = torch.zeros((1, 3) + image_size)  # (1, 3, 608, 352)
-        # *.onnx filename
-        filename = args.weights.replace(args.weights.split(".")[-1], "onnx")
-        torch.onnx.export(model,
-                          tuple(image),
-                          filename,
-                          verbose=False,
-                          opset_version=11)
-
-        # Validate exported model
-        import onnx
-        model = onnx.load(filename)  # Load the ONNX model
-        onnx.checker.check_model(model)  # Check that the IR is well formed
-        # Print a human readable representation of the graph
-        print(onnx.helper.printable_graph(model.graph))
-        return
 
     # Set Dataloader
     video_path, video_writer = None, None
