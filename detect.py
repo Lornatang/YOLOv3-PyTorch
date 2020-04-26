@@ -51,7 +51,7 @@ def detect(save_image=False):
         camera = True
 
     # Initialize
-    device = select_device(device="cpu" if ONNX_EXPORT else args.device)
+    device = select_device(args.device)
     if os.path.exists(output):
         shutil.rmtree(output)  # delete output folder
     os.makedirs(output)  # make new output folder
