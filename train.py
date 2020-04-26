@@ -189,7 +189,7 @@ def train():
         model.yolo_layers = model.module.yolo_layers
 
     # Dataset
-    # Apply augmentation hyperparameters (option: rectangular training)
+    # Apply augmentation hyper parameters (option: rectangular training)
     train_dataset = LoadImagesAndLabels(train_path, image_size,
                                         batch_size,
                                         augment=True,
@@ -197,7 +197,7 @@ def train():
                                         rect=args.rect,
                                         cache_images=args.cache_images,
                                         single_cls=args.single_cls)
-    # No apply augmentation hyperparameters and rectangular inference
+    # No apply augmentation hyper parameters and rectangular inference
     valid_dataset = LoadImagesAndLabels(valid_path, image_size_val,
                                         batch_size,
                                         augment=False,
@@ -222,7 +222,7 @@ def train():
 
     # Model parameters
     model.nc = num_classes  # attach number of classes to model
-    model.hyper_parameters = hyper_parameters  # attach hyperparameters to model
+    model.hyper_parameters = hyper_parameters  # attach hyper parameters to model
     model.gr = 1.0  # giou loss ratio (obj_loss = 1.0 or giou)
     # attach class weights
     model.class_weights = labels_to_class_weights(train_dataset.labels, num_classes).to(device)
@@ -267,7 +267,7 @@ def train():
             images = images.to(device).float() / 255.0
             targets = targets.to(device)
 
-            # Hyperparameter Burn-in
+            # Hyper parameter Burn-in
             if ni <= burns * 2:
                 # giou loss ratio (obj_loss = 1.0 or giou)
                 model.gr = np.interp(ni, [0, burns * 2], [0.0, 1.0])
@@ -325,10 +325,9 @@ def train():
             # update mean losses
             mean_losses = (mean_losses * index + loss_items) / (index + 1)
             memory = f"{torch.cuda.memory_cached() / 1E9 if torch.cuda.is_available() else 0:.2f}G"
-            context = ("%10s" * 2 + "%10.3g" * 6) % (
-                "%g/%g" % (epoch, args.epochs - 1),
-                memory, *mean_losses,
-                len(targets), image_size)
+            context = ("%10s" * 2 + "%10.3g" * 6) % ("%g/%g" % (epoch, args.epochs - 1),
+                                                     memory, *mean_losses,
+                                                     len(targets), image_size)
             progress_bar.set_description(context)
 
         # Update scheduler
