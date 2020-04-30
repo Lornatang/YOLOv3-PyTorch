@@ -47,7 +47,7 @@ def detect(save_image=False):
     save_txt = args.save_txt
 
     camera = False
-    if source == "0" or source.startswith("http") or source.endswith(".txt"):
+    if source == "0" or source.startswith("rtsp") or source.startswith("http") or source.endswith(".txt"):
         camera = True
 
     # Initialize
