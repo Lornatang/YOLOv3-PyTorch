@@ -190,16 +190,18 @@ def train():
 
     # Dataset
     # Apply augmentation hyper parameters (option: rectangular training)
-    train_dataset = LoadImagesAndLabels(train_path, image_size,
-                                        batch_size,
+    train_dataset = LoadImagesAndLabels(dataset=train_path,
+                                        image_size=image_size,
+                                        batch_size=batch_size,
                                         augment=True,
                                         hyper_parameters=hyper_parameters,
                                         rect=args.rect,
                                         cache_images=args.cache_images,
                                         single_cls=args.single_cls)
     # No apply augmentation hyper parameters and rectangular inference
-    valid_dataset = LoadImagesAndLabels(valid_path, image_size_val,
-                                        batch_size,
+    valid_dataset = LoadImagesAndLabels(dataset=valid_path,
+                                        image_size=image_size,
+                                        batch_size=batch_size,
                                         augment=False,
                                         hyper_parameters=hyper_parameters,
                                         rect=True,
