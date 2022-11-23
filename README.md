@@ -1,5 +1,7 @@
 # YOLOv3-PyTorch
 
+## This item is currently being updated and may not function properly!
+
 <p align="center"><img src="assets/bus.jpg" width="810" alt=""></p>
 <p align="center"><img src="assets/giraffe.jpg" width="640" alt=""></p>
 <p align="center"><img src="assets/zidane.jpg" width="1280" alt=""></p>
