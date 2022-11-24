@@ -17,6 +17,7 @@ import random
 import time
 
 import numpy as np
+import torch
 from torch import nn
 from torch import optim
 from torch.cuda import amp
@@ -29,6 +30,7 @@ from torch.utils.tensorboard import SummaryWriter
 import config
 import model
 from dataset import parse_dataset_config, labels_to_class_weights, LoadImagesAndLabels
+from test import test
 from utils import load_state_dict, make_directory, save_checkpoint, AverageMeter, ProgressMeter
 
 
@@ -84,6 +86,11 @@ def main():
 
     # get the number of training samples
     batches = len(train_dataloader)
+
+    # For test
+    iouv = torch.linspace(0.5, 0.95, 10).to(config.device)  # iou vector for mAP@0.5:0.95
+    iouv = iouv[0].view(1)  # comment for mAP@0.5:0.95
+    niou = iouv.numel()
     for epoch in range(start_epoch, config.epochs):
         train(yolo_model,
               ema_yolo_model,
@@ -95,23 +102,28 @@ def main():
               batches,
               max(3 * batches, 500),
               config.train_print_frequency)
-        # niqe = validate(yolo_model,
-        #                 paired_test_prefetcher,
-        #                 epoch,
-        #                 writer,
-        #                 niqe_model,
-        #                 config.device,
-        #                 config.test_print_frequency,
-        #                 "Test")
+        is_last = (epoch + 1) == config.epochs
+        p, r, map50, f1, maps = test(yolo_model,
+                                     test_dataloader,
+                                     config.conf_threshold,
+                                     config.iou_threshold,
+                                     is_last and config.save_json,
+                                     False,
+                                     iouv,
+                                     niou)
+        writer.add_scalar("Test/Precision", p, epoch + 1)
+        writer.add_scalar("Test/Recall", r, epoch + 1)
+        writer.add_scalar("Test/mAP_0.5", map50, epoch + 1)
+        writer.add_scalar("Test/F1", f1, epoch + 1)
         print("\n")
 
         # Update the learning rate after each training epoch
         scheduler.step()
 
         # Automatically save model weights
-        # is_best = niqe < best_niqe
+        is_best = map50 > best_map50
         is_last = (epoch + 1) == config.epochs
-        # best_niqe = min(niqe, best_niqe)
+        best_map50 = max(map50, best_map50)
         save_checkpoint({"epoch": epoch + 1,
                          "best_map50": best_map50,
                          "state_dict": yolo_model.state_dict(),
@@ -123,7 +135,7 @@ def main():
                         results_dir,
                         "best.pth.tar",
                         "last.pth.tar",
-                        True,
+                        is_best,
                         is_last)
 
 
@@ -153,7 +165,7 @@ def build_dataset_and_model() -> [nn.Module, nn.Module, DataLoader, DataLoader]:
     # generate dataset iterator
     train_dataloader = DataLoader(train_datasets,
                                   batch_size=config.batch_size,
-                                  shuffle=not config.rect_label,
+                                  shuffle=not config.train_rect_label,
                                   num_workers=config.num_workers,
                                   pin_memory=True,
                                   drop_last=True,
@@ -179,7 +191,8 @@ def build_dataset_and_model() -> [nn.Module, nn.Module, DataLoader, DataLoader]:
                                                        1 if config.single_classes else num_classes)
 
     # Generate an exponential average model based on the generator to stabilize model training
-    ema_avg_fn = lambda averaged_model_parameter, model_parameter, num_averaged: (1 - config.model_ema_decay) * averaged_model_parameter + config.model_ema_decay * model_parameter
+    ema_avg_fn = lambda averaged_model_parameter, model_parameter, num_averaged: (
+                                                                                         1 - config.model_ema_decay) * averaged_model_parameter + config.model_ema_decay * model_parameter
     ema_yolo_model = AveragedModel(yolo_model, avg_fn=ema_avg_fn)
 
     yolo_model = yolo_model.to(device=config.device)

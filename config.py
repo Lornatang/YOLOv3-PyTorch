@@ -74,7 +74,7 @@ if mode == "train":
     test_image_size = 416
     grid_size = 32  # Do not modify
 
-    batch_size = 16
+    batch_size = 64
     num_workers = 4
 
     # Load the address of the pre-trained model

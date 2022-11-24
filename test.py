@@ -113,8 +113,7 @@ def test(
 
     # Format print information
     s = ("%20s" + "%10s" * 6) % ("Class", "Images", "Targets", "P", "R", "mAP@0.5", "F1")
-    p, r, f1, mp, mr, map50, mf1, model_use_time, nms_use_time = 0., 0., 0., 0., 0., 0., 0., 0., 0.
-    loss = torch.zeros(3, device=config.device)
+    p, r, f1, mp, mr, map50, mf1 = 0., 0., 0., 0., 0., 0., 0.
     jdict, stats, ap, ap_class = [], [], [], []
 
     for batch_index, (images, targets, paths, shapes) in enumerate(tqdm(test_dataloader, desc=s)):
@@ -126,16 +125,12 @@ def test(
         # Inference
         with torch.no_grad():
             # Run model
-            model_time = time.time()
             output, train_out = yolo_model(images, augment=augment)  # inference and training outputs
-            model_use_time += time.time() - model_time
 
             # Run NMS
-            nms_time = time.time()
             output = non_max_suppression(output,
                                          conf_threshold=conf_threshold,
                                          iou_threshold=iou_threshold)
-            nms_use_time += time.time() - nms_time
 
         # Statistics per image
         for si, pred in enumerate(output):
@@ -222,8 +217,7 @@ def test(
         with open("results.json", "w") as file:
             json.dump(jdict, file)
 
-        cocoGt = COCO(
-            glob.glob("./data/COCO2014/annotations/instances_val*.json")[0])  # initialize COCO ground truth api
+        cocoGt = COCO(glob.glob("./data/COCO2014/annotations/instances_val*.json")[0])
         cocoDt = cocoGt.loadRes("results.json")  # initialize COCO pred api
 
         cocoEval = COCOeval(cocoGt, cocoDt, "bbox")
@@ -237,7 +231,7 @@ def test(
     for ap_index, c in enumerate(ap_class):
         maps[c] = ap[ap_index]
 
-    return (mp, mr, map50, mf1, *(loss.cpu() / len(test_dataloader)).tolist()), maps
+    return (mp, mr, map50, mf1), maps
 
 
 if __name__ == "__main__":
