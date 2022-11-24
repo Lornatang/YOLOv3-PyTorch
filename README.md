@@ -56,7 +56,7 @@ $ bash get_coco_dataset.sh
 
 #### Train
 ```bash
-usage: train.py [-h] [--epochs EPOCHS] [--batch-size BATCH_SIZE] [--accumulate ACCUMULATE]
+usage: train_old.py [-h] [--epochs EPOCHS] [--batch-size BATCH_SIZE] [--accumulate ACCUMULATE]
                 [--cfg CFG] [--data DATA] [--multi-scale] [--img-size IMG_SIZE [IMG_SIZE ...]]
                 [--rect] [--resume] [--nosave] [--notest] [--evolve] [--cache-images]
                 [--weights WEIGHTS] [--arc ARC] [--name NAME] [--device DEVICE] [--adam]
@@ -67,14 +67,14 @@ usage: train.py [-h] [--epochs EPOCHS] [--batch-size BATCH_SIZE] [--accumulate A
 
 To train on COCO2014 using a Darknet-53 backend pretrained on ImageNet run: 
 ```bash
-$ python3 train.py --cfg cfgs/yolov3.cfg  --data cfgs/coco2014.data --weights weights/darknet53.conv.74 --multi-scale
+$ python3 train_old.py --cfg cfgs/yolov3.cfg  --data cfgs/coco2014.data --weights weights/darknet53.conv.74 --multi-scale
 ```
 
 - Example (VOC2007+2012)
 
 To train on VOC07+12:
 ```bash
-$ python3 train.py --cfg cfgs/yolov3-voc.cfg  --data cfgs/voc2007.data --weights weights/darknet53.conv.74 --multi-scale
+$ python3 train_old.py --cfg cfgs/yolov3-voc.cfg  --data cfgs/voc2007.data --weights weights/darknet53.conv.74 --multi-scale
 ```
 
 - Other training methods
@@ -191,7 +191,7 @@ In `data/custom/train.txt` and `data/custom/valid.txt`, add paths to images that
 To train on the custom dataset run:
 
 ```bash
-$ python3 train.py --cfg cfgs/yolov3-custom.cfg --data cfg/custom.data --epochs 100 --multi-scale
+$ python3 train_old.py --cfg cfgs/yolov3-custom.cfg --data cfg/custom.data --epochs 100 --multi-scale
 ```
 
 Add `--weights weights/darknet53.conv.74` to train using a backend pretrained on ImageNet.
