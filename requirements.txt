@@ -1,30 +1,8 @@
-# --------------------- If use pip -----------------------------
-numpy==1.22.0
-opencv-python
-torch
-torchvision
-onnx
-matplotlib
-tqdm
-pillow
-scikit-image
-pycocotools
-
-# -------------------------------------------------------------- #
-#                          optional                              #
-# -------------------------------------------------------------- #
-
-# ---------- Nvidia Apex for mixed precision training ----------
-# git clone https://github.com/NVIDIA/apex && cd apex && pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" . --user && cd .. && rm -rf apex
-
-# ------------------- Tensorboard ------------------------------
-# tb-nightly
-# future
-
-# ------------------ If use anconda -----------------------------
-# conda update -yn base -c defaults conda
-# conda install -yc anaconda numpy opencv matplotlib tqdm pillow ipython future
-# conda install -yc conda-forge scikit-image pycocotools tensorboard
-# conda install -yc spyder-ide spyder-line-profiler
-# conda install -yc pytorch pytorch torchvision
-# conda install -yc conda-forge protobuf numpy && pip install onnx  # https://github.com/onnx/onnx#linux-and-macos
+numpy>=1.23.4
+torch>=1.13.0+cu117
+pycocotools>=2.0.4
+torchvision>=0.14.0
+tqdm>=4.63.1
+typing>=3.7.4.3
+opencv-python>=4.6.0.66
+Pillow>=9.3.0
