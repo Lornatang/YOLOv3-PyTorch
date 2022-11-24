@@ -132,4 +132,5 @@ dmypy.json
 # Program run create directory.
 data
 results
+results/pretrained_models
 samples
