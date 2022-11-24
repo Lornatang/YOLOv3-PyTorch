@@ -62,7 +62,7 @@ def build_dataset() -> [nn.Module, int]:
                                         image_size=config.test_image_size,
                                         batch_size=config.batch_size,
                                         rect_label=config.test_rect_label,
-                                        cache_images=False,
+                                        cache_images=True,
                                         single_classes=config.single_classes,
                                         pad=0.5,
                                         gray=config.gray)

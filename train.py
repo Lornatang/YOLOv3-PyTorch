@@ -151,7 +151,7 @@ def build_dataset_and_model() -> [nn.Module, nn.Module, DataLoader, DataLoader]:
                                          augment=True,
                                          hyper_parameters_dict=config.hyper_parameters_dict,
                                          rect_label=config.train_rect_label,
-                                         cache_images=False,
+                                         cache_images=True,
                                          single_classes=config.single_classes,
                                          gray=config.gray)
     test_datasets = LoadImagesAndLabels(path=dataset_dict["test"],
@@ -159,7 +159,7 @@ def build_dataset_and_model() -> [nn.Module, nn.Module, DataLoader, DataLoader]:
                                         batch_size=config.batch_size,
                                         hyper_parameters_dict=config.hyper_parameters_dict,
                                         rect_label=config.test_rect_label,
-                                        cache_images=False,
+                                        cache_images=True,
                                         single_classes=config.single_classes,
                                         gray=config.gray)
     # generate dataset iterator
