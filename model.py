@@ -19,13 +19,13 @@ from typing import Any, List, Dict
 
 import numpy as np
 import torch
-from torch import nn, Tensor, Module
+from torch import nn, Tensor
+from torch.nn import Module
 from torch.nn import functional as F_torch
 
 __all__ = [
-    "Darknet", "convert_model_weights",
-    "yolov3_tiny_voc", "yolov3_tiny_coco",
-    "yolov3_voc", "yolov3_coco",
+    "Darknet", "load_torch_weights", "load_darknet_weights", "save_torch_weights", "save_darknet_weights",
+    "convert_model_weights", "yolov3_tiny_voc", "yolov3_tiny_coco", "yolov3_voc", "yolov3_coco",
 ]
 
 
@@ -654,27 +654,22 @@ def convert_model_weights(model_config_path: str, model_weights_path: str) -> No
 
     # Load weights and save
     if model_weights_path.endswith(".pth.tar"):  # if PyTorch format
-        model.load_state_dict(torch.load(model_weights_path, map_location="cpu")["model"])
-        paths = model_weights_path.rsplit("/")
-        target = os.path.join(paths[-3],
-                              paths[-2],
-                              os.path.basename(model_config_path).rsplit(".")[0] + ".weights")
+        model.load_state_dict(torch.load(model_weights_path, map_location="cpu")["state_dict"])
+        target = model_weights_path[:-8] + ".weights"
         save_darknet_weights(model, model_weights_path=target, cutoff=-1)
         print(f"Success: converted {model_weights_path} to {target}")
 
     elif model_weights_path.endswith(".weights"):  # darknet format
         load_darknet_weights(model, model_weights_path)
 
-        chkpt = {"epoch": -1,
-                 "best_fitness": None,
-                 "training_results": None,
-                 "model": model.state_dict(),
-                 "optimizer": None}
+        chkpt = {"epoch": 0,
+                 "best_map50": None,
+                 "state_dict": model.state_dict(),
+                 "ema_state_dict": model.state_dict(),
+                 "optimizer": None,
+                 "scheduler": None}
 
-        paths = model_weights_path.rsplit("/")
-        target = os.path.join(paths[-3],
-                              paths[-2],
-                              os.path.basename(model_config_path).rsplit(".")[0] + ".pth.tar")
+        target = model_weights_path[:-8] + ".pth.tar"
         torch.save(chkpt, target)
         print(f"Success: converted {model_weights_path} to {target}")
     else:

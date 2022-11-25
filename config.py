@@ -39,7 +39,7 @@ gray = False
 onnx_export = False
 # For test
 conf_threshold = 0.001
-iou_threshold = 0.6
+iou_threshold = 0.5
 save_json = False
 augment = False
 verbose = False
@@ -107,4 +107,4 @@ if mode == "test":
     batch_size = 16
     num_workers = 4
 
-    model_weights_path = ""
+    model_weights_path = "./results/pretrained_models/YOLOv3_tiny-VOC0712-6ae10360.pth.tar"

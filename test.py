@@ -27,8 +27,8 @@ from tqdm import tqdm
 import config
 import model
 from dataset import parse_dataset_config, LoadImagesAndLabels
-from utils import ap_per_class, clip_coords, coco80_to_coco91_class, load_state_dict, non_max_suppression, scale_coords, \
-    xywh2xyxy, xyxy2xywh
+from utils import ap_per_class, clip_coords, coco80_to_coco91_class, non_max_suppression, scale_coords, xywh2xyxy, \
+    xyxy2xywh
 
 
 def main():
@@ -64,7 +64,7 @@ def build_dataset() -> [nn.Module, int, list]:
                                         image_size=config.test_image_size,
                                         batch_size=config.batch_size,
                                         rect_label=config.test_rect_label,
-                                        cache_images=True,
+                                        cache_images=False,
                                         single_classes=config.single_classes,
                                         pad=0.5,
                                         gray=config.gray)
@@ -89,7 +89,12 @@ def build_model(num_classes: int) -> nn.Module:
     yolo_model.num_classes = num_classes
     yolo_model = yolo_model.to(device=config.device)
     # Load the pre-trained model weights and fine-tune the model
-    yolo_model = load_state_dict(yolo_model, config.model_weights_path)
+    if config.model_weights_path.endswith(".pth.tar"):
+        yolo_model = model.load_torch_weights(yolo_model, config.model_weights_path)
+    elif config.model_weights_path.endswith(".weights"):
+        model.load_darknet_weights(yolo_model, config.model_weights_path)
+    else:
+        yolo_model = model.load_torch_weights(yolo_model, config.model_weights_path)
     print(f"Loaded `{config.model_weights_path}` pretrained model weights successfully.")
 
     return yolo_model
