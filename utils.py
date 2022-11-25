@@ -268,7 +268,6 @@ def non_max_suppression(prediction: Tensor,
                 weights = iou * scores[None]  # box weights
                 x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # merged boxes
             except:
-                print(x, i, x.shape, i.shape)
                 pass
 
         output[xi] = x[i]
