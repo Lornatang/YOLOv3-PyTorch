@@ -41,7 +41,8 @@ onnx_export = False
 conf_threshold = 0.001
 iou_threshold = 0.5
 save_json = False
-augment = False
+train_augment = True
+test_augment = True
 verbose = False
 # Current configuration parameter method
 mode = "train"
@@ -85,7 +86,7 @@ if mode == "train":
     resume_model_weights_path = f""
 
     # Total num epochs
-    epochs = 300
+    epochs = 1000
 
     # Optimizer parameter
     optim_lr = 1e-2

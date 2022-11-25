@@ -48,7 +48,7 @@ def main():
          config.conf_threshold,
          config.iou_threshold,
          config.save_json,
-         config.augment,
+         config.test_augment,
          iouv,
          niou,
          config.verbose)
@@ -63,6 +63,7 @@ def build_dataset() -> [nn.Module, int, list]:
     test_datasets = LoadImagesAndLabels(path=dataset_dict["test"],
                                         image_size=config.test_image_size,
                                         batch_size=config.batch_size,
+                                        augment=config.test_augment,
                                         rect_label=config.test_rect_label,
                                         cache_images=False,
                                         single_classes=config.single_classes,
