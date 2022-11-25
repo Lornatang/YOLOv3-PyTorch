@@ -13,7 +13,6 @@
 # ==============================================================================
 import glob
 import json
-import time
 from pathlib import Path
 
 import numpy as np
@@ -33,7 +32,7 @@ from utils import ap_per_class, clip_coords, coco80_to_coco91_class, load_state_
 
 
 def main():
-    test_dataloader, num_classes = build_dataset()
+    test_dataloader, num_classes, names = build_dataset()
     print("Load all datasets successfully.")
 
     yolo_model = build_model(num_classes)
@@ -45,18 +44,21 @@ def main():
 
     test(yolo_model,
          test_dataloader,
+         names,
          config.conf_threshold,
          config.iou_threshold,
          config.save_json,
          config.augment,
          iouv,
-         niou)
+         niou,
+         config.verbose)
 
 
-def build_dataset() -> [nn.Module, int]:
+def build_dataset() -> [nn.Module, int, list]:
     # Load dataset
     dataset_dict = parse_dataset_config(config.dataset_config_path)
     num_classes = 1 if config.single_classes else int(dataset_dict["classes"])
+    names = dataset_dict["names"]
 
     test_datasets = LoadImagesAndLabels(path=dataset_dict["test"],
                                         image_size=config.test_image_size,
@@ -76,7 +78,7 @@ def build_dataset() -> [nn.Module, int]:
                                  persistent_workers=True,
                                  collate_fn=test_datasets.collate_fn)
 
-    return test_dataloader, num_classes
+    return test_dataloader, num_classes, names
 
 
 def build_model(num_classes: int) -> nn.Module:
@@ -96,12 +98,14 @@ def build_model(num_classes: int) -> nn.Module:
 def test(
         yolo_model: nn.Module,
         test_dataloader: DataLoader,
+        names: list,
         conf_threshold: float,
         iou_threshold: float,
         save_json: bool,
         augment: bool,
         iouv: Tensor,
         niou: int,
+        verbose: bool = False,
 ):
     seen = 0
 
@@ -128,9 +132,7 @@ def test(
             output, train_out = yolo_model(images, augment=augment)  # inference and training outputs
 
             # Run NMS
-            output = non_max_suppression(output,
-                                         conf_threshold=conf_threshold,
-                                         iou_threshold=iou_threshold)
+            output = non_max_suppression(output, conf_threshold, iou_threshold)
 
         # Statistics per image
         for si, pred in enumerate(output):
@@ -209,6 +211,11 @@ def test(
     # Print results
     pf = "%20s" + "%10.3g" * 6  # print format
     print(pf % ("all", seen, nt.sum(), mp, mr, map50, mf1))
+
+    # Print results per class
+    if verbose and yolo_model.num_classes > 1 and len(stats):
+        for i, c in enumerate(ap_class):
+            print(pf % (names[c], seen, nt[c], p[i], r[i], ap[i], f1[i]))
 
     # Save JSON
     if save_json and map50 and len(jdict):

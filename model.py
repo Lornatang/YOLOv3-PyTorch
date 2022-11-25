@@ -13,12 +13,13 @@
 # ==============================================================================
 import math
 import os
+import shutil
 from pathlib import Path
-from typing import Any, List, Dict, Tuple
+from typing import Any, List, Dict
 
 import numpy as np
 import torch
-from torch import nn, Tensor
+from torch import nn, Tensor, Module
 from torch.nn import functional as F_torch
 
 __all__ = [
@@ -46,7 +47,7 @@ class Darknet(nn.Module):
 
         """
         super(Darknet, self).__init__()
-        self.module_define = _parse_model_config(model_config)
+        self.module_define = parse_model_config(model_config)
         self.module_list, self.routs = _create_modules(self.module_define, image_size, model_config, gray, onnx_export)
         self.yolo_layers = _get_yolo_layers(self)
         self.version = np.array([0, 2, 5], dtype=np.int32)  # (int32) version info: major, minor, revision
@@ -492,7 +493,56 @@ def _get_yolo_layers(model):
     return [i for i, m in enumerate(model.module_list) if m.__class__.__name__ == "_YOLOLayer"]  # [89, 101, 113]
 
 
-def _load_darknet_weights(self, weights, cutoff=-1):
+def load_torch_weights(
+        model: nn.Module,
+        model_weights_path: str,
+        ema_model: nn.Module = None,
+        optimizer: torch.optim.Optimizer = None,
+        scheduler: torch.optim.lr_scheduler = None,
+        load_mode: str = None,
+) -> tuple[Module, Any, Any, Any, Any, Any] or Module:
+    # Load model weights
+    checkpoint = torch.load(model_weights_path, map_location=lambda storage, loc: storage)
+
+    if load_mode == "resume":
+        # Restore the parameters in the training node to this point
+        start_epoch = checkpoint["epoch"]
+        best_map50 = checkpoint["best_map50"] if checkpoint["best_map50"] else 0.0
+        # Load model state dict. Extract the fitted model weights
+        model_state_dict = model.state_dict()
+        state_dict = {k: v for k, v in checkpoint["state_dict"].items() if k in model_state_dict.keys()}
+        # Overwrite the model weights to the current model (base model)
+        model_state_dict.update(state_dict)
+        model.load_state_dict(model_state_dict)
+        # Load the optimizer model
+        optimizer.load_state_dict(checkpoint["optimizer"])
+
+        if scheduler is not None:
+            # Load the scheduler model
+            scheduler.load_torch_weights(checkpoint["scheduler"])
+
+        if ema_model is not None:
+            # Load ema model state dict. Extract the fitted model weights
+            ema_model_state_dict = ema_model.state_dict()
+            ema_state_dict = {k: v for k, v in checkpoint["ema_state_dict"].items() if k in ema_model_state_dict.keys()}
+            # Overwrite the model weights to the current model (ema model)
+            ema_model_state_dict.update(ema_state_dict)
+            ema_model.load_state_dict(ema_model_state_dict)
+
+        return model, ema_model, start_epoch, best_map50, optimizer, scheduler
+    else:
+        # Load model state dict. Extract the fitted model weights
+        model_state_dict = model.state_dict()
+        state_dict = {k: v for k, v in checkpoint["state_dict"].items() if
+                      k in model_state_dict.keys() and v.size() == model_state_dict[k].size()}
+        # Overwrite the model weights to the current model
+        model_state_dict.update(state_dict)
+        model.load_state_dict(model_state_dict)
+
+        return model
+
+
+def load_darknet_weights(self, weights, cutoff=-1):
     # Parses and loads the weights stored in "weights"
 
     # Establish cutoffs (load layers between 0 and cutoff. if cutoff = -1 all are loaded)
@@ -504,7 +554,6 @@ def _load_darknet_weights(self, weights, cutoff=-1):
 
     # Read weights file
     with open(weights, "rb") as f:
-        # Read Header https://github.com/AlexeyAB/darknet/issues/2914#issuecomment-496675346
         self.version = np.fromfile(f, dtype=np.int32, count=3)  # (int32) version info: major, minor, revision
         self.seen = np.fromfile(f, dtype=np.int64, count=1)  # (int64) number of images seen during training
 
@@ -542,7 +591,26 @@ def _load_darknet_weights(self, weights, cutoff=-1):
             ptr += nw
 
 
-def _save_darknet_weights(self, model_weights_path: str, cutoff=-1) -> None:
+def save_torch_weights(
+        state_dict: dict,
+        file_name: str,
+        samples_dir: str,
+        results_dir: str,
+        best_file_name: str,
+        last_file_name: str,
+        is_best: bool = False,
+        is_last: bool = False,
+) -> None:
+    checkpoint_path = os.path.join(samples_dir, file_name)
+    torch.save(state_dict, checkpoint_path)
+
+    if is_best:
+        shutil.copyfile(checkpoint_path, os.path.join(results_dir, best_file_name))
+    if is_last:
+        shutil.copyfile(checkpoint_path, os.path.join(results_dir, last_file_name))
+
+
+def save_darknet_weights(self, model_weights_path: str, cutoff=-1) -> None:
     """Saves model weights to a file.
 
     Args:
@@ -591,11 +659,11 @@ def convert_model_weights(model_config_path: str, model_weights_path: str) -> No
         target = os.path.join(paths[-3],
                               paths[-2],
                               os.path.basename(model_config_path).rsplit(".")[0] + ".weights")
-        _save_darknet_weights(model, model_weights_path=target, cutoff=-1)
+        save_darknet_weights(model, model_weights_path=target, cutoff=-1)
         print(f"Success: converted {model_weights_path} to {target}")
 
     elif model_weights_path.endswith(".weights"):  # darknet format
-        _load_darknet_weights(model, model_weights_path)
+        load_darknet_weights(model, model_weights_path)
 
         chkpt = {"epoch": -1,
                  "best_fitness": None,
@@ -613,7 +681,7 @@ def convert_model_weights(model_config_path: str, model_weights_path: str) -> No
         print("Error: extension not supported.")
 
 
-def _parse_model_config(model_config_path: str) -> List[Dict[str, Any]]:
+def parse_model_config(model_config_path: str) -> List[Dict[str, Any]]:
     """Parses the yolo-v3 layer configuration file and returns module definitions.
 
     Args:
@@ -753,8 +821,10 @@ def compute_loss(p: Tensor, targets: Tensor, model: nn.Module):  # predictions, 
     hyper_parameters_dict = model.hyper_parameters_dict  # hyperparameters
 
     # Define criteria
-    BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.FloatTensor([hyper_parameters_dict["cls_pw"]]).to(device=targets.device))
-    BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.FloatTensor([hyper_parameters_dict["obj_pw"]]).to(device=targets.device))
+    BCEcls = nn.BCEWithLogitsLoss(
+        pos_weight=torch.FloatTensor([hyper_parameters_dict["cls_pw"]]).to(device=targets.device))
+    BCEobj = nn.BCEWithLogitsLoss(
+        pos_weight=torch.FloatTensor([hyper_parameters_dict["obj_pw"]]).to(device=targets.device))
 
     # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
     cp, cn = smooth_bce(eps=0.0)
@@ -909,12 +979,14 @@ def build_targets(
         anchors = model.module_list[j].anchor_vec
         gain[2:] = torch.tensor(p[i].shape)[[3, 2, 3, 2]].to(device=targets.device)  # xyxy gain
         na = anchors.shape[0]  # number of anchors
-        at = torch.arange(na).view(na, 1).repeat(1, nt).to(device=targets.device)  # anchor tensor, same as .repeat_interleave(nt)
+        at = torch.arange(na).view(na, 1).repeat(1, nt).to(
+            device=targets.device)  # anchor tensor, same as .repeat_interleave(nt)
 
         # Match targets to anchors
         a, t, offsets = [], targets * gain, 0
         if nt:
-            j = wh_iou(anchors, t[:, 4:6]) > model.hyper_parameters_dict["iou_t"]  # iou(3,n) = wh_iou(anchors(3,2), gwh(n,2))
+            j = wh_iou(anchors, t[:, 4:6]) > model.hyper_parameters_dict[
+                "iou_t"]  # iou(3,n) = wh_iou(anchors(3,2), gwh(n,2))
             a, t = at[j], t.repeat(na, 1, 1)[j]  # filter
 
         # Define

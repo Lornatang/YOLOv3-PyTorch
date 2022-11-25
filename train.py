@@ -31,7 +31,7 @@ import config
 import model
 from dataset import parse_dataset_config, labels_to_class_weights, LoadImagesAndLabels
 from test import test
-from utils import load_state_dict, make_directory, save_checkpoint, AverageMeter, ProgressMeter
+from utils import make_directory, AverageMeter, ProgressMeter
 
 
 def main():
@@ -41,7 +41,7 @@ def main():
     # Initialize training to generate network evaluation indicators
     best_map50 = 0.0
 
-    yolo_model, ema_yolo_model, train_dataloader, test_dataloader = build_dataset_and_model()
+    yolo_model, ema_yolo_model, train_dataloader, test_dataloader, names = build_dataset_and_model()
     print("Load all datasets successfully.")
 
     optimizer = define_optimizer(yolo_model)
@@ -49,16 +49,18 @@ def main():
 
     # Load the pre-trained model weights and fine-tune the model
     print("Check whether to load pretrained model weights...")
-    if config.pretrained_model_weights_path:
-        yolo_model = load_state_dict(yolo_model, config.pretrained_model_weights_path)
+    if config.pretrained_model_weights_path.endswith(".pth.tar"):
+        yolo_model = model.load_torch_weights(yolo_model, config.pretrained_model_weights_path)
         print(f"Loaded `{config.pretrained_model_weights_path}` pretrained model weights successfully.")
+    elif config.pretrained_model_weights_path.endswith(".weights"):
+        model.load_darknet_weights(yolo_model, config.pretrained_model_weights_path)
     else:
         print("Pretrained model weights not found.")
 
     # Load the last training interruption node
     print("Check whether the resume model is restored...")
-    if config.resume_model_weights_path:
-        yolo_model, ema_yolo_model, start_epoch, best_psnr, best_ssim, optimizer, scheduler = load_state_dict(
+    if config.resume_model_weights_path.endswith(".pth.tar"):
+        yolo_model, ema_yolo_model, start_epoch, best_psnr, best_ssim, optimizer, scheduler = model.load_torch_weights(
             yolo_model,
             config.pretrained_model_weights_path,
             ema_yolo_model,
@@ -105,12 +107,14 @@ def main():
         is_last = (epoch + 1) == config.epochs
         p, r, map50, f1, maps = test(yolo_model,
                                      test_dataloader,
+                                     names,
                                      config.conf_threshold,
                                      config.iou_threshold,
                                      is_last and config.save_json,
                                      False,
                                      iouv,
-                                     niou)
+                                     niou,
+                                     False)
         writer.add_scalar("Test/Precision", p, epoch + 1)
         writer.add_scalar("Test/Recall", r, epoch + 1)
         writer.add_scalar("Test/mAP_0.5", map50, epoch + 1)
@@ -124,25 +128,26 @@ def main():
         is_best = map50 > best_map50
         is_last = (epoch + 1) == config.epochs
         best_map50 = max(map50, best_map50)
-        save_checkpoint({"epoch": epoch + 1,
-                         "best_map50": best_map50,
-                         "state_dict": yolo_model.state_dict(),
-                         "ema_state_dict": ema_yolo_model.state_dict(),
-                         "optimizer": optimizer.state_dict(),
-                         "scheduler": scheduler.state_dict()},
-                        f"epoch_{epoch + 1}.pth.tar",
-                        samples_dir,
-                        results_dir,
-                        "best.pth.tar",
-                        "last.pth.tar",
-                        is_best,
-                        is_last)
+        model.save_torch_weights({"epoch": epoch + 1,
+                                  "best_map50": best_map50,
+                                  "state_dict": yolo_model.state_dict(),
+                                  "ema_state_dict": ema_yolo_model.state_dict(),
+                                  "optimizer": optimizer.state_dict(),
+                                  "scheduler": scheduler.state_dict()},
+                                 f"epoch_{epoch + 1}.pth.tar",
+                                 samples_dir,
+                                 results_dir,
+                                 "best.pth.tar",
+                                 "last.pth.tar",
+                                 is_best,
+                                 is_last)
 
 
-def build_dataset_and_model() -> [nn.Module, nn.Module, DataLoader, DataLoader]:
+def build_dataset_and_model() -> [nn.Module, nn.Module, DataLoader, DataLoader, list]:
     # Load dataset
     dataset_dict = parse_dataset_config(config.dataset_config_path)
     num_classes = 1 if config.single_classes else int(dataset_dict["classes"])
+    names = dataset_dict["names"]
     config.hyper_parameters_dict["cls"] *= num_classes / 80
 
     train_datasets = LoadImagesAndLabels(path=dataset_dict["train"],
@@ -191,14 +196,13 @@ def build_dataset_and_model() -> [nn.Module, nn.Module, DataLoader, DataLoader]:
                                                        1 if config.single_classes else num_classes)
 
     # Generate an exponential average model based on the generator to stabilize model training
-    ema_avg_fn = lambda averaged_model_parameter, model_parameter, num_averaged: (
-                                                                                         1 - config.model_ema_decay) * averaged_model_parameter + config.model_ema_decay * model_parameter
+    ema_avg_fn = lambda averaged_model_parameter, model_parameter, num_averaged: (1 - config.model_ema_decay) * averaged_model_parameter + config.model_ema_decay * model_parameter
     ema_yolo_model = AveragedModel(yolo_model, avg_fn=ema_avg_fn)
 
     yolo_model = yolo_model.to(device=config.device)
     ema_yolo_model = ema_yolo_model.to(device=config.device)
 
-    return yolo_model, ema_yolo_model, train_dataloader, test_dataloader
+    return yolo_model, ema_yolo_model, train_dataloader, test_dataloader, names
 
 
 def define_optimizer(yolo_model: nn.Module) -> optim.SGD:
@@ -305,9 +309,9 @@ def train(
                 # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
                 lr_decay = lambda lr: (((1 + math.cos(lr * math.pi / config.epochs)) / 2) ** 1.0) * 0.95 + 0.05
                 x["lr"] = np.interp(total_batch_index, xi, [0.1 if j == 2 else 0.0, x["initial_lr"] * lr_decay(epoch)])
-                x["weight_decay"] = np.interp(total_batch_index, xi,
-                                              [0.0,
-                                               config.optim_weight_decay if j == 1 else 0.0])
+                x["weight_decay"] = np.interp(total_batch_index,
+                                              xi,
+                                              [0.0, config.optim_weight_decay if j == 1 else 0.0])
                 if "momentum" in x:
                     x["momentum"] = np.interp(total_batch_index, xi, [0.9, config.optim_momentum])
 

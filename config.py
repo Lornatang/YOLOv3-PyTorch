@@ -42,6 +42,7 @@ conf_threshold = 0.001
 iou_threshold = 0.6
 save_json = False
 augment = False
+verbose = False
 # Current configuration parameter method
 mode = "train"
 # Experiment name, easy to save weights and log files

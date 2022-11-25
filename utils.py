@@ -26,9 +26,9 @@ from torch.nn import Module
 import torchvision.ops
 
 __all__ = [
-    "ap_per_class", "clip_coords", "coco80_to_coco91_class", "compute_ap", "load_state_dict", "make_directory",
-    "non_max_suppression", "scale_coords", "save_checkpoint", "xywh2xyxy", "xyxy2xywh",
-    "Summary", "AverageMeter", "ProgressMeter"
+    "ap_per_class", "clip_coords", "coco80_to_coco91_class", "compute_ap", "make_directory", "non_max_suppression",
+    "scale_coords", "xywh2xyxy", "xyxy2xywh",
+    "Summary", "AverageMeter", "ProgressMeter",
 ]
 
 
@@ -132,8 +132,8 @@ def compute_ap(recall, precision) -> float:
     mpre = np.flip(np.maximum.accumulate(np.flip(mpre)))
 
     # Integrate area under curve
-    method = 'interp'  # methods: 'continuous', 'interp'
-    if method == 'interp':
+    method = "interp"  # methods: 'continuous', 'interp'
+    if method == "interp":
         x = np.linspace(0, 1, 101)  # 101-point interp (COCO)
         ap = np.trapz(np.interp(x, mrec, mpre), x)  # integrate
     else:  # 'continuous'
@@ -141,55 +141,6 @@ def compute_ap(recall, precision) -> float:
         ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])  # area under curve
 
     return ap
-
-
-def load_state_dict(
-        model: nn.Module,
-        model_weights_path: str,
-        ema_model: nn.Module = None,
-        optimizer: torch.optim.Optimizer = None,
-        scheduler: torch.optim.lr_scheduler = None,
-        load_mode: str = None,
-) -> tuple[Module, Any, Any, Any, Any, Any] or Module:
-    # Load model weights
-    checkpoint = torch.load(model_weights_path, map_location=lambda storage, loc: storage)
-
-    if load_mode == "resume":
-        # Restore the parameters in the training node to this point
-        start_epoch = checkpoint["epoch"]
-        best_map50 = checkpoint["best_map50"] if checkpoint["best_map50"] else 0.0
-        # Load model state dict. Extract the fitted model weights
-        model_state_dict = model.state_dict()
-        state_dict = {k: v for k, v in checkpoint["state_dict"].items() if k in model_state_dict.keys()}
-        # Overwrite the model weights to the current model (base model)
-        model_state_dict.update(state_dict)
-        model.load_state_dict(model_state_dict)
-        # Load the optimizer model
-        optimizer.load_state_dict(checkpoint["optimizer"])
-
-        if scheduler is not None:
-            # Load the scheduler model
-            scheduler.load_state_dict(checkpoint["scheduler"])
-
-        if ema_model is not None:
-            # Load ema model state dict. Extract the fitted model weights
-            ema_model_state_dict = ema_model.state_dict()
-            ema_state_dict = {k: v for k, v in checkpoint["ema_state_dict"].items() if k in ema_model_state_dict.keys()}
-            # Overwrite the model weights to the current model (ema model)
-            ema_model_state_dict.update(ema_state_dict)
-            ema_model.load_state_dict(ema_model_state_dict)
-
-        return model, ema_model, start_epoch, best_map50, optimizer, scheduler
-    else:
-        # Load model state dict. Extract the fitted model weights
-        model_state_dict = model.state_dict()
-        state_dict = {k: v for k, v in checkpoint["state_dict"].items() if
-                      k in model_state_dict.keys() and v.size() == model_state_dict[k].size()}
-        # Overwrite the model weights to the current model
-        model_state_dict.update(state_dict)
-        model.load_state_dict(model_state_dict)
-
-        return model
 
 
 def make_directory(dir_path: str or Path) -> None:
@@ -275,25 +226,6 @@ def non_max_suppression(prediction: Tensor,
             break  # time limit exceeded
 
     return output
-
-
-def save_checkpoint(
-        state_dict: dict,
-        file_name: str,
-        samples_dir: str,
-        results_dir: str,
-        best_file_name: str,
-        last_file_name: str,
-        is_best: bool = False,
-        is_last: bool = False,
-) -> None:
-    checkpoint_path = os.path.join(samples_dir, file_name)
-    torch.save(state_dict, checkpoint_path)
-
-    if is_best:
-        shutil.copyfile(checkpoint_path, os.path.join(results_dir, best_file_name))
-    if is_last:
-        shutil.copyfile(checkpoint_path, os.path.join(results_dir, last_file_name))
 
 
 def scale_coords(new_image_shape, coords, raw_image_shape, ratio_pad=None):
