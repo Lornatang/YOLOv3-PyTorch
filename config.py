@@ -22,7 +22,7 @@ random.seed(0)
 torch.manual_seed(0)
 np.random.seed(0)
 # Use GPU for training by default
-device = torch.device("cuda", 0)
+device = torch.device("cuda", 2)
 # Turning on when the image size does not change during training can speed up training
 cudnn.deterministic = False
 cudnn.benchmark = True
@@ -101,6 +101,8 @@ if mode == "train":
     test_print_frequency = 1
 
 if mode == "test":
+    verbose = True
+
     # Dataset config for test
     dataset_config_path = f"./data/voc.data"
 
