@@ -73,7 +73,7 @@ if mode == "train":
     # Default use multi-scale training
     train_image_size_min = 416
     train_image_size_max = 608
-    test_image_size = 416
+    test_image_size = 608
     grid_size = 32  # Do not modify
 
     batch_size = 64
