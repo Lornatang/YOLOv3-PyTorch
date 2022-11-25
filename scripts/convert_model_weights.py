@@ -12,4 +12,6 @@
 # limitations under the License.
 # ==============================================================================
 from model import convert_model_weights
-import os
+
+convert_model_weights("../model_config/yolov3_tiny-voc.cfg",
+                      "../results/pretrained_models/YOLOv3_tiny-VOC0712-6ae10360.pth.tar")
