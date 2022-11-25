@@ -12,22 +12,21 @@
 # limitations under the License.
 # ==============================================================================
 import os
-import shutil
+import random
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Any
 
+import cv2
 import numpy as np
 import torch
-from numpy import ndarray
-from torch import nn, Tensor
-from torch.nn import Module
 import torchvision.ops
+from numpy import ndarray
+from torch import Tensor
 
 __all__ = [
     "ap_per_class", "clip_coords", "coco80_to_coco91_class", "compute_ap", "make_directory", "non_max_suppression",
-    "scale_coords", "xywh2xyxy", "xyxy2xywh",
+    "plot_one_box", "scale_coords", "xywh2xyxy", "xyxy2xywh",
     "Summary", "AverageMeter", "ProgressMeter",
 ]
 
@@ -152,7 +151,7 @@ def non_max_suppression(prediction: Tensor,
                         conf_threshold: float = 0.1,
                         iou_threshold: float = 0.6,
                         multi_label: bool = True,
-                        classes: list = None,
+                        filter_classes: list = None,
                         agnostic: bool = False):
     """
     Performs Non-Maximum Suppression (NMS) on inference results
@@ -161,7 +160,7 @@ def non_max_suppression(prediction: Tensor,
         conf_threshold (float): confidence threshold
         iou_threshold (float): IoU threshold for NMS
         multi_label (bool): allow multiple labels per box
-        classes (list): filter by class: --class 0, or --class 0 2 3
+        filter_classes (list): filter by class: --class 0, or --class 0 2 3
         agnostic (bool): class-agnostic NMS
 
     Returns:
@@ -201,8 +200,8 @@ def non_max_suppression(prediction: Tensor,
             x = torch.cat((box, conf.unsqueeze(1), j.float().unsqueeze(1)), 1)[conf > conf_threshold]
 
         # Filter by class
-        if classes:
-            x = x[(j.view(-1, 1) == torch.tensor(classes, device=j.device)).any(1)]
+        if filter_classes:
+            x = x[(j.view(-1, 1) == torch.tensor(filter_classes, device=j.device)).any(1)]
 
         # If none remain process next image
         n = x.shape[0]  # number of boxes
@@ -226,6 +225,37 @@ def non_max_suppression(prediction: Tensor,
             break  # time limit exceeded
 
     return output
+
+
+def plot_one_box(
+        xyxy: tuple,
+        image: ndarray,
+        color: list[int] = None,
+        label: str = None,
+        line_thickness: float = None
+) -> None:
+    """Plots one bounding box on image
+
+    Args:
+        xyxy (tuple): bounding box
+        image (ndarray): image to plot on
+        color (list[int]): color of the box
+        label (str): label of the box
+        line_thickness (float): thickness of the lines of the box
+
+    """
+    # Plots one bounding box on image img
+    tl = line_thickness or round(0.002 * (image.shape[0] + image.shape[1]) / 2) + 1  # line/font thickness
+    color = color or [random.randint(0, 255) for _ in range(3)]
+    c1, c2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
+    cv2.rectangle(image, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
+
+    if label:
+        tf = max(tl - 1, 1)  # font thickness
+        t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
+        c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
+        cv2.rectangle(image, c1, c2, color, -1, cv2.LINE_AA)  # filled
+        cv2.putText(image, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
 
 
 def scale_coords(new_image_shape, coords, raw_image_shape, ratio_pad=None):

@@ -19,6 +19,11 @@ from tqdm import tqdm
 
 from utils import make_directory
 
+__all__ = [
+    "LoadImages", "LoadStreams", "LoadWebcam",
+    "LoadImagesAndLabels"
+]
+
 support_image_formats = [".bmp", ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".dng"]
 support_video_formats = [".mov", ".avi", ".mp4", ".mpg", ".mpeg", ".m4v", ".wmv", ".mkv"]
 
@@ -196,7 +201,7 @@ def load_mosaic(self, index: int) -> Tuple[np.ndarray, List]:
 
 def letterbox(
         image: ndarray,
-        new_shape: tuple = (416, 416),
+        new_shape: int or tuple = (416, 416),
         color: tuple = (114, 114, 114),
         auto: bool = True,
         scale_fill: bool = False,
@@ -206,7 +211,7 @@ def letterbox(
 
     Args:
         image (ndarray): Image to resize
-        new_shape (tuple): Desired output shape of the image
+        new_shape (int or tuple): Desired output shape of the image
         color (tuple): Color of the border
         auto (bool): Whether to choose the smaller dimension as the new shape
         scale_fill (bool): Whether to stretch the image to fill the new shape
@@ -458,14 +463,14 @@ class LoadImages:  # for inference
                     ret_val, raw_image = self.cap.read()
 
             self.frame += 1
-            print("video %g/%g (%g/%g) %s: " % (self.count + 1, self.nF, self.frame, self.nframes, path), end="")
+            print(f"video {self.count + 1}/{self.nF} ({self.frame}/{self.nframes}) {path}: ", end="")
 
         else:
             # Read image
             self.count += 1
             raw_image = cv2.imread(path)  # BGR
             assert raw_image is not None, "Image Not Found " + path
-            print("image %g/%g %s: " % (self.count, self.nF, path), end="")
+            print(f"image {self.count}/{self.nF} {path}: ", end="")
 
         # Padded resize
         image = letterbox(raw_image, new_shape=self.image_size)[0]
@@ -905,7 +910,8 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                                               shear=hyper_parameters_dict["shear"])
 
             # Augment colorspace
-            augment_hsv(image, hgain=hyper_parameters_dict["hsv_h"], sgain=hyper_parameters_dict["hsv_s"], vgain=hyper_parameters_dict["hsv_v"])
+            augment_hsv(image, hgain=hyper_parameters_dict["hsv_h"], sgain=hyper_parameters_dict["hsv_s"],
+                        vgain=hyper_parameters_dict["hsv_v"])
 
         nL = len(labels)  # number of labels
         if nL:
