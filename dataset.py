@@ -20,6 +20,8 @@ from tqdm import tqdm
 from utils import make_directory
 
 __all__ = [
+    "parse_dataset_config", "load_image", "augment_hsv", "load_mosaic", "letterbox", "random_affine", "cutout",
+    "xywh2xyxy", "xyxy2xywh", "labels_to_class_weights",
     "LoadImages", "LoadStreams", "LoadWebcam",
     "LoadImagesAndLabels"
 ]
@@ -33,7 +35,7 @@ for orientation in ExifTags.TAGS.keys():
         break
 
 
-def exif_size(image: Image.Image) -> tuple:
+def _exif_size(image: Image.Image) -> tuple:
     """Get the size of an image from its EXIF data.
 
     Args:
@@ -740,7 +742,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 s = [x.split() for x in f.read().splitlines()]
                 assert len(s) == num_images, "Shapefile out of sync"
         except:
-            s = [exif_size(Image.open(f)) for f in tqdm(self.image_files, desc="Reading image shapes")]
+            s = [_exif_size(Image.open(f)) for f in tqdm(self.image_files, desc="Reading image shapes")]
             np.savetxt(sp, s, fmt="%g")  # overwrites existing (if any)
 
         self.shapes = np.asarray(s, dtype=np.float64)
