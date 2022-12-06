@@ -468,7 +468,7 @@ def _create_modules(
                 bias[:, 5:] += math.log(0.6 / (modules.num_classes - 0.99))  # cls (sigmoid(p) = 1/nc)
                 module_define[j][0].bias = torch.nn.Parameter(bias_, requires_grad=bias_.requires_grad)
             except:
-                print("WARNING: smart bias initialization failure.")
+                pass
 
         elif module["type"] == "dropout":
             perc = float(module["probability"])
