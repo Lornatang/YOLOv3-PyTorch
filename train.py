@@ -34,6 +34,9 @@ from utils import make_directory, AverageMeter, ProgressMeter
 
 
 def main():
+    # Initialize the mixed precision method
+    scaler = amp.GradScaler()
+
     # Initialize the number of training epochs
     start_epoch = 0
 
@@ -81,9 +84,6 @@ def main():
 
     # create model training log
     writer = SummaryWriter(os.path.join("samples", "logs", config.exp_name))
-
-    # Initialize the mixed precision method
-    scaler = amp.GradScaler()
 
     # get the number of training samples
     batches = len(train_dataloader)
@@ -337,13 +337,12 @@ def train(
         # Backpropagation
         scaler.scale(loss).backward()
 
-        if batch_index % max(round(64 / config.batch_size), 1) == 0:
-            # update generator weights
-            scaler.step(optimizer)
-            scaler.update()
+        # update generator weights
+        scaler.step(optimizer)
+        scaler.update()
 
-            # update exponential average model weights
-            ema_yolo_model.update_parameters(yolo_model)
+        # update exponential average model weights
+        ema_yolo_model.update_parameters(yolo_model)
 
         # Statistical loss value for terminal data output
         giou_losses.update(loss_item[0], images.size(0))
