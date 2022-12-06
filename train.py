@@ -18,8 +18,7 @@ import time
 
 import numpy as np
 import torch
-from torch import nn
-from torch import optim
+from torch import nn, optim
 from torch.cuda import amp
 from torch.nn import functional as F_torch
 from torch.optim import lr_scheduler
@@ -111,13 +110,13 @@ def main():
                                      config.conf_threshold,
                                      config.iou_threshold,
                                      is_last and config.save_json,
-                                     False,
+                                     config.test_augment,
                                      iouv,
                                      niou,
-                                     False)
+                                     config.verbose)
         writer.add_scalar("Test/Precision", p, epoch + 1)
         writer.add_scalar("Test/Recall", r, epoch + 1)
-        writer.add_scalar("Test/mAP_0.5", map50, epoch + 1)
+        writer.add_scalar("Test/mAP0.5", map50, epoch + 1)
         writer.add_scalar("Test/F1", f1, epoch + 1)
         print("\n")
 
@@ -333,15 +332,18 @@ def train(
         with amp.autocast():
             output = yolo_model(images)
             loss, loss_item = model.compute_loss(output, targets, yolo_model)
+            loss *= config.batch_size / 64  # scale loss
 
         # Backpropagation
         scaler.scale(loss).backward()
-        # update generator weights
-        scaler.step(optimizer)
-        scaler.update()
 
-        # update exponential average model weights
-        ema_yolo_model.update_parameters(yolo_model)
+        if batch_index % max(round(64 / config.batch_size), 1) == 0:
+            # update generator weights
+            scaler.step(optimizer)
+            scaler.update()
+
+            # update exponential average model weights
+            ema_yolo_model.update_parameters(yolo_model)
 
         # Statistical loss value for terminal data output
         giou_losses.update(loss_item[0], images.size(0))

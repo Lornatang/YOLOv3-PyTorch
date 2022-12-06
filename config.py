@@ -42,7 +42,7 @@ conf_threshold = 0.001
 iou_threshold = 0.5
 save_json = False
 train_augment = True
-test_augment = True
+test_augment = False
 verbose = False
 # Current configuration parameter method
 mode = "train"
@@ -73,7 +73,7 @@ if mode == "train":
     # Default use multi-scale training
     train_image_size_min = 416
     train_image_size_max = 608
-    test_image_size = 608
+    test_image_size = 416
     grid_size = 32  # Do not modify
 
     batch_size = 64
@@ -86,7 +86,7 @@ if mode == "train":
     resume_model_weights_path = f""
 
     # Total num epochs
-    epochs = 1000
+    epochs = 300
 
     # Optimizer parameter
     optim_lr = 1e-2
