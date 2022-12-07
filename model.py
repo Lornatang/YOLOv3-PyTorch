@@ -28,6 +28,9 @@ __all__ = [
     "load_torch_weights", "load_darknet_weights", "save_torch_weights", "save_darknet_weights", "convert_model_weights",
     "yolov3_tiny_prn_voc", "yolov3_tiny_prn_coco",
     "yolov3_tiny_voc", "yolov3_tiny_coco",
+    "mobilenetv1_voc", "mobilenetv1_coco",
+    "mobilenetv2_voc", "mobilenetv2_coco",
+    "mobilenetv3_small_voc", "mobilenetv3_small_coco", "mobilenetv3_large_voc", "mobilenetv3_large_coco",
     "yolov3_voc", "yolov3_coco",
 ]
 
@@ -1044,6 +1047,54 @@ def yolov3_tiny_voc(**kwargs) -> Darknet:
 
 def yolov3_tiny_coco(**kwargs) -> Darknet:
     model = Darknet(model_config="./model_config/yolov3_tiny-coco.cfg", **kwargs)
+
+    return model
+
+
+def mobilenetv1_voc(**kwargs) -> Darknet:
+    model = Darknet(model_config="./model_config/mobilenetv1-voc.cfg", **kwargs)
+
+    return model
+
+
+def mobilenetv1_coco(**kwargs) -> Darknet:
+    model = Darknet(model_config="./model_config/mobilenetv1-coco.cfg", **kwargs)
+
+    return model
+
+
+def mobilenetv2_voc(**kwargs) -> Darknet:
+    model = Darknet(model_config="./model_config/mobilenetv2-voc.cfg", **kwargs)
+
+    return model
+
+
+def mobilenetv2_coco(**kwargs) -> Darknet:
+    model = Darknet(model_config="./model_config/mobilenetv2-coco.cfg", **kwargs)
+
+    return model
+
+
+def mobilenetv3_small_voc(**kwargs) -> Darknet:
+    model = Darknet(model_config="./model_config/mobilenetv3_small-voc.cfg", **kwargs)
+
+    return model
+
+
+def mobilenetv3_small_coco(**kwargs) -> Darknet:
+    model = Darknet(model_config="./model_config/mobilenetv3_small-coco.cfg", **kwargs)
+
+    return model
+
+
+def mobilenetv3_large_voc(**kwargs) -> Darknet:
+    model = Darknet(model_config="./model_config/mobilenetv3_large-voc.cfg", **kwargs)
+
+    return model
+
+
+def mobilenetv3_large_coco(**kwargs) -> Darknet:
+    model = Darknet(model_config="./model_config/mobilenetv3_large-coco.cfg", **kwargs)
 
     return model
 
