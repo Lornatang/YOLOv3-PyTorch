@@ -83,10 +83,9 @@ def main(args):
 
 def choice_device(device: str = "cpu") -> torch.device:
     # Select model processing equipment type
-    if device[:4] == "cuda" and len(device) == 4:
-        device = "cuda:0"
-
-    if device[:4] == "cuda":
+    if device == "cuda":
+        device = torch.device("cuda", 0)
+    elif device[:4] == "cuda":
         device = torch.device(device)
     else:
         device = torch.device("cpu")
@@ -280,7 +279,7 @@ if __name__ == "__main__":
     parser.add_argument("--gray", type=bool, default=False,
                         help="Whether to use gray image. Default: ``False``.")
     parser.add_argument("--model_weights_path", type=str,
-                        default="./results/pretrained_models/YOLOv3_tiny-VOC0712-6ae10360.pth.tar",
+                        default="./results/YOLOv3_tiny-VOC0712/best.pth.tar",
                         help="Model file weight path. Default: ``./results/pretrained_models/YOLOv3_tiny-VOC0712-6ae10360.pth.tar``.")
     parser.add_argument("--device", type=str, default="cpu",
                         help="Device. Default: ``cpu``.")
