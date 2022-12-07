@@ -80,7 +80,7 @@ if mode == "train":
     num_workers = 4
 
     # Load the address of the pre-trained model
-    pretrained_model_weights_path = f""
+    pretrained_model_weights_path = f"./results/pretrained_models/YOLOv3_tiny-COCO.weights"
 
     # Define this parameter when training is interrupted or migrated
     resume_model_weights_path = f""
@@ -101,13 +101,11 @@ if mode == "train":
     test_print_frequency = 1
 
 if mode == "test":
-    verbose = True
-
     # Dataset config for test
-    dataset_config_path = f"./data/voc.data"
+    test_dataset_config_path = f"./data/voc.data"
 
     test_image_size = 608
-    batch_size = 16
+    batch_size = 64
     num_workers = 4
 
-    model_weights_path = "./results/pretrained_models/YOLOv3_tiny-VOC0712-6ae10360.pth.tar"
+    model_weights_path = ""

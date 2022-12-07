@@ -56,6 +56,7 @@ def main():
         print(f"Loaded `{config.pretrained_model_weights_path}` pretrained model weights successfully.")
     elif config.pretrained_model_weights_path.endswith(".weights"):
         model.load_darknet_weights(yolo_model, config.pretrained_model_weights_path)
+        print(f"Loaded `{config.pretrained_model_weights_path}` pretrained model weights successfully.")
     else:
         print("Pretrained model weights not found.")
 
@@ -64,7 +65,7 @@ def main():
     if config.resume_model_weights_path.endswith(".pth.tar"):
         yolo_model, ema_yolo_model, start_epoch, best_psnr, best_ssim, optimizer, scheduler = model.load_torch_weights(
             yolo_model,
-            config.pretrained_model_weights_path,
+            config.resume_model_weights_path,
             ema_yolo_model,
             optimizer,
             None,

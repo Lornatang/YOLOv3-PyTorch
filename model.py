@@ -24,8 +24,11 @@ from torch.nn import Module
 from torch.nn import functional as F_torch
 
 __all__ = [
-    "Darknet", "load_torch_weights", "load_darknet_weights", "save_torch_weights", "save_darknet_weights",
-    "convert_model_weights", "yolov3_tiny_voc", "yolov3_tiny_coco", "yolov3_voc", "yolov3_coco",
+    "Darknet",
+    "load_torch_weights", "load_darknet_weights", "save_torch_weights", "save_darknet_weights", "convert_model_weights",
+    "yolov3_tiny_prn_voc", "yolov3_tiny_prn_coco",
+    "yolov3_tiny_voc", "yolov3_tiny_coco",
+    "yolov3_voc", "yolov3_coco",
 ]
 
 
@@ -81,11 +84,13 @@ class Darknet(nn.Module):
         image_size = x.shape[-2:]  # height, width
         yolo_out, out = [], []
 
+        # For augment
+        batch_size = x.shape[0]
+        scale_factor = [0.83, 0.67]
+
         # Augment images (inference and test only)
         if augment:
-            nb = x.shape[0]  # batch size
-            s = [0.83, 0.67]  # scales
-            x = torch.cat((x, _scale_image(x.flip(3), s[0]), _scale_image(x, s[1])), 0)
+            x = torch.cat((x, _scale_image(x.flip(3), scale_factor[0]), _scale_image(x, scale_factor[1])), 0)
 
         for i, module in enumerate(self.module_list):
             name = module.__class__.__name__
@@ -95,7 +100,7 @@ class Darknet(nn.Module):
                 x = module(out)
             elif name == "_YOLOLayer":
                 yolo_out.append(module(x))
-            else:  # run module directly, i.e. mtype = "convolutional", "upsample", "maxpool", "batchnorm2d" etc.
+            else:
                 x = module(x)
 
             out.append(x if self.routs[i] else [])
@@ -109,10 +114,10 @@ class Darknet(nn.Module):
             x, p = zip(*yolo_out)  # inference output, training output
             x = torch.cat(x, 1)  # cat yolo outputs
             if augment:  # de-augment results
-                x = torch.split(x, nb, dim=0)
-                x[1][..., :4] /= s[0]  # scale
+                x = torch.split(x, batch_size, dim=0)
+                x[1][..., :4] /= scale_factor[0]  # scale
                 x[1][..., 0] = image_size[1] - x[1][..., 0]  # flip lr
-                x[2][..., :4] /= s[1]  # scale
+                x[2][..., :4] /= scale_factor[1]  # scale
                 x = torch.cat(x, 1)
             return x, p
 
@@ -165,7 +170,7 @@ class _YOLOLayer(nn.Module):
         self.na = len(anchors)  # number of anchors (3)
         self.num_classes = num_classes  # number of classes (80)
         self.num_classes_output = num_classes + 5  # number of outputs (85)
-        self.nx, self.ny, self.ng = 0, 0, 0  # initialize number of x, y gridpoints
+        self.nx, self.ny, self.ng = 0, 0, 0  # initialize number of x, y grid points
         self.anchor_vec = self.anchors / self.stride
         self.anchor_wh = self.anchor_vec.view(1, self.na, 1, 1, 2)
         self.onnx_export = onnx_export
@@ -325,6 +330,7 @@ class _WeightedFeatureFusion(nn.Module):
         # Fusion
         nx = x.shape[1]  # input channels
         for i in range(self.n - 1):
+            w = torch.sigmoid(self.w) * (2 / self.n)  # sigmoid weights (0-1)
             a = outputs[self.layers[i]] * w[i + 1] if self.weight else outputs[self.layers[i]]  # feature to add
             na = a.shape[1]  # feature channels
 
@@ -1016,6 +1022,18 @@ def wh_iou(wh1, wh2):
     wh2 = wh2[None]  # [1,M,2]
     inter = torch.min(wh1, wh2).prod(2)  # [N,M]
     return inter / (wh1.prod(2) + wh2.prod(2) - inter)  # iou = inter / (area1 + area2 - inter)
+
+
+def yolov3_tiny_prn_voc(**kwargs) -> Darknet:
+    model = Darknet(model_config="./model_config/yolov3_tiny_prn-voc.cfg", **kwargs)
+
+    return model
+
+
+def yolov3_tiny_prn_coco(**kwargs) -> Darknet:
+    model = Darknet(model_config="./model_config/yolov3_tiny_prn-coco.cfg", **kwargs)
+
+    return model
 
 
 def yolov3_tiny_voc(**kwargs) -> Darknet:

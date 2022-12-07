@@ -56,7 +56,7 @@ def main():
 
 def build_dataset() -> [nn.Module, int, list]:
     # Load dataset
-    dataset_dict = parse_dataset_config(config.dataset_config_path)
+    dataset_dict = parse_dataset_config(config.test_dataset_config_path)
     num_classes = 1 if config.single_classes else int(dataset_dict["classes"])
     names = dataset_dict["names"]
 
