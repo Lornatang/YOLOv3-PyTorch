@@ -347,6 +347,77 @@ class _WeightedFeatureFusion(nn.Module):
         return x
 
 
+class _InvertedResidual(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int, stride: int) -> None:
+        super(_InvertedResidual, self).__init__()
+
+        if not (1 <= stride <= 3):
+            raise ValueError("Illegal stride value")
+        self.stride = stride
+
+        branch_features = out_channels // 2
+        assert (self.stride != 1) or (in_channels == branch_features << 1)
+
+        if self.stride > 1:
+            self.branch1 = nn.Sequential(
+                self.depth_wise_conv(in_channels, in_channels, kernel_size=3, stride=self.stride, padding=1),
+                nn.BatchNorm2d(in_channels),
+                nn.Conv2d(in_channels, branch_features, kernel_size=1, stride=1, padding=0, bias=False),
+                nn.BatchNorm2d(branch_features),
+                nn.ReLU(inplace=True),
+            )
+        else:
+            self.branch1 = nn.Sequential()
+
+        self.branch2 = nn.Sequential(
+            nn.Conv2d(in_channels if (self.stride > 1) else branch_features,
+                      branch_features, kernel_size=1, stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(branch_features),
+            nn.ReLU(inplace=True),
+            self.depth_wise_conv(branch_features, branch_features, kernel_size=3, stride=self.stride,
+                                 padding=1),
+            nn.BatchNorm2d(branch_features),
+            nn.Conv2d(branch_features, branch_features, kernel_size=1, stride=1, padding=0,
+                      bias=False),
+            nn.BatchNorm2d(branch_features),
+            nn.ReLU(inplace=True),
+        )
+
+    @staticmethod
+    def depth_wise_conv(i, o, kernel_size, stride=1, padding=0, bias=False):
+        return nn.Conv2d(i, o, kernel_size, stride, padding, bias=bias, groups=i)
+
+    def forward(self, x: Tensor) -> Tensor:
+        if self.stride == 1:
+            x1, x2 = x.chunk(2, dim=1)
+            out = torch.cat((x1, self.branch2(x2)), dim=1)
+        else:
+            out = torch.cat((self.branch1(x), self.branch2(x)), dim=1)
+
+        out = F_torch.channel_shuffle(out, 2)
+
+        return out
+
+
+class _SeModule(nn.Module):
+    def __init__(self, in_channels: int, reduction: int = 4) -> None:
+        super(_SeModule, self).__init__()
+        self.se = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(in_channels, in_channels // reduction, kernel_size=1, stride=1, padding=0,
+                      bias=False),
+            nn.BatchNorm2d(in_channels // reduction),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels // reduction, in_channels, kernel_size=1, stride=1, padding=0,
+                      bias=False),
+            nn.BatchNorm2d(in_channels),
+            nn.Hardsigmoid(True)
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        return x * self.se(x)
+
+
 def _create_modules(
         module_define: list,
         image_size: int or tuple,
@@ -406,11 +477,17 @@ def _create_modules(
                 routs.append(i)  # detection output (goes into yolo layer)
 
             if module["activation"] == "leaky":
-                modules.add_module("activation", nn.LeakyReLU(0.1, inplace=True))
-            elif module["activation"] == "swish":
-                modules.add_module("activation", nn.Hardswish(True))
+                modules.add_module("activation", nn.LeakyReLU(0.1, True))
+            elif module["activation"] == "relu":
+                modules.add_module("activation", nn.ReLU(True))
+            elif module["activation"] == "relu6":
+                modules.add_module("activation", nn.ReLU6(True))
             elif module["activation"] == "mish":
                 modules.add_module("activation", nn.Mish(True))
+            elif module["activation"] == "hswish":
+                modules.add_module("activation", nn.Hardswish(True))
+            elif module["activation"] == "hsigmoid":
+                modules.add_module("activation", nn.Hardsigmoid(True))
 
         elif module["type"] == "BatchNorm2d":
             filters = output_filters[-1]
@@ -428,6 +505,37 @@ def _create_modules(
                 modules.add_module("MaxPool2d", maxpool)
             else:
                 modules = maxpool
+
+        elif module["type"] == "avgpool":
+            kernel_size = module["size"]
+            stride = module["stride"]
+            modules.add_module("AvgPool2d", nn.AvgPool2d(kernel_size=kernel_size, stride=stride,
+                                                         padding=(kernel_size - 1) // 2))
+
+        elif module["type"] == "semodule":
+            in_channels = module["in_features"]
+            modules.add_module("SeModule", _SeModule(in_channels))
+
+        elif module["type"] == "InvertedResidual":
+            in_channels = module["in_channels"]
+            out_channels = module["out_channels"]
+            stride = module["stride"]
+            modules.add_module("InvertedResidual", _InvertedResidual(in_channels=in_channels,
+                                                                     out_channels=out_channels,
+                                                                     stride=stride).cuda())
+
+        elif module["type"] == "dense":
+            bn = module["batch_normalize"]
+            in_features = module["in_features"]
+            out_features = module["out_features"]
+            modules.add_module("Linear", nn.Linear(in_features=in_features,
+                                                   out_features=out_features,
+                                                   bias=not bn))
+
+            if bn:
+                modules.add_module("BatchNorm2d", nn.BatchNorm2d(num_features=out_features,
+                                                                 momentum=0.003,
+                                                                 eps=1E-4))
 
         elif module["type"] == "upsample":
             if onnx_export:  # explicitly state size, avoid scale_factor
@@ -515,7 +623,7 @@ def load_torch_weights(
     if load_mode == "resume":
         # Restore the parameters in the training node to this point
         start_epoch = checkpoint["epoch"]
-        best_map50 = checkpoint["best_map50"] if checkpoint["best_map50"] else 0.0
+        best_map50 = checkpoint["best_map50"]
         # Load model state dict. Extract the fitted model weights
         model_state_dict = model.state_dict()
         state_dict = {k: v for k, v in checkpoint["state_dict"].items() if k in model_state_dict.keys()}
