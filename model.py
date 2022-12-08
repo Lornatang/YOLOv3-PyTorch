@@ -53,7 +53,7 @@ class Darknet(nn.Module):
 
         """
         super(Darknet, self).__init__()
-        self.module_define = parse_model_config(model_config)
+        self.module_define = _parse_model_config(model_config)
         self.module_list, self.routs = _create_modules(self.module_define, image_size, model_config, gray, onnx_export)
         self.yolo_layers = _get_yolo_layers(self)
         self.version = np.array([0, 2, 5], dtype=np.int32)  # (int32) version info: major, minor, revision
@@ -254,6 +254,39 @@ class _FeatureConcat(nn.Module):
         return x
 
 
+class _FocalLoss(nn.Module):
+    def __init__(self, loss_fcn: nn.Module, gamma: float = 1.5, alpha: float = 0.25):
+        """Focal loss for binary classification
+
+        Args:
+            loss_fcn (nn.Module): loss function
+            gamma (float, optional): gamma. Defaults to 1.5.
+            alpha (float, optional): alpha. Defaults to 0.25.
+        """
+        super(_FocalLoss, self).__init__()
+        self.loss_fcn = loss_fcn  # must be nn.BCEWithLogitsLoss()
+        self.gamma = gamma
+        self.alpha = alpha
+        self.reduction = loss_fcn.reduction
+        self.loss_fcn.reduction = "none"  # required to apply FL to each element
+
+    def forward(self, pred, true):
+        loss = self.loss_fcn(pred, true)
+
+        pred_prob = torch.sigmoid(pred)  # prob from logits
+        p_t = true * pred_prob + (1 - true) * (1 - pred_prob)
+        alpha_factor = true * self.alpha + (1 - true) * (1 - self.alpha)
+        modulating_factor = (1.0 - p_t) ** self.gamma
+        loss *= alpha_factor * modulating_factor
+
+        if self.reduction == "mean":
+            return loss.mean()
+        elif self.reduction == "sum":
+            return loss.sum()
+        else:  # "none"
+            return loss
+
+
 class _MixConv2d(nn.Module):
     def __init__(
             self,
@@ -416,6 +449,355 @@ class _SeModule(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         return x * self.se(x)
+
+
+def compute_loss(p: Tensor, targets: Tensor, model: nn.Module):  # predictions, targets, model
+    """Computes loss for YOLOv3.
+
+    Args:
+        p (Tensor): predictions
+        targets (Tensor): targets
+        model (nn.Module): model
+
+    Returns:
+        loss (Tensor): loss
+
+    """
+    lcls = torch.FloatTensor([0]).to(device=targets.device)
+    lbox = torch.FloatTensor([0]).to(device=targets.device)
+    lobj = torch.FloatTensor([0]).to(device=targets.device)
+    tcls, tbox, indices, anchors = _build_targets(p, targets, model)  # targets
+    hyper_parameters_dict = model.hyper_parameters_dict  # hyperparameters
+
+    # Define criteria
+    BCEcls = nn.BCEWithLogitsLoss(
+        pos_weight=torch.FloatTensor([hyper_parameters_dict["cls_pw"]]).to(device=targets.device))
+    BCEobj = nn.BCEWithLogitsLoss(
+        pos_weight=torch.FloatTensor([hyper_parameters_dict["obj_pw"]]).to(device=targets.device))
+
+    # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
+    cp, cn = _smooth_bce(eps=0.0)
+
+    # focal loss
+    g = hyper_parameters_dict["fl_gamma"]  # focal loss gamma
+    if g > 0:
+        BCEcls, BCEobj = _FocalLoss(BCEcls, g), _FocalLoss(BCEobj, g)
+
+    # per output
+    nt = 0  # targets
+    for i, pi in enumerate(p):  # layer index, layer predictions
+        b, a, gj, gi = indices[i]  # image, anchor, gridy, gridx
+        tobj = torch.zeros_like(pi[..., 0])  # target obj
+
+        nb = b.shape[0]  # number of targets
+        if nb:
+            nt += nb  # cumulative targets
+            ps = pi[b, a, gj, gi]  # prediction subset corresponding to targets
+
+            # GIoU
+            pxy = ps[:, :2].sigmoid()
+            pwh = ps[:, 2:4].exp().clamp(max=1E3) * anchors[i]
+            pbox = torch.cat((pxy, pwh), 1)  # predicted box
+            giou = _bbox_iou(pbox.t(), tbox[i], x1y1x2y2=False, g_iou=True)  # giou(prediction, target)
+            lbox += (1.0 - giou).mean()  # giou loss
+
+            # Obj
+            tobj[b, a, gj, gi] = (1.0 - model.gr) + model.gr * giou.detach().clamp(0).type(tobj.dtype)  # giou ratio
+
+            # Class
+            if model.num_classes > 1:  # cls loss (only if multiple classes)
+                t = torch.full_like(ps[:, 5:], cn)  # targets
+                t[range(nb), tcls[i]] = cp
+                lcls += BCEcls(ps[:, 5:], t)  # BCE
+
+        lobj += BCEobj(pi[..., 4], tobj)  # obj loss
+
+    lbox *= hyper_parameters_dict["giou"]
+    lobj *= hyper_parameters_dict["obj"]
+    lcls *= hyper_parameters_dict["cls"]
+
+    loss = lbox + lobj + lcls
+    return loss, torch.cat((lbox, lobj, lcls, loss)).detach()
+
+
+def load_torch_weights(
+        model: nn.Module,
+        model_weights_path: str,
+        ema_model: nn.Module = None,
+        optimizer: torch.optim.Optimizer = None,
+        scheduler: torch.optim.lr_scheduler = None,
+        load_mode: str = None,
+) -> tuple[Module, Any, Any, Any, Any, Any] or Module:
+    # Load model weights
+    checkpoint = torch.load(model_weights_path, map_location=lambda storage, loc: storage)
+
+    if load_mode == "resume":
+        # Restore the parameters in the training node to this point
+        start_epoch = checkpoint["epoch"]
+        best_map50 = checkpoint["best_map50"]
+        # Load model state dict. Extract the fitted model weights
+        model_state_dict = model.state_dict()
+        state_dict = {k: v for k, v in checkpoint["state_dict"].items() if k in model_state_dict.keys()}
+        # Overwrite the model weights to the current model (base model)
+        model_state_dict.update(state_dict)
+        model.load_state_dict(model_state_dict)
+        # Load the optimizer model
+        optimizer.load_state_dict(checkpoint["optimizer"])
+
+        if scheduler is not None:
+            # Load the scheduler model
+            scheduler.load_torch_weights(checkpoint["scheduler"])
+
+        if ema_model is not None:
+            # Load ema model state dict. Extract the fitted model weights
+            ema_model_state_dict = ema_model.state_dict()
+            ema_state_dict = {k: v for k, v in checkpoint["ema_state_dict"].items() if k in ema_model_state_dict.keys()}
+            # Overwrite the model weights to the current model (ema model)
+            ema_model_state_dict.update(ema_state_dict)
+            ema_model.load_state_dict(ema_model_state_dict)
+
+        return model, ema_model, start_epoch, best_map50, optimizer, scheduler
+    else:
+        # Load model state dict. Extract the fitted model weights
+        model_state_dict = model.state_dict()
+        state_dict = {k: v for k, v in checkpoint["state_dict"].items() if
+                      k in model_state_dict.keys() and v.size() == model_state_dict[k].size()}
+        # Overwrite the model weights to the current model
+        model_state_dict.update(state_dict)
+        model.load_state_dict(model_state_dict)
+
+        return model
+
+
+def load_darknet_weights(self, weights, cutoff=-1):
+    # Parses and loads the weights stored in "weights"
+
+    # Establish cutoffs (load layers between 0 and cutoff. if cutoff = -1 all are loaded)
+    file = Path(weights).name
+    if file == "darknet53.conv.74":
+        cutoff = 75
+    elif file == "yolov3-tiny.conv.15":
+        cutoff = 15
+
+    # Read weights file
+    with open(weights, "rb") as f:
+        self.version = np.fromfile(f, dtype=np.int32, count=3)  # (int32) version info: major, minor, revision
+        self.seen = np.fromfile(f, dtype=np.int64, count=1)  # (int64) number of images seen during training
+
+        weights = np.fromfile(f, dtype=np.float32)  # the rest are weights
+
+    ptr = 0
+    for i, (module_define, module) in enumerate(zip(self.module_define[:cutoff], self.module_list[:cutoff])):
+        if module_define["type"] == "convolutional":
+            conv = module[0]
+            if module_define["batch_normalize"]:
+                # Load BN bias, weights, running mean and running variance
+                bn = module[1]
+                nb = bn.bias.numel()  # number of biases
+                # Bias
+                bn.bias.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.bias))
+                ptr += nb
+                # Weight
+                bn.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.weight))
+                ptr += nb
+                # Running Mean
+                bn.running_mean.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.running_mean))
+                ptr += nb
+                # Running Var
+                bn.running_var.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.running_var))
+                ptr += nb
+            else:
+                # Load conv. bias
+                nb = conv.bias.numel()
+                conv_b = torch.from_numpy(weights[ptr:ptr + nb]).view_as(conv.bias)
+                conv.bias.data.copy_(conv_b)
+                ptr += nb
+            # Load conv. weights
+            nw = conv.weight.numel()  # number of weights
+            conv.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nw]).view_as(conv.weight))
+            ptr += nw
+
+
+def save_torch_weights(
+        state_dict: dict,
+        file_name: str,
+        samples_dir: str,
+        results_dir: str,
+        best_file_name: str,
+        last_file_name: str,
+        is_best: bool = False,
+        is_last: bool = False,
+) -> None:
+    checkpoint_path = os.path.join(samples_dir, file_name)
+    torch.save(state_dict, checkpoint_path)
+
+    if is_best:
+        shutil.copyfile(checkpoint_path, os.path.join(results_dir, best_file_name))
+    if is_last:
+        shutil.copyfile(checkpoint_path, os.path.join(results_dir, last_file_name))
+
+
+def save_darknet_weights(self, model_weights_path: str, cutoff=-1) -> None:
+    """Saves model weights to a file.
+
+    Args:
+        self:
+        model_weights_path (str): Path to save model weights.
+        cutoff (int, optional): Cutoff layer. Defaults: -1.
+
+    """
+    with open(model_weights_path, "wb") as f:
+        self.version.tofile(f)  # (int32) version info: major, minor, revision
+        self.seen.tofile(f)  # (int64) number of images seen during training
+
+        # Iterate through layers
+        for i, (module_define, module) in enumerate(zip(self.module_define[:cutoff], self.module_list[:cutoff])):
+            if module_define["type"] == "convolutional":
+                conv_layer = module[0]
+                # If batch norm, load bn first
+                if module_define["batch_normalize"]:
+                    bn_layer = module[1]
+                    bn_layer.bias.data.cpu().numpy().tofile(f)
+                    bn_layer.weight.data.cpu().numpy().tofile(f)
+                    bn_layer.running_mean.data.cpu().numpy().tofile(f)
+                    bn_layer.running_var.data.cpu().numpy().tofile(f)
+                # Load conv bias
+                else:
+                    conv_layer.bias.data.cpu().numpy().tofile(f)
+                # Load conv weights
+                conv_layer.weight.data.cpu().numpy().tofile(f)
+
+
+def convert_model_weights(model_config_path: str, model_weights_path: str) -> None:
+    """Convert darknet model to pytorch model
+
+    Args:
+        model_config_path (str): path to darknet model model_config file
+        model_weights_path (str): path to darknet model weights file
+
+    """
+    # Initialize model
+    model = Darknet(model_config_path)
+
+    # Load weights and save
+    if model_weights_path.endswith(".pth.tar"):  # if PyTorch format
+        model.load_state_dict(torch.load(model_weights_path, map_location="cpu")["state_dict"])
+        target = model_weights_path[:-8] + ".weights"
+        save_darknet_weights(model, model_weights_path=target, cutoff=-1)
+        print(f"Success: converted {model_weights_path} to {target}")
+
+    elif model_weights_path.endswith(".weights"):  # darknet format
+        load_darknet_weights(model, model_weights_path)
+
+        chkpt = {"epoch": 0,
+                 "best_map50": None,
+                 "state_dict": model.state_dict(),
+                 "ema_state_dict": model.state_dict(),
+                 "optimizer": None,
+                 "scheduler": None}
+
+        target = model_weights_path[:-8] + ".pth.tar"
+        torch.save(chkpt, target)
+        print(f"Success: converted {model_weights_path} to {target}")
+    else:
+        print("Error: extension not supported.")
+
+
+def _bbox_iou(box1, box2, x1y1x2y2=True, g_iou=False, d_iou=False, c_iou=False):
+    # Returns the IoU of box1 to box2. box1 is 4, box2 is nx4
+    box2 = box2.t()
+
+    # Get the coordinates of bounding boxes
+    if x1y1x2y2:  # x1, y1, x2, y2 = box1
+        b1_x1, b1_y1, b1_x2, b1_y2 = box1[0], box1[1], box1[2], box1[3]
+        b2_x1, b2_y1, b2_x2, b2_y2 = box2[0], box2[1], box2[2], box2[3]
+    else:  # transform from xywh to xyxy
+        b1_x1, b1_x2 = box1[0] - box1[2] / 2, box1[0] + box1[2] / 2
+        b1_y1, b1_y2 = box1[1] - box1[3] / 2, box1[1] + box1[3] / 2
+        b2_x1, b2_x2 = box2[0] - box2[2] / 2, box2[0] + box2[2] / 2
+        b2_y1, b2_y2 = box2[1] - box2[3] / 2, box2[1] + box2[3] / 2
+
+    # Intersection area
+    inter = (torch.min(b1_x2, b2_x2) - torch.max(b1_x1, b2_x1)).clamp(0) * \
+            (torch.min(b1_y2, b2_y2) - torch.max(b1_y1, b2_y1)).clamp(0)
+
+    # Union Area
+    w1, h1 = b1_x2 - b1_x1, b1_y2 - b1_y1
+    w2, h2 = b2_x2 - b2_x1, b2_y2 - b2_y1
+    union = (w1 * h1 + 1e-16) + w2 * h2 - inter
+
+    iou = inter / union  # iou
+    if g_iou or d_iou or c_iou:
+        cw = torch.max(b1_x2, b2_x2) - torch.min(b1_x1, b2_x1)  # convex (smallest enclosing box) width
+        ch = torch.max(b1_y2, b2_y2) - torch.min(b1_y1, b2_y1)  # convex height
+        if g_iou:  # Generalized IoU https://arxiv.org/pdf/1902.09630.pdf
+            c_area = cw * ch + 1e-16  # convex area
+            return iou - (c_area - union) / c_area  # GIoU
+        if d_iou or c_iou:  # Distance or Complete IoU https://arxiv.org/abs/1911.08287v1
+            # convex diagonal squared
+            c2 = cw ** 2 + ch ** 2 + 1e-16
+            # centerpoint distance squared
+            rho2 = ((b2_x1 + b2_x2) - (b1_x1 + b1_x2)) ** 2 / 4 + ((b2_y1 + b2_y2) - (b1_y1 + b1_y2)) ** 2 / 4
+            if d_iou:
+                return iou - rho2 / c2  # DIoU
+            elif c_iou:  # https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/box/box_utils.py#L47
+                v = (4 / math.pi ** 2) * torch.pow(torch.atan(w2 / h2) - torch.atan(w1 / h1), 2)
+                with torch.no_grad():
+                    alpha = v / (1 - iou + v)
+                return iou - (rho2 / c2 + v * alpha)  # CIoU
+
+    return iou
+
+
+def _build_targets(
+        p: Tensor,
+        targets: Tensor,
+        model: nn.Module
+) -> tuple[list[Any], list[Tensor], list[tuple[Any, Tensor | list[Any] | Any, Any, Any]], list[Any]]:
+    """Build targets for compute_loss(), input targets(image,class,x,y,w,h)
+
+    Args:
+        p (Tensor): predictions
+        targets (Tensor): targets
+        model (nn.Module): model
+
+    Returns:
+        tuple[list[Any], list[Tensor], list[tuple[Any, Tensor | list[Any] | Any, Any, Any]], list[Any]]: targets, indices, anchors, regression
+    """
+    # Build targets for compute_loss(), input targets(image,class,x,y,w,h)
+    nt = targets.shape[0]
+    tcls, tbox, indices, anch = [], [], [], []
+    gain = torch.ones(6, device=targets.device)  # normalized to gridspace gain
+
+    for i, j in enumerate(model.yolo_layers):
+        anchors = model.module_list[j].anchor_vec
+        gain[2:] = torch.tensor(p[i].shape)[[3, 2, 3, 2]].to(device=targets.device)  # xyxy gain
+        na = anchors.shape[0]  # number of anchors
+        at = torch.arange(na).view(na, 1).repeat(1, nt).to(
+            device=targets.device)  # anchor tensor, same as .repeat_interleave(nt)
+
+        # Match targets to anchors
+        a, t, offsets = [], targets * gain, 0
+        if nt:
+            j = _wh_iou(anchors, t[:, 4:6]) > model.hyper_parameters_dict[
+                "iou_t"]  # iou(3,n) = wh_iou(anchors(3,2), gwh(n,2))
+            a, t = at[j], t.repeat(na, 1, 1)[j]  # filter
+
+        # Define
+        b, c = t[:, :2].long().T  # image, class
+        gxy = t[:, 2:4]  # grid xy
+        gwh = t[:, 4:6]  # grid wh
+        gij = (gxy - offsets).long()
+        gi, gj = gij.T  # grid xy indices
+
+        # Append# image, anchor, grid indices
+        indices.append((b, a, gj.clamp_(0, gain[3].long() - 1), gi.clamp_(0, gain[2].long() - 1)))
+        tbox.append(torch.cat((gxy - gij, gwh), 1))  # box
+        anch.append(anchors[a])  # anchors
+        tcls.append(c)  # class
+        if c.shape[0]:  # if any targets
+            assert c.max() < model.num_classes, f"Model accepts {model.num_classes} classes labeled from 0-{model.num_classes - 1}, however you labelled a class {c.max()}. "
+    return tcls, tbox, indices, anch
 
 
 def _create_modules(
@@ -605,194 +987,47 @@ def _create_modules(
     return module_list, routs_binary
 
 
+def _fuse_conv_and_bn(conv: nn.Conv2d, bn: nn.BatchNorm2d) -> nn.Module:
+    """Fuse convolution and batchnorm layers.
+
+    Args:
+        conv (nn.Conv2d): convolution layer
+        bn (nn.BatchNorm2d): batchnorm layer
+
+    Returns:
+        fused_conv_bn (nn.Module): fused convolution layer
+
+    """
+    with torch.no_grad():
+        # init
+        fused_conv_bn = nn.Conv2d(conv.in_channels,
+                                  conv.out_channels,
+                                  kernel_size=conv.kernel_size,
+                                  stride=conv.stride,
+                                  padding=conv.padding,
+                                  bias=True)
+
+        # prepare filters
+        w_conv = conv.weight.clone().view(conv.out_channels, -1)
+        w_bn = torch.diag(bn.weight.div(torch.sqrt(bn.eps + bn.running_var)))
+        fused_conv_bn.weight.copy_(torch.mm(w_bn, w_conv).view(fused_conv_bn.weight.size()))
+
+        # prepare spatial bias
+        if conv.bias is not None:
+            b_conv = conv.bias
+        else:
+            b_conv = torch.zeros(conv.weight.size(0))
+        b_bn = bn.bias - bn.weight.mul(bn.running_mean).div(torch.sqrt(bn.running_var + bn.eps))
+        fused_conv_bn.bias.copy_(torch.mm(w_bn, b_conv.reshape(-1, 1)).reshape(-1) + b_bn)
+
+        return fused_conv_bn
+
+
 def _get_yolo_layers(model):
     return [i for i, m in enumerate(model.module_list) if m.__class__.__name__ == "_YOLOLayer"]  # [89, 101, 113]
 
 
-def load_torch_weights(
-        model: nn.Module,
-        model_weights_path: str,
-        ema_model: nn.Module = None,
-        optimizer: torch.optim.Optimizer = None,
-        scheduler: torch.optim.lr_scheduler = None,
-        load_mode: str = None,
-) -> tuple[Module, Any, Any, Any, Any, Any] or Module:
-    # Load model weights
-    checkpoint = torch.load(model_weights_path, map_location=lambda storage, loc: storage)
-
-    if load_mode == "resume":
-        # Restore the parameters in the training node to this point
-        start_epoch = checkpoint["epoch"]
-        best_map50 = checkpoint["best_map50"]
-        # Load model state dict. Extract the fitted model weights
-        model_state_dict = model.state_dict()
-        state_dict = {k: v for k, v in checkpoint["state_dict"].items() if k in model_state_dict.keys()}
-        # Overwrite the model weights to the current model (base model)
-        model_state_dict.update(state_dict)
-        model.load_state_dict(model_state_dict)
-        # Load the optimizer model
-        optimizer.load_state_dict(checkpoint["optimizer"])
-
-        if scheduler is not None:
-            # Load the scheduler model
-            scheduler.load_torch_weights(checkpoint["scheduler"])
-
-        if ema_model is not None:
-            # Load ema model state dict. Extract the fitted model weights
-            ema_model_state_dict = ema_model.state_dict()
-            ema_state_dict = {k: v for k, v in checkpoint["ema_state_dict"].items() if k in ema_model_state_dict.keys()}
-            # Overwrite the model weights to the current model (ema model)
-            ema_model_state_dict.update(ema_state_dict)
-            ema_model.load_state_dict(ema_model_state_dict)
-
-        return model, ema_model, start_epoch, best_map50, optimizer, scheduler
-    else:
-        # Load model state dict. Extract the fitted model weights
-        model_state_dict = model.state_dict()
-        state_dict = {k: v for k, v in checkpoint["state_dict"].items() if
-                      k in model_state_dict.keys() and v.size() == model_state_dict[k].size()}
-        # Overwrite the model weights to the current model
-        model_state_dict.update(state_dict)
-        model.load_state_dict(model_state_dict)
-
-        return model
-
-
-def load_darknet_weights(self, weights, cutoff=-1):
-    # Parses and loads the weights stored in "weights"
-
-    # Establish cutoffs (load layers between 0 and cutoff. if cutoff = -1 all are loaded)
-    file = Path(weights).name
-    if file == "darknet53.conv.74":
-        cutoff = 75
-    elif file == "yolov3-tiny.conv.15":
-        cutoff = 15
-
-    # Read weights file
-    with open(weights, "rb") as f:
-        self.version = np.fromfile(f, dtype=np.int32, count=3)  # (int32) version info: major, minor, revision
-        self.seen = np.fromfile(f, dtype=np.int64, count=1)  # (int64) number of images seen during training
-
-        weights = np.fromfile(f, dtype=np.float32)  # the rest are weights
-
-    ptr = 0
-    for i, (module_define, module) in enumerate(zip(self.module_define[:cutoff], self.module_list[:cutoff])):
-        if module_define["type"] == "convolutional":
-            conv = module[0]
-            if module_define["batch_normalize"]:
-                # Load BN bias, weights, running mean and running variance
-                bn = module[1]
-                nb = bn.bias.numel()  # number of biases
-                # Bias
-                bn.bias.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.bias))
-                ptr += nb
-                # Weight
-                bn.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.weight))
-                ptr += nb
-                # Running Mean
-                bn.running_mean.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.running_mean))
-                ptr += nb
-                # Running Var
-                bn.running_var.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.running_var))
-                ptr += nb
-            else:
-                # Load conv. bias
-                nb = conv.bias.numel()
-                conv_b = torch.from_numpy(weights[ptr:ptr + nb]).view_as(conv.bias)
-                conv.bias.data.copy_(conv_b)
-                ptr += nb
-            # Load conv. weights
-            nw = conv.weight.numel()  # number of weights
-            conv.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nw]).view_as(conv.weight))
-            ptr += nw
-
-
-def save_torch_weights(
-        state_dict: dict,
-        file_name: str,
-        samples_dir: str,
-        results_dir: str,
-        best_file_name: str,
-        last_file_name: str,
-        is_best: bool = False,
-        is_last: bool = False,
-) -> None:
-    checkpoint_path = os.path.join(samples_dir, file_name)
-    torch.save(state_dict, checkpoint_path)
-
-    if is_best:
-        shutil.copyfile(checkpoint_path, os.path.join(results_dir, best_file_name))
-    if is_last:
-        shutil.copyfile(checkpoint_path, os.path.join(results_dir, last_file_name))
-
-
-def save_darknet_weights(self, model_weights_path: str, cutoff=-1) -> None:
-    """Saves model weights to a file.
-
-    Args:
-        self:
-        model_weights_path (str): Path to save model weights.
-        cutoff (int, optional): Cutoff layer. Defaults: -1.
-
-    """
-    with open(model_weights_path, "wb") as f:
-        self.version.tofile(f)  # (int32) version info: major, minor, revision
-        self.seen.tofile(f)  # (int64) number of images seen during training
-
-        # Iterate through layers
-        for i, (module_define, module) in enumerate(zip(self.module_define[:cutoff], self.module_list[:cutoff])):
-            if module_define["type"] == "convolutional":
-                conv_layer = module[0]
-                # If batch norm, load bn first
-                if module_define["batch_normalize"]:
-                    bn_layer = module[1]
-                    bn_layer.bias.data.cpu().numpy().tofile(f)
-                    bn_layer.weight.data.cpu().numpy().tofile(f)
-                    bn_layer.running_mean.data.cpu().numpy().tofile(f)
-                    bn_layer.running_var.data.cpu().numpy().tofile(f)
-                # Load conv bias
-                else:
-                    conv_layer.bias.data.cpu().numpy().tofile(f)
-                # Load conv weights
-                conv_layer.weight.data.cpu().numpy().tofile(f)
-
-
-def convert_model_weights(model_config_path: str, model_weights_path: str) -> None:
-    """Convert darknet model to pytorch model
-
-    Args:
-        model_config_path (str): path to darknet model model_config file
-        model_weights_path (str): path to darknet model weights file
-
-    """
-    # Initialize model
-    model = Darknet(model_config_path)
-
-    # Load weights and save
-    if model_weights_path.endswith(".pth.tar"):  # if PyTorch format
-        model.load_state_dict(torch.load(model_weights_path, map_location="cpu")["state_dict"])
-        target = model_weights_path[:-8] + ".weights"
-        save_darknet_weights(model, model_weights_path=target, cutoff=-1)
-        print(f"Success: converted {model_weights_path} to {target}")
-
-    elif model_weights_path.endswith(".weights"):  # darknet format
-        load_darknet_weights(model, model_weights_path)
-
-        chkpt = {"epoch": 0,
-                 "best_map50": None,
-                 "state_dict": model.state_dict(),
-                 "ema_state_dict": model.state_dict(),
-                 "optimizer": None,
-                 "scheduler": None}
-
-        target = model_weights_path[:-8] + ".pth.tar"
-        torch.save(chkpt, target)
-        print(f"Success: converted {model_weights_path} to {target}")
-    else:
-        print("Error: extension not supported.")
-
-
-def parse_model_config(model_config_path: str) -> List[Dict[str, Any]]:
+def _parse_model_config(model_config_path: str) -> List[Dict[str, Any]]:
     """Parses the yolo-v3 layer configuration file and returns module definitions.
 
     Args:
@@ -835,10 +1070,12 @@ def parse_model_config(model_config_path: str) -> List[Dict[str, Any]]:
                     module_define[-1][key] = val  # return string
 
     # Check all fields are supported
-    supported = ["type", "batch_normalize", "filters", "size", "stride", "pad", "activation", "layers", "groups",
-                 "from", "mask", "anchors", "classes", "num", "jitter", "ignore_thresh", "truth_thresh", "random",
-                 "stride_x", "stride_y", "weights_type", "weights_normalization", "scale_x_y", "beta_nms", "nms_kind",
-                 "iou_loss", "iou_normalizer", "cls_normalizer", "iou_thresh", "probability"]
+    supported = ["type", "in_channels", "out_channels", "in_features", "out_features",
+                 "num_features", "batch_normalize", "filters", "size", "stride", "pad", "activation",
+                 "layers", "groups", "from", "mask", "anchors", "classes", "num", "jitter",
+                 "ignore_thresh", "truth_thresh", "random", "stride_x", "stride_y", "weights_type",
+                 "weights_normalization", "scale_x_y", "beta_nms", "nms_kind", "iou_loss", "padding",
+                 "iou_normalizer", "cls_normalizer", "iou_thresh", "expand_size", "semodules"]
 
     f = []  # fields
 
@@ -877,247 +1114,12 @@ def _scale_image(image: Tensor, ratio: float = 1.0, same_shape: bool = True) -> 
     return image
 
 
-def _fuse_conv_and_bn(conv: nn.Conv2d, bn: nn.BatchNorm2d) -> nn.Module:
-    """Fuse convolution and batchnorm layers.
-
-    Args:
-        conv (nn.Conv2d): convolution layer
-        bn (nn.BatchNorm2d): batchnorm layer
-
-    Returns:
-        fused_conv_bn (nn.Module): fused convolution layer
-
-    """
-    with torch.no_grad():
-        # init
-        fused_conv_bn = nn.Conv2d(conv.in_channels,
-                                  conv.out_channels,
-                                  kernel_size=conv.kernel_size,
-                                  stride=conv.stride,
-                                  padding=conv.padding,
-                                  bias=True)
-
-        # prepare filters
-        w_conv = conv.weight.clone().view(conv.out_channels, -1)
-        w_bn = torch.diag(bn.weight.div(torch.sqrt(bn.eps + bn.running_var)))
-        fused_conv_bn.weight.copy_(torch.mm(w_bn, w_conv).view(fused_conv_bn.weight.size()))
-
-        # prepare spatial bias
-        if conv.bias is not None:
-            b_conv = conv.bias
-        else:
-            b_conv = torch.zeros(conv.weight.size(0))
-        b_bn = bn.bias - bn.weight.mul(bn.running_mean).div(torch.sqrt(bn.running_var + bn.eps))
-        fused_conv_bn.bias.copy_(torch.mm(w_bn, b_conv.reshape(-1, 1)).reshape(-1) + b_bn)
-
-        return fused_conv_bn
-
-
-def compute_loss(p: Tensor, targets: Tensor, model: nn.Module):  # predictions, targets, model
-    """Computes loss for YOLOv3.
-
-    Args:
-        p (Tensor): predictions
-        targets (Tensor): targets
-        model (nn.Module): model
-
-    Returns:
-        loss (Tensor): loss
-
-    """
-    lcls = torch.FloatTensor([0]).to(device=targets.device)
-    lbox = torch.FloatTensor([0]).to(device=targets.device)
-    lobj = torch.FloatTensor([0]).to(device=targets.device)
-    tcls, tbox, indices, anchors = build_targets(p, targets, model)  # targets
-    hyper_parameters_dict = model.hyper_parameters_dict  # hyperparameters
-
-    # Define criteria
-    BCEcls = nn.BCEWithLogitsLoss(
-        pos_weight=torch.FloatTensor([hyper_parameters_dict["cls_pw"]]).to(device=targets.device))
-    BCEobj = nn.BCEWithLogitsLoss(
-        pos_weight=torch.FloatTensor([hyper_parameters_dict["obj_pw"]]).to(device=targets.device))
-
-    # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
-    cp, cn = smooth_bce(eps=0.0)
-
-    # focal loss
-    g = hyper_parameters_dict["fl_gamma"]  # focal loss gamma
-    if g > 0:
-        BCEcls, BCEobj = FocalLoss(BCEcls, g), FocalLoss(BCEobj, g)
-
-    # per output
-    nt = 0  # targets
-    for i, pi in enumerate(p):  # layer index, layer predictions
-        b, a, gj, gi = indices[i]  # image, anchor, gridy, gridx
-        tobj = torch.zeros_like(pi[..., 0])  # target obj
-
-        nb = b.shape[0]  # number of targets
-        if nb:
-            nt += nb  # cumulative targets
-            ps = pi[b, a, gj, gi]  # prediction subset corresponding to targets
-
-            # GIoU
-            pxy = ps[:, :2].sigmoid()
-            pwh = ps[:, 2:4].exp().clamp(max=1E3) * anchors[i]
-            pbox = torch.cat((pxy, pwh), 1)  # predicted box
-            giou = bbox_iou(pbox.t(), tbox[i], x1y1x2y2=False, g_iou=True)  # giou(prediction, target)
-            lbox += (1.0 - giou).mean()  # giou loss
-
-            # Obj
-            tobj[b, a, gj, gi] = (1.0 - model.gr) + model.gr * giou.detach().clamp(0).type(tobj.dtype)  # giou ratio
-
-            # Class
-            if model.num_classes > 1:  # cls loss (only if multiple classes)
-                t = torch.full_like(ps[:, 5:], cn)  # targets
-                t[range(nb), tcls[i]] = cp
-                lcls += BCEcls(ps[:, 5:], t)  # BCE
-
-        lobj += BCEobj(pi[..., 4], tobj)  # obj loss
-
-    lbox *= hyper_parameters_dict["giou"]
-    lobj *= hyper_parameters_dict["obj"]
-    lcls *= hyper_parameters_dict["cls"]
-
-    loss = lbox + lobj + lcls
-    return loss, torch.cat((lbox, lobj, lcls, loss)).detach()
-
-
-def bbox_iou(box1, box2, x1y1x2y2=True, g_iou=False, d_iou=False, c_iou=False):
-    # Returns the IoU of box1 to box2. box1 is 4, box2 is nx4
-    box2 = box2.t()
-
-    # Get the coordinates of bounding boxes
-    if x1y1x2y2:  # x1, y1, x2, y2 = box1
-        b1_x1, b1_y1, b1_x2, b1_y2 = box1[0], box1[1], box1[2], box1[3]
-        b2_x1, b2_y1, b2_x2, b2_y2 = box2[0], box2[1], box2[2], box2[3]
-    else:  # transform from xywh to xyxy
-        b1_x1, b1_x2 = box1[0] - box1[2] / 2, box1[0] + box1[2] / 2
-        b1_y1, b1_y2 = box1[1] - box1[3] / 2, box1[1] + box1[3] / 2
-        b2_x1, b2_x2 = box2[0] - box2[2] / 2, box2[0] + box2[2] / 2
-        b2_y1, b2_y2 = box2[1] - box2[3] / 2, box2[1] + box2[3] / 2
-
-    # Intersection area
-    inter = (torch.min(b1_x2, b2_x2) - torch.max(b1_x1, b2_x1)).clamp(0) * \
-            (torch.min(b1_y2, b2_y2) - torch.max(b1_y1, b2_y1)).clamp(0)
-
-    # Union Area
-    w1, h1 = b1_x2 - b1_x1, b1_y2 - b1_y1
-    w2, h2 = b2_x2 - b2_x1, b2_y2 - b2_y1
-    union = (w1 * h1 + 1e-16) + w2 * h2 - inter
-
-    iou = inter / union  # iou
-    if g_iou or d_iou or c_iou:
-        cw = torch.max(b1_x2, b2_x2) - torch.min(b1_x1, b2_x1)  # convex (smallest enclosing box) width
-        ch = torch.max(b1_y2, b2_y2) - torch.min(b1_y1, b2_y1)  # convex height
-        if g_iou:  # Generalized IoU https://arxiv.org/pdf/1902.09630.pdf
-            c_area = cw * ch + 1e-16  # convex area
-            return iou - (c_area - union) / c_area  # GIoU
-        if d_iou or c_iou:  # Distance or Complete IoU https://arxiv.org/abs/1911.08287v1
-            # convex diagonal squared
-            c2 = cw ** 2 + ch ** 2 + 1e-16
-            # centerpoint distance squared
-            rho2 = ((b2_x1 + b2_x2) - (b1_x1 + b1_x2)) ** 2 / 4 + ((b2_y1 + b2_y2) - (b1_y1 + b1_y2)) ** 2 / 4
-            if d_iou:
-                return iou - rho2 / c2  # DIoU
-            elif c_iou:  # https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/box/box_utils.py#L47
-                v = (4 / math.pi ** 2) * torch.pow(torch.atan(w2 / h2) - torch.atan(w1 / h1), 2)
-                with torch.no_grad():
-                    alpha = v / (1 - iou + v)
-                return iou - (rho2 / c2 + v * alpha)  # CIoU
-
-    return iou
-
-
-def smooth_bce(eps: float = 0.1):
+def _smooth_bce(eps: float = 0.1):
     # return positive, negative label smoothing BCE targets
     return 1.0 - 0.5 * eps, 0.5 * eps
 
 
-class FocalLoss(nn.Module):
-    def __init__(self, loss_fcn: nn.Module, gamma: float = 1.5, alpha: float = 0.25):
-        """Focal loss for binary classification
-
-        Args:
-            loss_fcn (nn.Module): loss function
-            gamma (float, optional): gamma. Defaults to 1.5.
-            alpha (float, optional): alpha. Defaults to 0.25.
-        """
-        super(FocalLoss, self).__init__()
-        self.loss_fcn = loss_fcn  # must be nn.BCEWithLogitsLoss()
-        self.gamma = gamma
-        self.alpha = alpha
-        self.reduction = loss_fcn.reduction
-        self.loss_fcn.reduction = "none"  # required to apply FL to each element
-
-    def forward(self, pred, true):
-        loss = self.loss_fcn(pred, true)
-
-        pred_prob = torch.sigmoid(pred)  # prob from logits
-        p_t = true * pred_prob + (1 - true) * (1 - pred_prob)
-        alpha_factor = true * self.alpha + (1 - true) * (1 - self.alpha)
-        modulating_factor = (1.0 - p_t) ** self.gamma
-        loss *= alpha_factor * modulating_factor
-
-        if self.reduction == "mean":
-            return loss.mean()
-        elif self.reduction == "sum":
-            return loss.sum()
-        else:  # "none"
-            return loss
-
-
-def build_targets(
-        p: Tensor,
-        targets: Tensor,
-        model: nn.Module
-) -> tuple[list[Any], list[Tensor], list[tuple[Any, Tensor | list[Any] | Any, Any, Any]], list[Any]]:
-    """Build targets for compute_loss(), input targets(image,class,x,y,w,h)
-
-    Args:
-        p (Tensor): predictions
-        targets (Tensor): targets
-        model (nn.Module): model
-
-    Returns:
-        tuple[list[Any], list[Tensor], list[tuple[Any, Tensor | list[Any] | Any, Any, Any]], list[Any]]: targets, indices, anchors, regression
-    """
-    # Build targets for compute_loss(), input targets(image,class,x,y,w,h)
-    nt = targets.shape[0]
-    tcls, tbox, indices, anch = [], [], [], []
-    gain = torch.ones(6, device=targets.device)  # normalized to gridspace gain
-
-    for i, j in enumerate(model.yolo_layers):
-        anchors = model.module_list[j].anchor_vec
-        gain[2:] = torch.tensor(p[i].shape)[[3, 2, 3, 2]].to(device=targets.device)  # xyxy gain
-        na = anchors.shape[0]  # number of anchors
-        at = torch.arange(na).view(na, 1).repeat(1, nt).to(
-            device=targets.device)  # anchor tensor, same as .repeat_interleave(nt)
-
-        # Match targets to anchors
-        a, t, offsets = [], targets * gain, 0
-        if nt:
-            j = wh_iou(anchors, t[:, 4:6]) > model.hyper_parameters_dict[
-                "iou_t"]  # iou(3,n) = wh_iou(anchors(3,2), gwh(n,2))
-            a, t = at[j], t.repeat(na, 1, 1)[j]  # filter
-
-        # Define
-        b, c = t[:, :2].long().T  # image, class
-        gxy = t[:, 2:4]  # grid xy
-        gwh = t[:, 4:6]  # grid wh
-        gij = (gxy - offsets).long()
-        gi, gj = gij.T  # grid xy indices
-
-        # Append# image, anchor, grid indices
-        indices.append((b, a, gj.clamp_(0, gain[3].long() - 1), gi.clamp_(0, gain[2].long() - 1)))
-        tbox.append(torch.cat((gxy - gij, gwh), 1))  # box
-        anch.append(anchors[a])  # anchors
-        tcls.append(c)  # class
-        if c.shape[0]:  # if any targets
-            assert c.max() < model.num_classes, f"Model accepts {model.num_classes} classes labeled from 0-{model.num_classes - 1}, however you labelled a class {c.max()}. "
-    return tcls, tbox, indices, anch
-
-
-def wh_iou(wh1, wh2):
+def _wh_iou(wh1, wh2):
     """Returns the IoU of two wh tensors
 
     Args:
