@@ -229,8 +229,8 @@ def detect(
 
                 # Print results
                 for c in detect_result[:, -1].unique():
-                    n = (detect_result[:, -1] == c).sum()  # detections per class
-                    results += f"{n} {names[int(c)]}, "
+                    number = (detect_result[:, -1] == c).sum()  # detections per class
+                    results += f"{number} {names[int(c)]}, "
 
                 # Write results
                 for *xyxy, confidence, classes in reversed(detect_result):
@@ -266,20 +266,20 @@ def detect(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--detect_results_name", type=str, default="coco",
+    parser.add_argument("--detect_results_name", type=str, default="voc",
                         help="detect results name")
     parser.add_argument("--inputs", type=str, default="./data/examples",
                         help="Input source. Default: ``./data/examples``.")
-    parser.add_argument("--names_file_path", type=str, default="./data/coco.names",
-                        help="Types of objects detected. Default: ``./data/coco.names``.")
-    parser.add_argument("--model_arch_name", type=str, default="yolov3_coco",
-                        help="model arch name. Default: ``yolov3_coco``.")
+    parser.add_argument("--names_file_path", type=str, default="./data/voc.names",
+                        help="Types of objects detected. Default: ``./data/voc.names``.")
+    parser.add_argument("--model_arch_name", type=str, default="mobilenetv2_voc",
+                        help="model arch name. Default: ``mobilenetv2_voc``.")
     parser.add_argument("--image_size", type=int or tuple, default=608,
                         help="Image size. Default: 608.")
     parser.add_argument("--gray", type=bool, default=False,
                         help="Whether to use gray image. Default: ``False``.")
     parser.add_argument("--model_weights_path", type=str,
-                        default="./results/pretrained_models/YOLOv3-COCO.weights",
+                        default="mobilenetv2-46ffd599.weights",
                         help="Model file weight path. Default: ``./results/pretrained_models/YOLOv3-COCO.weights``.")
     parser.add_argument("--device", type=str, default="cpu",
                         help="Device. Default: ``cpu``.")
@@ -291,8 +291,8 @@ if __name__ == "__main__":
                         help="output video codec (verify ffmpeg support). Default: ``mp4v``.")
     parser.add_argument("--conf_threshold", type=float, default=0.3,
                         help="Object confidence threshold. Default: 0.3.")
-    parser.add_argument("--iou_threshold", type=float, default=0.5,
-                        help="IOU threshold for NMS. Default: 0.5.")
+    parser.add_argument("--iou_threshold", type=float, default=0.6,
+                        help="IOU threshold for NMS. Default: 0.6.")
     parser.add_argument("--augment", action="store_true",
                         help="augmented inference")
     parser.add_argument("--filter_classes", nargs="+", type=int,

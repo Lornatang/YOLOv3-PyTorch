@@ -16,6 +16,7 @@ import random
 import time
 from enum import Enum
 from pathlib import Path
+from typing import Optional
 
 import cv2
 import numpy as np
@@ -25,8 +26,8 @@ from numpy import ndarray
 from torch import Tensor
 
 __all__ = [
-    "ap_per_class", "clip_coords", "coco80_to_coco91_class", "compute_ap", "make_directory", "non_max_suppression",
-    "plot_one_box", "scale_coords", "xywh2xyxy", "xyxy2xywh",
+    "ap_per_class", "clip_coords", "coco80_to_coco91_class", "compute_ap", "make_directory", "make_divisible",
+    "non_max_suppression", "plot_one_box", "scale_coords", "xywh2xyxy", "xyxy2xywh",
     "Summary", "AverageMeter", "ProgressMeter",
 ]
 
@@ -145,6 +146,18 @@ def compute_ap(recall, precision) -> float:
 def make_directory(dir_path: str or Path) -> None:
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
+
+
+def make_divisible(v: float, divisor: int, min_value: Optional[int] = None) -> int:
+    """Copy from: https://github.com/tensorflow/models/blob/master/research/slim/nets/mobilenet/mobilenet.py
+    """
+    if min_value is None:
+        min_value = divisor
+    new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
+    # Make sure that round down does not go down by more than 10%.
+    if new_v < 0.9 * v:
+        new_v += divisor
+    return new_v
 
 
 def non_max_suppression(prediction: Tensor,

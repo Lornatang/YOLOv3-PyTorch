@@ -22,6 +22,9 @@ import torch
 from torch import nn, Tensor
 from torch.nn import Module
 from torch.nn import functional as F_torch
+from torchvision.ops.misc import SqueezeExcitation
+
+from utils import make_divisible
 
 __all__ = [
     "Darknet",
@@ -430,25 +433,6 @@ class _InvertedResidual(nn.Module):
         out = F_torch.channel_shuffle(out, 2)
 
         return out
-
-
-class _SeModule(nn.Module):
-    def __init__(self, in_channels: int, reduction: int = 4) -> None:
-        super(_SeModule, self).__init__()
-        self.se = nn.Sequential(
-            nn.AdaptiveAvgPool2d(1),
-            nn.Conv2d(in_channels, in_channels // reduction, kernel_size=1, stride=1, padding=0,
-                      bias=False),
-            nn.BatchNorm2d(in_channels // reduction),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(in_channels // reduction, in_channels, kernel_size=1, stride=1, padding=0,
-                      bias=False),
-            nn.BatchNorm2d(in_channels),
-            nn.Hardsigmoid(True)
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        return x * self.se(x)
 
 
 def compute_loss(p: Tensor, targets: Tensor, model: nn.Module):  # predictions, targets, model
@@ -866,9 +850,9 @@ def _create_modules(
                 modules.add_module("activation", nn.ReLU6(True))
             elif module["activation"] == "mish":
                 modules.add_module("activation", nn.Mish(True))
-            elif module["activation"] == "hswish":
+            elif module["activation"] == "hard_swish":
                 modules.add_module("activation", nn.Hardswish(True))
-            elif module["activation"] == "hsigmoid":
+            elif module["activation"] == "hard_sigmoid":
                 modules.add_module("activation", nn.Hardsigmoid(True))
 
         elif module["type"] == "BatchNorm2d":
@@ -894,9 +878,12 @@ def _create_modules(
             modules.add_module("AvgPool2d", nn.AvgPool2d(kernel_size=kernel_size, stride=stride,
                                                          padding=(kernel_size - 1) // 2))
 
-        elif module["type"] == "semodule":
-            in_channels = module["in_features"]
-            modules.add_module("SeModule", _SeModule(in_channels))
+        elif module["type"] == "squeeze_excitation":
+            in_channels = module["in_channels"]
+            squeeze_channels = make_divisible(in_channels // 4, 8)
+            modules.add_module("SeModule", SqueezeExcitation(in_channels,
+                                                             squeeze_channels,
+                                                             scale_activation=nn.Hardsigmoid))
 
         elif module["type"] == "InvertedResidual":
             in_channels = module["in_channels"]
@@ -928,14 +915,14 @@ def _create_modules(
 
         elif module["type"] == "route":  # nn.Sequential() placeholder for "route" layer
             layers = module["layers"]
-            filters = sum([output_filters[l + 1 if l > 0 else l] for l in layers])
-            routs.extend([i + l if l < 0 else l for l in layers])
-            modules = _FeatureConcat(layers)
+            filters = sum([output_filters[layer + 1 if layer > 0 else layer] for layer in layers])
+            routs.extend([i + layer if layer < 0 else layer for layer in layers])
+            modules = _FeatureConcat(layers=layers)
 
         elif module["type"] == "shortcut":  # nn.Sequential() placeholder for "shortcut" layer
             layers = module["from"]
             filters = output_filters[-1]
-            routs.extend([i + l if l < 0 else l for l in layers])
+            routs.extend([i + layer if layer < 0 else layer for layer in layers])
             modules = _WeightedFeatureFusion(layers=layers, weight="weights_type" in module)
 
         elif module["type"] == "reorg3d":  # yolov3-spp-pan-scale
@@ -1075,7 +1062,7 @@ def _parse_model_config(model_config_path: str) -> List[Dict[str, Any]]:
                  "layers", "groups", "from", "mask", "anchors", "classes", "num", "jitter",
                  "ignore_thresh", "truth_thresh", "random", "stride_x", "stride_y", "weights_type",
                  "weights_normalization", "scale_x_y", "beta_nms", "nms_kind", "iou_loss", "padding",
-                 "iou_normalizer", "cls_normalizer", "iou_thresh", "expand_size", "semodules"]
+                 "iou_normalizer", "cls_normalizer", "iou_thresh", "expand_size", "squeeze_excitation"]
 
     f = []  # fields
 
