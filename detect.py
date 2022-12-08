@@ -272,15 +272,15 @@ if __name__ == "__main__":
                         help="Input source. Default: ``./data/examples``.")
     parser.add_argument("--names_file_path", type=str, default="./data/voc.names",
                         help="Types of objects detected. Default: ``./data/voc.names``.")
-    parser.add_argument("--model_arch_name", type=str, default="mobilenetv2_voc",
-                        help="model arch name. Default: ``mobilenetv2_voc``.")
+    parser.add_argument("--model_arch_name", type=str, default="yolov3_tiny_voc",
+                        help="model arch name. Default: ``yolov3_tiny_voc``.")
     parser.add_argument("--image_size", type=int or tuple, default=608,
                         help="Image size. Default: 608.")
     parser.add_argument("--gray", type=bool, default=False,
                         help="Whether to use gray image. Default: ``False``.")
     parser.add_argument("--model_weights_path", type=str,
-                        default="mobilenetv2-46ffd599.weights",
-                        help="Model file weight path. Default: ``./results/pretrained_models/YOLOv3-COCO.weights``.")
+                        default="./results/pretrained_models/YOLOv3_tiny-VOC0712-bce4b894.pth.tar",
+                        help="Model file weight path. Default: ``./results/pretrained_models/YOLOv3_tiny-VOC0712-bce4b894.pth.tar``.")
     parser.add_argument("--device", type=str, default="cpu",
                         help="Device. Default: ``cpu``.")
     parser.add_argument("--half", action="store_true", help="Half precision FP16 inference.")
