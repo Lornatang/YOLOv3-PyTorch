@@ -191,7 +191,8 @@ def load_mosaic(self, index: int) -> Tuple[np.ndarray, List]:
         np.clip(labels4[:, 1:], 0, 2 * s, out=labels4[:, 1:])  # use with random_affine
 
     # Augment
-    image4, labels4 = random_affine(image4, labels4,
+    image4, labels4 = random_affine(image4,
+                                    labels4,
                                     degrees=self.hyper_parameters_dict["degrees"],
                                     translate=self.hyper_parameters_dict["translate"],
                                     scale=self.hyper_parameters_dict["scale"],
@@ -699,7 +700,6 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             gray (bool, optional): Whether to use grayscale. Defaults: ``False``.
 
         """
-        global file
         try:
             path = str(Path(path))  # os-agnostic
             parent = str(Path(path).parent) + os.sep
@@ -710,10 +710,10 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             elif os.path.isdir(path):  # folder
                 f = glob.iglob(path + os.sep + "*.*")
             else:
-                raise Exception("%s does not exist" % path)
+                raise Exception(f"{path} does not exist")
             self.image_files = [x.replace("/", os.sep) for x in f if
                                 os.path.splitext(x)[-1].lower() in support_image_formats]
-        except Exception:
+        except:
             raise Exception(f"Error loading data from {path}")
 
         num_images = len(self.image_files)
@@ -851,8 +851,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             pbar = tqdm(range(len(self.image_files)), desc="Caching images")
             self.image_hw0, self.image_hw = [None] * num_images, [None] * num_images
             for i in pbar:  # max 10k images
-                self.images[i], self.image_hw0[i], self.image_hw[i] = load_image(self,
-                                                                                 i)  # image, hw_original, hw_resized
+                self.images[i], self.image_hw0[i], self.image_hw[i] = load_image(self, i)
                 gb += self.images[i].nbytes
                 pbar.desc = f"Caching images ({gb / 1e9:.1f}GB)"
 
@@ -912,7 +911,9 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                                               shear=hyper_parameters_dict["shear"])
 
             # Augment colorspace
-            augment_hsv(image, hgain=hyper_parameters_dict["hsv_h"], sgain=hyper_parameters_dict["hsv_s"],
+            augment_hsv(image,
+                        hgain=hyper_parameters_dict["hsv_h"],
+                        sgain=hyper_parameters_dict["hsv_s"],
                         vgain=hyper_parameters_dict["hsv_v"])
 
         nL = len(labels)  # number of labels

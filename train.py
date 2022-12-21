@@ -19,6 +19,7 @@ import time
 import numpy as np
 import torch
 from torch import nn, optim
+from torch.backends import cudnn
 from torch.cuda import amp
 from torch.nn import functional as F_torch
 from torch.optim import lr_scheduler
@@ -26,14 +27,25 @@ from torch.optim.swa_utils import AveragedModel
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-import config
 import model
+import train_config
 from dataset import parse_dataset_config, labels_to_class_weights, LoadImagesAndLabels
 from test import test
-from utils import make_directory, AverageMeter, ProgressMeter
+from utils import load_pretrained_torch_state_dict, load_pretrained_darknet_state_dict, load_resume_torch_state_dict, \
+    save_torch_state_dict, make_directory, AverageMeter, ProgressMeter
 
 
 def main():
+    device = torch.device(train_config.device)
+    # Fixed random number seed
+    random.seed(train_config.seed)
+    np.random.seed(train_config.seed)
+    torch.manual_seed(train_config.seed)
+    torch.cuda.manual_seed_all(train_config.seed)
+
+    # Because the size of the input image is fixed, the fixed CUDNN convolution method can greatly increase the running speed
+    cudnn.benchmark = True
+
     # Initialize the mixed precision method
     scaler = amp.GradScaler()
 
@@ -43,57 +55,55 @@ def main():
     # Initialize training to generate network evaluation indicators
     best_map50 = 0.0
 
-    yolo_model, ema_yolo_model, train_dataloader, test_dataloader, names = build_dataset_and_model()
-    print("Load all datasets successfully.")
-
+    yolo_model, ema_yolo_model, train_dataloader, test_dataloader, names = build_dataset_and_model(
+        train_config.model_ema_decay,
+        device,
+    )
     optimizer = define_optimizer(yolo_model)
-    print("Define all optimizer functions successfully.")
 
     # Load the pre-trained model weights and fine-tune the model
     print("Check whether to load pretrained model weights...")
-    if config.pretrained_model_weights_path.endswith(".pth.tar"):
-        yolo_model = model.load_torch_weights(yolo_model, config.pretrained_model_weights_path)
-        print(f"Loaded `{config.pretrained_model_weights_path}` pretrained model weights successfully.")
-    elif config.pretrained_model_weights_path.endswith(".weights"):
-        model.load_darknet_weights(yolo_model, config.pretrained_model_weights_path)
-        print(f"Loaded `{config.pretrained_model_weights_path}` pretrained model weights successfully.")
+    if train_config.pretrained_model_weights_path.endswith(".pth.tar"):
+        yolo_model = load_pretrained_torch_state_dict(yolo_model, train_config.pretrained_model_weights_path)
+        print(f"Loaded `{train_config.pretrained_model_weights_path}` pretrained model weights successfully.")
+    elif train_config.pretrained_model_weights_path.endswith(".weights"):
+        load_pretrained_darknet_state_dict(yolo_model, train_config.pretrained_model_weights_path)
+        print(f"Loaded `{train_config.pretrained_model_weights_path}` pretrained model weights successfully.")
     else:
         print("Pretrained model weights not found.")
 
     # Load the last training interruption node
     print("Check whether the resume model is restored...")
-    if config.resume_model_weights_path.endswith(".pth.tar"):
-        yolo_model, ema_yolo_model, start_epoch, best_psnr, best_ssim, optimizer, scheduler = model.load_torch_weights(
+    if train_config.resume_model_weights_path.endswith(".pth.tar"):
+        yolo_model, ema_yolo_model, start_epoch, best_map50, optimizer = load_resume_torch_state_dict(
             yolo_model,
-            config.resume_model_weights_path,
+            train_config.resume_model_weights_path,
             ema_yolo_model,
             optimizer,
-            None,
-            "resume")
-        print("Loaded resume model weights.")
+        )
+        print(f"Loaded `{train_config.resume_model_weights_path}` resume model weights successfully.")
     else:
         print("Resume training model not found. Start training from scratch.")
 
-    scheduler = define_scheduler(optimizer, start_epoch, config.epochs)
-    print("Define all optimizer scheduler successfully.")
+    scheduler = define_scheduler(optimizer, start_epoch, train_config.epochs)
 
     # Model weight save address
-    samples_dir = os.path.join("samples", config.exp_name)
-    results_dir = os.path.join("results", config.exp_name)
+    samples_dir = os.path.join("samples", train_config.exp_name)
+    results_dir = os.path.join("results", train_config.exp_name)
     make_directory(samples_dir)
     make_directory(results_dir)
 
     # create model training log
-    writer = SummaryWriter(os.path.join("samples", "logs", config.exp_name))
+    writer = SummaryWriter(os.path.join("samples", "logs", train_config.exp_name))
 
     # get the number of training samples
     batches = len(train_dataloader)
 
     # For test
-    iouv = torch.linspace(0.5, 0.95, 10).to(config.device)  # iou vector for mAP@0.5:0.95
+    iouv = torch.linspace(0.5, 0.95, 10).to(train_config.device)  # iou vector for mAP@0.5:0.95
     iouv = iouv[0].view(1)  # comment for mAP@0.5:0.95
     niou = iouv.numel()
-    for epoch in range(start_epoch, config.epochs):
+    for epoch in range(start_epoch, train_config.epochs):
         train(yolo_model,
               ema_yolo_model,
               train_dataloader,
@@ -103,18 +113,18 @@ def main():
               writer,
               batches,
               max(3 * batches, 500),
-              config.train_print_frequency)
-        is_last = (epoch + 1) == config.epochs
+              train_config.train_print_frequency)
+        is_last = (epoch + 1) == train_config.epochs
         p, r, map50, f1, maps = test(yolo_model,
                                      test_dataloader,
                                      names,
-                                     config.conf_threshold,
-                                     config.iou_threshold,
-                                     is_last and config.save_json,
-                                     config.test_augment,
+                                     train_config.conf_threshold,
+                                     train_config.iou_threshold,
+                                     is_last and train_config.save_json,
+                                     train_config.test_augment,
                                      iouv,
                                      niou,
-                                     config.verbose)
+                                     train_config.verbose)
         writer.add_scalar("Test/Precision", p, epoch + 1)
         writer.add_scalar("Test/Recall", r, epoch + 1)
         writer.add_scalar("Test/mAP0.5", map50, epoch + 1)
@@ -126,82 +136,85 @@ def main():
 
         # Automatically save model weights
         is_best = map50 > best_map50
-        is_last = (epoch + 1) == config.epochs
+        is_last = (epoch + 1) == train_config.epochs
         best_map50 = max(map50, best_map50)
-        model.save_torch_weights({"epoch": epoch + 1,
-                                  "best_map50": best_map50,
-                                  "state_dict": yolo_model.state_dict(),
-                                  "ema_state_dict": ema_yolo_model.state_dict(),
-                                  "optimizer": optimizer.state_dict(),
-                                  "scheduler": scheduler.state_dict()},
-                                 f"epoch_{epoch + 1}.pth.tar",
-                                 samples_dir,
-                                 results_dir,
-                                 "best.pth.tar",
-                                 "last.pth.tar",
-                                 is_best,
-                                 is_last)
+        save_torch_state_dict({"epoch": epoch + 1,
+                               "best_map50": best_map50,
+                               "state_dict": yolo_model.state_dict(),
+                               "ema_state_dict": ema_yolo_model.state_dict(),
+                               "optimizer": optimizer.state_dict()},
+                              f"epoch_{epoch + 1}.pth.tar",
+                              samples_dir,
+                              results_dir,
+                              "best.pth.tar",
+                              "last.pth.tar",
+                              is_best,
+                              is_last)
 
 
-def build_dataset_and_model() -> [nn.Module, nn.Module, DataLoader, DataLoader, list]:
+def build_dataset_and_model(
+        model_ema_decay: float,
+        device: torch.device,
+) -> [nn.Module, nn.Module, DataLoader, DataLoader, list]:
     # Load dataset
-    dataset_dict = parse_dataset_config(config.dataset_config_path)
-    num_classes = 1 if config.single_classes else int(dataset_dict["classes"])
+    dataset_dict = parse_dataset_config(train_config.dataset_config_path)
+    num_classes = 1 if train_config.single_classes else int(dataset_dict["classes"])
     names = dataset_dict["names"]
-    config.hyper_parameters_dict["cls"] *= num_classes / 80
+    train_config.hyper_parameters_dict["cls"] *= num_classes / 80
 
     train_datasets = LoadImagesAndLabels(path=dataset_dict["train"],
-                                         image_size=config.train_image_size_max,
-                                         batch_size=config.batch_size,
-                                         augment=config.train_augment,
-                                         hyper_parameters_dict=config.hyper_parameters_dict,
-                                         rect_label=config.train_rect_label,
+                                         image_size=train_config.train_image_size_max,
+                                         batch_size=train_config.batch_size,
+                                         augment=train_config.train_augment,
+                                         hyper_parameters_dict=train_config.hyper_parameters_dict,
+                                         rect_label=train_config.train_rect_label,
                                          cache_images=True,
-                                         single_classes=config.single_classes,
-                                         gray=config.gray)
+                                         single_classes=train_config.single_classes,
+                                         gray=train_config.gray)
     test_datasets = LoadImagesAndLabels(path=dataset_dict["test"],
-                                        image_size=config.test_image_size,
-                                        batch_size=config.batch_size,
-                                        augment=config.test_augment,
-                                        hyper_parameters_dict=config.hyper_parameters_dict,
-                                        rect_label=config.test_rect_label,
+                                        image_size=train_config.test_image_size,
+                                        batch_size=train_config.batch_size,
+                                        augment=train_config.test_augment,
+                                        hyper_parameters_dict=train_config.hyper_parameters_dict,
+                                        rect_label=train_config.test_rect_label,
                                         cache_images=True,
-                                        single_classes=config.single_classes,
-                                        gray=config.gray)
+                                        single_classes=train_config.single_classes,
+                                        gray=train_config.gray)
     # generate dataset iterator
     train_dataloader = DataLoader(train_datasets,
-                                  batch_size=config.batch_size,
-                                  shuffle=not config.train_rect_label,
-                                  num_workers=config.num_workers,
+                                  batch_size=train_config.batch_size,
+                                  shuffle=not train_config.train_rect_label,
+                                  num_workers=train_config.num_workers,
                                   pin_memory=True,
                                   drop_last=True,
                                   persistent_workers=True,
                                   collate_fn=train_datasets.collate_fn)
     test_dataloader = DataLoader(test_datasets,
-                                 batch_size=config.batch_size,
+                                 batch_size=train_config.batch_size,
                                  shuffle=False,
-                                 num_workers=config.num_workers,
+                                 num_workers=train_config.num_workers,
                                  pin_memory=True,
                                  drop_last=False,
                                  persistent_workers=True,
                                  collate_fn=train_datasets.collate_fn)
 
     # Create model
-    yolo_model = model.__dict__[config.model_arch_name](image_size=(416, 416),
-                                                        gray=config.gray,
-                                                        onnx_export=config.onnx_export)
+    yolo_model = model.__dict__[train_config.model_arch_name](image_size=(416, 416),
+                                                              gray=train_config.gray,
+                                                              onnx_export=train_config.onnx_export)
     yolo_model.num_classes = num_classes
-    yolo_model.hyper_parameters_dict = config.hyper_parameters_dict
+    yolo_model.hyper_parameters_dict = train_config.hyper_parameters_dict
     yolo_model.gr = 1.0
     yolo_model.class_weights = labels_to_class_weights(train_datasets.labels,
-                                                       1 if config.single_classes else num_classes)
+                                                       1 if train_config.single_classes else num_classes)
 
     # Generate an exponential average model based on the generator to stabilize model training
-    ema_avg_fn = lambda averaged_model_parameter, model_parameter, num_averaged: (1 - config.model_ema_decay) * averaged_model_parameter + config.model_ema_decay * model_parameter
-    ema_yolo_model = AveragedModel(yolo_model, avg_fn=ema_avg_fn)
+    ema_avg_fn = lambda averaged_model_parameter, model_parameter, num_averaged: \
+        (1 - model_ema_decay) * averaged_model_parameter + model_ema_decay * model_parameter
+    ema_yolo_model = AveragedModel(yolo_model, device=device, avg_fn=ema_avg_fn)
 
-    yolo_model = yolo_model.to(device=config.device)
-    ema_yolo_model = ema_yolo_model.to(device=config.device)
+    yolo_model = yolo_model.to(device=train_config.device)
+    ema_yolo_model = ema_yolo_model.to(device=train_config.device)
 
     return yolo_model, ema_yolo_model, train_dataloader, test_dataloader, names
 
@@ -217,10 +230,10 @@ def define_optimizer(yolo_model: nn.Module) -> optim.SGD:
             optim_group += [v]  # all else
 
     optimizer = optim.SGD(optim_group,
-                          lr=config.optim_lr,
-                          momentum=config.optim_momentum,
+                          lr=train_config.optim_lr,
+                          momentum=train_config.optim_momentum,
                           nesterov=True)
-    optimizer.add_param_group({"params": weight_decay, "weight_decay": config.optim_weight_decay})
+    optimizer.add_param_group({"params": weight_decay, "weight_decay": train_config.optim_weight_decay})
     optimizer.add_param_group({"params": biases})
     del optim_group, weight_decay, biases
 
@@ -254,7 +267,7 @@ def train(
         yolo_model: nn.Module,
         ema_yolo_model: nn.Module,
         train_dataloader: DataLoader,
-        optimizer: optim.Adam,
+        optimizer: optim.Optimizer,
         epoch: int,
         scaler: amp.GradScaler,
         writer: SummaryWriter,
@@ -296,8 +309,8 @@ def train(
 
     for batch_index, (images, targets, _, _) in enumerate(train_dataloader):
         total_batch_index = batch_index + (batches * epoch) + 1
-        images = images.to(config.device).float() / 255.0
-        targets = targets.to(config.device)
+        images = images.to(train_config.device).float() / 255.0
+        targets = targets.to(train_config.device)
 
         # Calculate the time it takes to load a batch of data
         data_time.update(time.time() - end)
@@ -308,21 +321,21 @@ def train(
             model.gr = np.interp(total_batch_index, xi, [0.0, 1.0])  # giou loss ratio (obj_loss = 1.0 or giou)
             for j, x in enumerate(optimizer.param_groups):
                 # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
-                lr_decay = lambda lr: (((1 + math.cos(lr * math.pi / config.epochs)) / 2) ** 1.0) * 0.95 + 0.05
+                lr_decay = lambda lr: (((1 + math.cos(lr * math.pi / train_config.epochs)) / 2) ** 1.0) * 0.95 + 0.05
                 x["lr"] = np.interp(total_batch_index, xi, [0.1 if j == 2 else 0.0, x["initial_lr"] * lr_decay(epoch)])
                 x["weight_decay"] = np.interp(total_batch_index,
                                               xi,
-                                              [0.0, config.optim_weight_decay if j == 1 else 0.0])
+                                              [0.0, train_config.optim_weight_decay if j == 1 else 0.0])
                 if "momentum" in x:
-                    x["momentum"] = np.interp(total_batch_index, xi, [0.9, config.optim_momentum])
+                    x["momentum"] = np.interp(total_batch_index, xi, [0.9, train_config.optim_momentum])
 
         # Multi-Scale
-        image_size = random.randrange(config.train_image_size_min // config.grid_size,
-                                      config.train_image_size_max // config.grid_size + 1) * config.grid_size
+        image_size = random.randrange(train_config.train_image_size_min // train_config.grid_size,
+                                      train_config.train_image_size_max // train_config.grid_size + 1) * train_config.grid_size
         scale_factor = image_size / max(images.shape[2:])  # scale factor
         if scale_factor != 1:
             # new shape (stretched to 32-multiple)
-            new_image_size = [math.ceil(x * scale_factor / config.grid_size) * config.grid_size for x in
+            new_image_size = [math.ceil(x * scale_factor / train_config.grid_size) * train_config.grid_size for x in
                               images.shape[2:]]
             images = F_torch.interpolate(images, size=new_image_size, mode="bilinear", align_corners=False)
 
@@ -333,7 +346,6 @@ def train(
         with amp.autocast():
             output = yolo_model(images)
             loss, loss_item = model.compute_loss(output, targets, yolo_model)
-            loss *= config.batch_size / 64  # scale loss
 
         # Backpropagation
         scaler.scale(loss).backward()

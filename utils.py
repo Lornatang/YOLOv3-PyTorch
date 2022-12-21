@@ -11,25 +11,177 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import math
 import os
 import random
+import shutil
 import time
 from enum import Enum
 from pathlib import Path
 from typing import Optional
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torchvision.ops
 from numpy import ndarray
-from torch import Tensor
+from torch import nn, optim, Tensor
 
 __all__ = [
+    "load_torch_state_dict", "load_pretrained_torch_state_dict", "load_resume_torch_state_dict",
+    "load_pretrained_darknet_state_dict", "save_torch_state_dict", "save_darknet_state_dict",
     "ap_per_class", "clip_coords", "coco80_to_coco91_class", "compute_ap", "make_directory", "make_divisible",
-    "non_max_suppression", "plot_one_box", "scale_coords", "xywh2xyxy", "xyxy2xywh",
+    "non_max_suppression", "plot_one_box", "plot_images", "scale_coords", "xywh2xyxy", "xyxy2xywh",
     "Summary", "AverageMeter", "ProgressMeter",
 ]
+
+
+def load_torch_state_dict(
+        model: nn.Module,
+        state_dict: dict,
+) -> nn.Module:
+    model_state_dict = model.state_dict()
+
+    # Traverse the model parameters and load the parameters in the pre-trained model into the current model
+    new_state_dict = {k: v for k, v in state_dict.items() if
+                      k in model_state_dict.keys() and v.size() == model_state_dict[k].size()}
+
+    # update model parameters
+    model_state_dict.update(new_state_dict)
+    model.load_state_dict(model_state_dict)
+
+    return model
+
+
+def load_pretrained_torch_state_dict(
+        model: nn.Module,
+        model_weights_path: str,
+) -> nn.Module:
+    checkpoint = torch.load(model_weights_path, map_location=lambda storage, loc: storage)
+    model = load_torch_state_dict(model, checkpoint["state_dict"])
+
+    return model
+
+
+def load_resume_torch_state_dict(
+        model: nn.Module,
+        model_weights_path: str,
+        ema_model: nn.Module or None,
+        optimizer: optim.Optimizer,
+) -> tuple[nn.Module, nn.Module, int, float, optim.Optimizer]:
+    # 加载模型权重
+    checkpoint = torch.load(model_weights_path, map_location=lambda storage, loc: storage)
+
+    # 加载训练节点参数
+    start_epoch = checkpoint["epoch"]
+    best_map50 = checkpoint["best_map50"]
+
+    model = load_torch_state_dict(model, checkpoint["state_dict"])
+    if checkpoint["ema_state_dict"] is not None:
+        ema_model = load_torch_state_dict(ema_model, checkpoint["ema_state_dict"])
+    optimizer.load_state_dict(checkpoint["optimizer"])
+
+    return model, ema_model, start_epoch, best_map50, optimizer
+
+
+def load_pretrained_darknet_state_dict(self, weights, cutoff=-1):
+    # Parses and loads the weights stored in "weights"
+
+    # Establish cutoffs (load layers between 0 and cutoff. if cutoff = -1 all are loaded)
+    file = Path(weights).name
+    if file == "darknet53.conv.74":
+        cutoff = 75
+    elif file == "yolov3-tiny.conv.15":
+        cutoff = 15
+
+    # Read weights file
+    with open(weights, "rb") as f:
+        self.version = np.fromfile(f, dtype=np.int32, count=3)  # (int32) version info: major, minor, revision
+        self.seen = np.fromfile(f, dtype=np.int64, count=1)  # (int64) number of images seen during training
+
+        weights = np.fromfile(f, dtype=np.float32)  # the rest are weights
+
+    ptr = 0
+    for i, (module_define, module) in enumerate(zip(self.module_define[:cutoff], self.module_list[:cutoff])):
+        if module_define["type"] == "convolutional":
+            conv = module[0]
+            if module_define["batch_normalize"]:
+                # Load BN bias, weights, running mean and running variance
+                bn = module[1]
+                nb = bn.bias.numel()  # number of biases
+                # Bias
+                bn.bias.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.bias))
+                ptr += nb
+                # Weight
+                bn.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.weight))
+                ptr += nb
+                # Running Mean
+                bn.running_mean.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.running_mean))
+                ptr += nb
+                # Running Var
+                bn.running_var.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.running_var))
+                ptr += nb
+            else:
+                # Load conv. bias
+                nb = conv.bias.numel()
+                conv_b = torch.from_numpy(weights[ptr:ptr + nb]).view_as(conv.bias)
+                conv.bias.data.copy_(conv_b)
+                ptr += nb
+            # Load conv. weights
+            nw = conv.weight.numel()  # number of weights
+            conv.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nw]).view_as(conv.weight))
+            ptr += nw
+
+
+def save_torch_state_dict(
+        state_dict: dict,
+        file_name: str,
+        samples_dir: str,
+        results_dir: str,
+        best_file_name: str,
+        last_file_name: str,
+        is_best: bool = False,
+        is_last: bool = False,
+) -> None:
+    checkpoint_path = os.path.join(samples_dir, file_name)
+    torch.save(state_dict, checkpoint_path)
+
+    if is_best:
+        shutil.copyfile(checkpoint_path, os.path.join(results_dir, best_file_name))
+    if is_last:
+        shutil.copyfile(checkpoint_path, os.path.join(results_dir, last_file_name))
+
+
+def save_darknet_state_dict(self, model_weights_path: str, cutoff=-1) -> None:
+    """Saves model weights to a file.
+
+    Args:
+        self:
+        model_weights_path (str): Path to save model weights.
+        cutoff (int, optional): Cutoff layer. Defaults: -1.
+
+    """
+    with open(model_weights_path, "wb") as f:
+        self.version.tofile(f)  # (int32) version info: major, minor, revision
+        self.seen.tofile(f)  # (int64) number of images seen during training
+
+        # Iterate through layers
+        for i, (module_define, module) in enumerate(zip(self.module_define[:cutoff], self.module_list[:cutoff])):
+            if module_define["type"] == "convolutional":
+                conv_layer = module[0]
+                # If batch norm, load bn first
+                if module_define["batch_normalize"]:
+                    bn_layer = module[1]
+                    bn_layer.bias.data.cpu().numpy().tofile(f)
+                    bn_layer.weight.data.cpu().numpy().tofile(f)
+                    bn_layer.running_mean.data.cpu().numpy().tofile(f)
+                    bn_layer.running_var.data.cpu().numpy().tofile(f)
+                # Load conv bias
+                else:
+                    conv_layer.bias.data.cpu().numpy().tofile(f)
+                # Load conv weights
+                conv_layer.weight.data.cpu().numpy().tofile(f)
 
 
 def ap_per_class(tp, conf, pred_cls, target_cls):
@@ -243,7 +395,7 @@ def non_max_suppression(prediction: Tensor,
 def plot_one_box(
         xyxy: tuple,
         image: ndarray,
-        color: list[int] = None,
+        color: list[int] or tuple[int] = None,
         label: str = None,
         line_thickness: float = None
 ) -> None:
@@ -252,7 +404,7 @@ def plot_one_box(
     Args:
         xyxy (tuple): bounding box
         image (ndarray): image to plot on
-        color (list[int]): color of the box
+        color (list[int] | tuple[int]): color of the box
         label (str): label of the box
         line_thickness (float): thickness of the lines of the box
 
@@ -269,6 +421,114 @@ def plot_one_box(
         c2 = c1[0] + t_size[0], c1[1] - t_size[1] - 3
         cv2.rectangle(image, c1, c2, color, -1, cv2.LINE_AA)  # filled
         cv2.putText(image, label, (c1[0], c1[1] - 2), 0, tl / 3, [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+
+
+def plot_images(
+        images: Tensor,
+        targets: Tensor,
+        paths: str = None,
+        file_name: str = "images.jpg",
+        names: str = None,
+        max_size: int = 640,
+        max_subplots: int = 16,
+) -> None:
+    """Plots images with bounding boxes
+
+    Args:
+        images (Tensor): images to plot
+        targets (Tensor): targets to plot
+        paths (str): paths to images
+        file_name (str): name of the file to save
+        names (str): names of the classes
+        max_size (int): maximum size of the image
+        max_subplots (int): maximum number of subplots
+
+    """
+    tl = 3  # line thickness
+    tf = max(tl - 1, 1)  # font thickness
+    if os.path.isfile(file_name):  # do not overwrite
+        return None
+
+    if isinstance(images, torch.Tensor):
+        images = images.cpu().numpy()
+
+    if isinstance(targets, torch.Tensor):
+        targets = targets.cpu().numpy()
+
+    # un-normalise
+    if np.max(images[0]) <= 1:
+        images *= 255
+
+    bs, _, h, w = images.shape  # batch size, _, height, width
+    bs = min(bs, max_subplots)  # limit plot images
+    ns = np.ceil(bs ** 0.5)  # number of subplots (square)
+
+    # Check if we should resize
+    scale_factor = max_size / max(h, w)
+    if scale_factor < 1:
+        h = math.ceil(scale_factor * h)
+        w = math.ceil(scale_factor * w)
+
+    # Empty array for output
+    mosaic = np.full((int(ns * h), int(ns * w), 3), 255, dtype=np.uint8)
+
+    # Fix class - colour map
+    prop_cycle = plt.rcParams["axes.prop_cycle"]
+    hex2rgb = lambda h: tuple(int(h[1 + i:1 + i + 2], 16) for i in (0, 2, 4))
+    color_lut = [hex2rgb(h) for h in prop_cycle.by_key()["color"]]
+
+    for i, img in enumerate(images):
+        if i == max_subplots:  # if last batch has fewer images than we expect
+            break
+
+        block_x = int(w * (i // ns))
+        block_y = int(h * (i % ns))
+
+        img = img.transpose(1, 2, 0)
+        if scale_factor < 1:
+            img = cv2.resize(img, (w, h))
+
+        mosaic[block_y:block_y + h, block_x:block_x + w, :] = img
+        if len(targets) > 0:
+            image_targets = targets[targets[:, 0] == i]
+            boxes = xywh2xyxy(image_targets[:, 2:6]).T
+            classes = image_targets[:, 1].astype("int")
+            gt = image_targets.shape[1] == 6  # ground truth if no conf column
+            conf = None if gt else image_targets[:, 6]  # check for confidence presence (gt vs pred)
+
+            boxes[[0, 2]] *= w
+            boxes[[0, 2]] += block_x
+            boxes[[1, 3]] *= h
+            boxes[[1, 3]] += block_y
+            for j, box in enumerate(boxes.T):
+                cls = int(classes[j])
+                color = color_lut[cls % len(color_lut)]
+                cls = names[cls] if names else cls
+                if gt or conf[j] > 0.3:  # 0.3 conf thresh
+                    label = '%s' % cls if gt else '%s %.1f' % (cls, conf[j])
+                    plot_one_box(box, mosaic, label=label, color=color, line_thickness=tl)
+
+        # Draw image filename labels
+        if paths is not None:
+            label = os.path.basename(paths[i])[:40]  # trim to 40 char
+            t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
+            cv2.putText(mosaic,
+                        label,
+                        (block_x + 5, block_y + t_size[1] + 5),
+                        0,
+                        tl / 3,
+                        [220, 220, 220],
+                        thickness=tf,
+                        lineType=cv2.LINE_AA)
+
+        # Image border
+        cv2.rectangle(mosaic, (block_x, block_y), (block_x + w, block_y + h), (255, 255, 255), thickness=3)
+
+    if file_name is not None:
+        mosaic = cv2.resize(mosaic, (int(ns * w * 0.5), int(ns * h * 0.5)), interpolation=cv2.INTER_AREA)
+        cv2.imwrite(file_name, cv2.cvtColor(mosaic, cv2.COLOR_BGR2RGB))
+
+    return mosaic
 
 
 def scale_coords(new_image_shape, coords, raw_image_shape, ratio_pad=None):

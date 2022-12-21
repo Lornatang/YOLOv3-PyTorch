@@ -13,22 +13,18 @@
 # ==============================================================================
 import math
 import os
-import shutil
-from pathlib import Path
 from typing import Any, List, Dict
 
 import numpy as np
 import torch
 from torch import nn, Tensor
-from torch.nn import Module
 from torch.nn import functional as F_torch
 from torchvision.ops.misc import SqueezeExcitation
 
-from utils import make_divisible
+from utils import save_darknet_state_dict, load_pretrained_darknet_state_dict, make_divisible
 
 __all__ = [
     "Darknet",
-    "load_torch_weights", "load_darknet_weights", "save_torch_weights", "save_darknet_weights", "convert_model_weights",
     "yolov3_tiny_prn_voc", "yolov3_tiny_prn_coco",
     "yolov3_tiny_voc", "yolov3_tiny_coco",
     "mobilenetv1_voc", "mobilenetv1_coco",
@@ -504,155 +500,7 @@ def compute_loss(p: Tensor, targets: Tensor, model: nn.Module):  # predictions, 
     return loss, torch.cat((lbox, lobj, lcls, loss)).detach()
 
 
-def load_torch_weights(
-        model: nn.Module,
-        model_weights_path: str,
-        ema_model: nn.Module = None,
-        optimizer: torch.optim.Optimizer = None,
-        scheduler: torch.optim.lr_scheduler = None,
-        load_mode: str = None,
-) -> tuple[Module, Any, Any, Any, Any, Any] or Module:
-    # Load model weights
-    checkpoint = torch.load(model_weights_path, map_location=lambda storage, loc: storage)
-
-    if load_mode == "resume":
-        # Restore the parameters in the training node to this point
-        start_epoch = checkpoint["epoch"]
-        best_map50 = checkpoint["best_map50"]
-        # Load model state dict. Extract the fitted model weights
-        model_state_dict = model.state_dict()
-        state_dict = {k: v for k, v in checkpoint["state_dict"].items() if k in model_state_dict.keys()}
-        # Overwrite the model weights to the current model (base model)
-        model_state_dict.update(state_dict)
-        model.load_state_dict(model_state_dict)
-        # Load the optimizer model
-        optimizer.load_state_dict(checkpoint["optimizer"])
-
-        if scheduler is not None:
-            # Load the scheduler model
-            scheduler.load_torch_weights(checkpoint["scheduler"])
-
-        if ema_model is not None:
-            # Load ema model state dict. Extract the fitted model weights
-            ema_model_state_dict = ema_model.state_dict()
-            ema_state_dict = {k: v for k, v in checkpoint["ema_state_dict"].items() if k in ema_model_state_dict.keys()}
-            # Overwrite the model weights to the current model (ema model)
-            ema_model_state_dict.update(ema_state_dict)
-            ema_model.load_state_dict(ema_model_state_dict)
-
-        return model, ema_model, start_epoch, best_map50, optimizer, scheduler
-    else:
-        # Load model state dict. Extract the fitted model weights
-        model_state_dict = model.state_dict()
-        state_dict = {k: v for k, v in checkpoint["state_dict"].items() if
-                      k in model_state_dict.keys() and v.size() == model_state_dict[k].size()}
-        # Overwrite the model weights to the current model
-        model_state_dict.update(state_dict)
-        model.load_state_dict(model_state_dict)
-
-        return model
-
-
-def load_darknet_weights(self, weights, cutoff=-1):
-    # Parses and loads the weights stored in "weights"
-
-    # Establish cutoffs (load layers between 0 and cutoff. if cutoff = -1 all are loaded)
-    file = Path(weights).name
-    if file == "darknet53.conv.74":
-        cutoff = 75
-    elif file == "yolov3-tiny.conv.15":
-        cutoff = 15
-
-    # Read weights file
-    with open(weights, "rb") as f:
-        self.version = np.fromfile(f, dtype=np.int32, count=3)  # (int32) version info: major, minor, revision
-        self.seen = np.fromfile(f, dtype=np.int64, count=1)  # (int64) number of images seen during training
-
-        weights = np.fromfile(f, dtype=np.float32)  # the rest are weights
-
-    ptr = 0
-    for i, (module_define, module) in enumerate(zip(self.module_define[:cutoff], self.module_list[:cutoff])):
-        if module_define["type"] == "convolutional":
-            conv = module[0]
-            if module_define["batch_normalize"]:
-                # Load BN bias, weights, running mean and running variance
-                bn = module[1]
-                nb = bn.bias.numel()  # number of biases
-                # Bias
-                bn.bias.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.bias))
-                ptr += nb
-                # Weight
-                bn.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.weight))
-                ptr += nb
-                # Running Mean
-                bn.running_mean.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.running_mean))
-                ptr += nb
-                # Running Var
-                bn.running_var.data.copy_(torch.from_numpy(weights[ptr:ptr + nb]).view_as(bn.running_var))
-                ptr += nb
-            else:
-                # Load conv. bias
-                nb = conv.bias.numel()
-                conv_b = torch.from_numpy(weights[ptr:ptr + nb]).view_as(conv.bias)
-                conv.bias.data.copy_(conv_b)
-                ptr += nb
-            # Load conv. weights
-            nw = conv.weight.numel()  # number of weights
-            conv.weight.data.copy_(torch.from_numpy(weights[ptr:ptr + nw]).view_as(conv.weight))
-            ptr += nw
-
-
-def save_torch_weights(
-        state_dict: dict,
-        file_name: str,
-        samples_dir: str,
-        results_dir: str,
-        best_file_name: str,
-        last_file_name: str,
-        is_best: bool = False,
-        is_last: bool = False,
-) -> None:
-    checkpoint_path = os.path.join(samples_dir, file_name)
-    torch.save(state_dict, checkpoint_path)
-
-    if is_best:
-        shutil.copyfile(checkpoint_path, os.path.join(results_dir, best_file_name))
-    if is_last:
-        shutil.copyfile(checkpoint_path, os.path.join(results_dir, last_file_name))
-
-
-def save_darknet_weights(self, model_weights_path: str, cutoff=-1) -> None:
-    """Saves model weights to a file.
-
-    Args:
-        self:
-        model_weights_path (str): Path to save model weights.
-        cutoff (int, optional): Cutoff layer. Defaults: -1.
-
-    """
-    with open(model_weights_path, "wb") as f:
-        self.version.tofile(f)  # (int32) version info: major, minor, revision
-        self.seen.tofile(f)  # (int64) number of images seen during training
-
-        # Iterate through layers
-        for i, (module_define, module) in enumerate(zip(self.module_define[:cutoff], self.module_list[:cutoff])):
-            if module_define["type"] == "convolutional":
-                conv_layer = module[0]
-                # If batch norm, load bn first
-                if module_define["batch_normalize"]:
-                    bn_layer = module[1]
-                    bn_layer.bias.data.cpu().numpy().tofile(f)
-                    bn_layer.weight.data.cpu().numpy().tofile(f)
-                    bn_layer.running_mean.data.cpu().numpy().tofile(f)
-                    bn_layer.running_var.data.cpu().numpy().tofile(f)
-                # Load conv bias
-                else:
-                    conv_layer.bias.data.cpu().numpy().tofile(f)
-                # Load conv weights
-                conv_layer.weight.data.cpu().numpy().tofile(f)
-
-
-def convert_model_weights(model_config_path: str, model_weights_path: str) -> None:
+def convert_model_state_dict(model_config_path: str, model_weights_path: str) -> None:
     """Convert darknet model to pytorch model
 
     Args:
@@ -667,18 +515,17 @@ def convert_model_weights(model_config_path: str, model_weights_path: str) -> No
     if model_weights_path.endswith(".pth.tar"):  # if PyTorch format
         model.load_state_dict(torch.load(model_weights_path, map_location="cpu")["state_dict"])
         target = model_weights_path[:-8] + ".weights"
-        save_darknet_weights(model, model_weights_path=target, cutoff=-1)
+        save_darknet_state_dict(model, model_weights_path=target, cutoff=-1)
         print(f"Success: converted {model_weights_path} to {target}")
 
     elif model_weights_path.endswith(".weights"):  # darknet format
-        load_darknet_weights(model, model_weights_path)
+        load_pretrained_darknet_state_dict(model, model_weights_path)
 
         chkpt = {"epoch": 0,
                  "best_map50": None,
                  "state_dict": model.state_dict(),
                  "ema_state_dict": model.state_dict(),
-                 "optimizer": None,
-                 "scheduler": None}
+                 "optimizer": None}
 
         target = model_weights_path[:-8] + ".pth.tar"
         torch.save(chkpt, target)

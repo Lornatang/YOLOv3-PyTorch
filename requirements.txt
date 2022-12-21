@@ -5,4 +5,5 @@ torchvision>=0.14.0
 tqdm>=4.63.1
 typing>=3.7.4.3
 opencv-python>=4.6.0.66
+matplotlib>=3.6.2
 Pillow>=9.3.0
