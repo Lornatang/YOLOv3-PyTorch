@@ -71,7 +71,7 @@ if mode == "train":
     dataset_config_path = f"./data/voc.data"
 
     # Default use multi-scale training
-    train_image_size_min = 416
+    train_image_size_min = 320
     train_image_size_max = 608
     test_image_size = 416
     grid_size = 32  # Do not modify
@@ -104,7 +104,7 @@ if mode == "test":
     # Dataset config for test
     test_dataset_config_path = f"./data/voc.data"
 
-    test_image_size = 608
+    test_image_size = 416
     batch_size = 64
     num_workers = 4
 
