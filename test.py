@@ -13,6 +13,7 @@
 # ==============================================================================
 import glob
 import json
+import random
 from pathlib import Path
 
 import numpy as np
@@ -24,56 +25,63 @@ from torch.utils.data import DataLoader
 from torchvision.ops import boxes
 from tqdm import tqdm
 
-import config
 import model
+import test_config
 from dataset import parse_dataset_config, LoadImagesAndLabels
-from utils import ap_per_class, clip_coords, coco80_to_coco91_class, non_max_suppression, scale_coords, xywh2xyxy, \
-    xyxy2xywh
+from utils import load_pretrained_torch_state_dict, load_pretrained_darknet_state_dict, ap_per_class, clip_coords, \
+    coco80_to_coco91_class, non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh
 
 
 def main():
+    device = torch.device(test_config.device)
+    # Fixed random number seed
+    random.seed(test_config.seed)
+    np.random.seed(test_config.seed)
+    torch.manual_seed(test_config.seed)
+    torch.cuda.manual_seed_all(test_config.seed)
+
     test_dataloader, num_classes, names = build_dataset()
     print("Load all datasets successfully.")
 
     yolo_model = build_model(num_classes)
     print("Load model successfully.")
 
-    iouv = torch.linspace(0.5, 0.95, 10).to(config.device)  # iou vector for mAP@0.5:0.95
+    iouv = torch.linspace(0.5, 0.95, 10).to(device)  # iou vector for mAP@0.5:0.95
     iouv = iouv[0].view(1)  # comment for mAP@0.5:0.95
     niou = iouv.numel()
 
     test(yolo_model,
          test_dataloader,
          names,
-         config.conf_threshold,
-         config.iou_threshold,
-         config.save_json,
-         config.test_augment,
+         test_config.conf_threshold,
+         test_config.iou_threshold,
+         test_config.save_json,
+         test_config.test_augment,
          iouv,
          niou,
-         config.verbose)
+         test_config.verbose)
 
 
 def build_dataset() -> [nn.Module, int, list]:
     # Load dataset
-    dataset_dict = parse_dataset_config(config.test_dataset_config_path)
-    num_classes = 1 if config.single_classes else int(dataset_dict["classes"])
+    dataset_dict = parse_dataset_config(test_config.test_dataset_config_path)
+    num_classes = 1 if test_config.single_classes else int(dataset_dict["classes"])
     names = dataset_dict["names"]
 
     test_datasets = LoadImagesAndLabels(path=dataset_dict["test"],
-                                        image_size=config.test_image_size,
-                                        batch_size=config.batch_size,
-                                        augment=config.test_augment,
-                                        rect_label=config.test_rect_label,
+                                        image_size=test_config.test_image_size,
+                                        batch_size=test_config.batch_size,
+                                        augment=test_config.test_augment,
+                                        rect_label=test_config.test_rect_label,
                                         cache_images=False,
-                                        single_classes=config.single_classes,
+                                        single_classes=test_config.single_classes,
                                         pad=0.5,
-                                        gray=config.gray)
+                                        gray=test_config.gray)
     # generate dataset iterator
     test_dataloader = DataLoader(test_datasets,
-                                 batch_size=config.batch_size,
+                                 batch_size=test_config.batch_size,
                                  shuffle=False,
-                                 num_workers=config.num_workers,
+                                 num_workers=test_config.num_workers,
                                  pin_memory=True,
                                  drop_last=False,
                                  persistent_workers=True,
@@ -84,19 +92,20 @@ def build_dataset() -> [nn.Module, int, list]:
 
 def build_model(num_classes: int) -> nn.Module:
     # Create model
-    yolo_model = model.__dict__[config.model_arch_name](image_size=(config.test_image_size, config.test_image_size),
-                                                        gray=config.gray,
-                                                        onnx_export=config.onnx_export)
+    yolo_model = model.__dict__[test_config.model_arch_name](image_size=(test_config.test_image_size,
+                                                                         test_config.test_image_size),
+                                                             gray=test_config.gray,
+                                                             onnx_export=test_config.onnx_export)
     yolo_model.num_classes = num_classes
-    yolo_model = yolo_model.to(device=config.device)
+    yolo_model = yolo_model.to(device=test_config.device)
     # Load the pre-trained model weights and fine-tune the model
-    if config.model_weights_path.endswith(".pth.tar"):
-        yolo_model = model.load_torch_weights(yolo_model, config.model_weights_path)
-    elif config.model_weights_path.endswith(".weights"):
-        model.load_darknet_weights(yolo_model, config.model_weights_path)
+    if test_config.model_weights_path.endswith(".pth.tar"):
+        yolo_model = load_pretrained_torch_state_dict(yolo_model, test_config.model_weights_path)
+    elif test_config.model_weights_path.endswith(".weights"):
+        load_pretrained_darknet_state_dict(yolo_model, test_config.model_weights_path)
     else:
-        yolo_model = model.load_torch_weights(yolo_model, config.model_weights_path)
-    print(f"Loaded `{config.model_weights_path}` pretrained model weights successfully.")
+        yolo_model = load_pretrained_torch_state_dict(yolo_model, test_config.model_weights_path)
+    print(f"Loaded `{test_config.model_weights_path}` pretrained model weights successfully.")
 
     return yolo_model
 
@@ -112,6 +121,7 @@ def test(
         iouv: Tensor,
         niou: int,
         verbose: bool = False,
+        device: torch.device = torch.device("cpu"),
 ):
     seen = 0
 
@@ -127,10 +137,10 @@ def test(
     jdict, stats, ap, ap_class = [], [], [], []
 
     for batch_index, (images, targets, paths, shapes) in enumerate(tqdm(test_dataloader, desc=s)):
-        images = images.to(config.device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
-        targets = targets.to(config.device)
+        images = images.to(device).float() / 255.0  # uint8 to float32, 0 - 255 to 0.0 - 1.0
+        targets = targets.to(device)
         batch_size, _, height, width = images.shape  # batch size, channels, height, width
-        whwh = torch.Tensor([width, height, width, height]).to(config.device)
+        whwh = torch.Tensor([width, height, width, height]).to(device)
 
         # Inference
         with torch.no_grad():
@@ -173,7 +183,7 @@ def test(
                                   "score": round(p[4], 5)})
 
             # Assign all predictions as incorrect
-            correct = torch.zeros(pred.shape[0], niou, dtype=torch.bool, device=config.device)
+            correct = torch.zeros(pred.shape[0], niou, dtype=torch.bool, device=device)
             if nl:
                 detected = []  # target indices
                 target_classes_tensor = labels[:, 0]
