@@ -451,9 +451,9 @@ def compute_loss(p: Tensor, targets: Tensor, model: nn.Module):  # predictions, 
 
     # Define criteria
     BCEcls = nn.BCEWithLogitsLoss(
-        pos_weight=torch.FloatTensor([hyper_parameters_dict["cls_pw"]]).to(device=targets.device))
+        pos_weight=torch.FloatTensor([hyper_parameters_dict["cls_pw"]]).to(targets.device))
     BCEobj = nn.BCEWithLogitsLoss(
-        pos_weight=torch.FloatTensor([hyper_parameters_dict["obj_pw"]]).to(device=targets.device))
+        pos_weight=torch.FloatTensor([hyper_parameters_dict["obj_pw"]]).to(targets.device))
 
     # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
     cp, cn = _smooth_bce(eps=0.0)
@@ -602,10 +602,10 @@ def _build_targets(
 
     for i, j in enumerate(model.yolo_layers):
         anchors = model.module_list[j].anchor_vec
-        gain[2:] = torch.tensor(p[i].shape)[[3, 2, 3, 2]].to(device=targets.device)  # xyxy gain
+        gain[2:] = torch.tensor(p[i].shape)[[3, 2, 3, 2]].to(targets.device)  # xyxy gain
         na = anchors.shape[0]  # number of anchors
-        at = torch.arange(na).view(na, 1).repeat(1, nt).to(
-            device=targets.device)  # anchor tensor, same as .repeat_interleave(nt)
+        # anchor tensor, same as .repeat_interleave(nt)
+        at = torch.arange(na).view(na, 1).repeat(1, nt).to(targets.device)
 
         # Match targets to anchors
         a, t, offsets = [], targets * gain, 0
