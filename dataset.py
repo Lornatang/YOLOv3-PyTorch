@@ -1,3 +1,16 @@
+# Copyright 2022 Lorna Authors. All Rights Reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 import glob
 import math
 import os
@@ -669,7 +682,7 @@ class LoadStreams:  # multiple IP or RTSP cameras
         return 0  # 1E12 frames = 32 streams at 30 FPS for 30 years
 
 
-class LoadImagesAndLabels(Dataset):  # for training/testing
+class LoadImagesAndLabels(Dataset):
     def __init__(
             self,
             path: str,
@@ -743,7 +756,6 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 assert len(s) == num_images, "Shapefile out of sync"
         except:
             s = [_exif_size(Image.open(f)) for f in tqdm(self.image_files, desc="Reading image shapes")]
-            np.savetxt(sp, s, fmt="%g")  # overwrites existing (if any)
 
         self.shapes = np.asarray(s, dtype=np.float64)
 
@@ -775,15 +787,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         self.labels = [np.zeros((0, 5), dtype=np.float32)] * num_images
         create_data_subset, extract_bounding_boxes, labels_loaded = False, False, False
         nm, nf, ne, ns, nd = 0, 0, 0, 0, 0  # number missing, found, empty, datasubset, duplicate
-        np_labels_path = str(Path(self.label_files[0]).parent) + ".npy"  # saved labels in *.npy file
-        if os.path.isfile(np_labels_path):
-            s = np_labels_path  # print string
-            x = np.load(np_labels_path, allow_pickle=True)
-            if len(x) == num_images:
-                self.labels = x
-                labels_loaded = True
-        else:
-            s = path.replace("images", "labels")
+        s = path.replace("images", "labels")
 
         pbar = tqdm(self.label_files)
         for i, file in enumerate(pbar):
@@ -841,9 +845,6 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
 
             pbar.desc = f"Caching labels {s} ({nf} found, {nm} missing, {ne} empty, {nd} duplicate, for {num_images} images)"
         assert nf > 0 or num_images == 20288, f"No labels found in {os.path.dirname(file) + os.sep}."
-        if not labels_loaded and num_images > 1000:
-            print("Saving labels to %s for faster future loading" % np_labels_path)
-            np.save(np_labels_path, self.labels)  # save for next time
 
         # Cache images into memory for faster training (WARNING: large datasets may exceed system RAM)
         if cache_images:  # if training
@@ -855,14 +856,13 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 gb += self.images[i].nbytes
                 pbar.desc = f"Caching images ({gb / 1e9:.1f}GB)"
 
-        # Detect corrupted images https://medium.com/joelthchao/programmatically-detect-corrupted-image-8c1b2006c3d3
         detect_corrupted_images = False
         if detect_corrupted_images:
             from skimage import io  # conda install -c conda-forge scikit-image
             for file in tqdm(self.image_files, desc="Detecting corrupted images"):
                 try:
                     _ = io.imread(file)
-                except Warning:
+                except:
                     print(f"Corrupted image detected: {file}")
 
     def __len__(self):

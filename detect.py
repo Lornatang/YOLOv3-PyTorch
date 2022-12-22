@@ -1,4 +1,4 @@
-# Copyright 2020 Lorna Authors. All Rights Reserved.
+# Copyright 2022 Lorna Authors. All Rights Reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
 #   You may obtain a copy of the License at
@@ -23,7 +23,8 @@ from torch.backends import cudnn
 
 import model
 from dataset import LoadImages, LoadStreams
-from utils import make_directory, non_max_suppression, plot_one_box, scale_coords, xyxy2xywh
+from utils import load_pretrained_torch_state_dict, load_pretrained_darknet_state_dict, make_directory, \
+    non_max_suppression, plot_one_box, scale_coords, xyxy2xywh
 
 
 def main(args):
@@ -121,9 +122,9 @@ def build_model(
     yolo_model = model.__dict__[model_arch_name](image_size=test_image_size, gray=gray)
     # Load the pre-trained model weights
     if model_weights_path.endswith(".pth.tar"):
-        yolo_model = model.load_torch_weights(yolo_model, model_weights_path)
+        yolo_model = load_pretrained_torch_state_dict(yolo_model, model_weights_path)
     elif model_weights_path.endswith(".weights"):
-        model.load_darknet_weights(yolo_model, model_weights_path)
+        load_pretrained_darknet_state_dict(yolo_model, model_weights_path)
     else:
         raise "The model weights path is not correct."
     print(f"Loaded `{model_weights_path}` pretrained model weights successfully.")

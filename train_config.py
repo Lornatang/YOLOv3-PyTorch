@@ -16,6 +16,8 @@ device = "cuda:0"
 seed = 0
 # Model arch name
 model_arch_name = "yolov3_tiny_voc"
+# Set to True for faster training/testing
+cache_images = True
 # Set to True if the label is rectangular
 train_rect_label = True
 test_rect_label = True
@@ -61,6 +63,7 @@ train_image_size_max = 608
 test_image_size = 416
 grid_size = 32  # Do not modify
 
+accumulate_batch_size = 64
 batch_size = 64
 num_workers = 4
 

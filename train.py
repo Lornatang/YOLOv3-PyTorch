@@ -100,7 +100,7 @@ def main():
     batches = len(train_dataloader)
 
     # For test
-    iouv = torch.linspace(0.5, 0.95, 10).to(train_config.device)  # iou vector for mAP@0.5:0.95
+    iouv = torch.linspace(0.5, 0.95, 10).to(device)  # iou vector for mAP@0.5:0.95
     iouv = iouv[0].view(1)  # comment for mAP@0.5:0.95
     niou = iouv.numel()
     for epoch in range(start_epoch, train_config.epochs):
@@ -124,7 +124,8 @@ def main():
                                      train_config.test_augment,
                                      iouv,
                                      niou,
-                                     train_config.verbose)
+                                     train_config.verbose,
+                                     device)
         writer.add_scalar("Test/Precision", p, epoch + 1)
         writer.add_scalar("Test/Recall", r, epoch + 1)
         writer.add_scalar("Test/mAP0.5", map50, epoch + 1)
@@ -168,7 +169,7 @@ def build_dataset_and_model(
                                          augment=train_config.train_augment,
                                          hyper_parameters_dict=train_config.hyper_parameters_dict,
                                          rect_label=train_config.train_rect_label,
-                                         cache_images=True,
+                                         cache_images=train_config.cache_images,
                                          single_classes=train_config.single_classes,
                                          gray=train_config.gray)
     test_datasets = LoadImagesAndLabels(path=dataset_dict["test"],
@@ -177,7 +178,7 @@ def build_dataset_and_model(
                                         augment=train_config.test_augment,
                                         hyper_parameters_dict=train_config.hyper_parameters_dict,
                                         rect_label=train_config.test_rect_label,
-                                        cache_images=True,
+                                        cache_images=train_config.cache_images,
                                         single_classes=train_config.single_classes,
                                         gray=train_config.gray)
     # generate dataset iterator
@@ -202,6 +203,8 @@ def build_dataset_and_model(
     yolo_model = model.__dict__[train_config.model_arch_name](image_size=(416, 416),
                                                               gray=train_config.gray,
                                                               onnx_export=train_config.onnx_export)
+    yolo_model = yolo_model.to(device)
+
     yolo_model.num_classes = num_classes
     yolo_model.hyper_parameters_dict = train_config.hyper_parameters_dict
     yolo_model.gr = 1.0
@@ -213,8 +216,7 @@ def build_dataset_and_model(
         (1 - model_ema_decay) * averaged_model_parameter + model_ema_decay * model_parameter
     ema_yolo_model = AveragedModel(yolo_model, device=device, avg_fn=ema_avg_fn)
 
-    yolo_model = yolo_model.to(device=train_config.device)
-    ema_yolo_model = ema_yolo_model.to(device=train_config.device)
+    ema_yolo_model = ema_yolo_model.to(device)
 
     return yolo_model, ema_yolo_model, train_dataloader, test_dataloader, names
 
@@ -307,6 +309,9 @@ def train(
     # Get the initialization training time
     end = time.time()
 
+    # Number of batches to accumulate gradients
+    accumulate = max(round(train_config.accumulate_batch_size / train_config.batch_size), 1)
+
     for batch_index, (images, targets, _, _) in enumerate(train_dataloader):
         total_batch_index = batch_index + (batches * epoch) + 1
         images = images.to(train_config.device).float() / 255.0
@@ -346,13 +351,15 @@ def train(
         with amp.autocast():
             output = yolo_model(images)
             loss, loss_item = model.compute_loss(output, targets, yolo_model)
+            loss *= train_config.batch_size / train_config.accumulate_batch_size
 
         # Backpropagation
         scaler.scale(loss).backward()
 
         # update generator weights
-        scaler.step(optimizer)
-        scaler.update()
+        if total_batch_index % accumulate == 0:
+            scaler.step(optimizer)
+            scaler.update()
 
         # update exponential average model weights
         ema_yolo_model.update_parameters(yolo_model)
