@@ -12,10 +12,12 @@
 # limitations under the License.
 # ==============================================================================
 # Set program device
-device = "cuda:0"
+device = "cuda:2"
 seed = 0
 # Model arch name
 model_arch_name = "yolov3_tiny_voc"
+# Set to True for faster training/testing
+cache_images = True
 # Set to True if the label is rectangular
 test_rect_label = True
 # Set to True if there is only 1 detection classes
@@ -35,4 +37,4 @@ test_dataset_config_path = f"./data/voc.data"
 test_image_size = 416
 batch_size = 64
 num_workers = 4
-model_weights_path = f"./results/pretrained_models/YOLOv3_tiny-COCO.weights"
+model_weights_path = f"./results/pretrained_models/YOLOv3_tiny-VOC0712-882d9055.pth.tar"
