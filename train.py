@@ -32,7 +32,7 @@ import train_config
 from dataset import parse_dataset_config, labels_to_class_weights, LoadImagesAndLabels
 from test import test
 from utils import load_pretrained_torch_state_dict, load_pretrained_darknet_state_dict, load_resume_torch_state_dict, \
-    save_torch_state_dict, make_directory, AverageMeter, ProgressMeter
+    save_torch_state_dict, make_directory, AverageMeter, ProgressMeter, plot_images
 
 
 def main():
@@ -312,13 +312,16 @@ def train(
     # Number of batches to accumulate gradients
     accumulate = max(round(train_config.accumulate_batch_size / train_config.batch_size), 1)
 
-    for batch_index, (images, targets, _, _) in enumerate(train_dataloader):
+    for batch_index, (images, targets, paths, _) in enumerate(train_dataloader):
         total_batch_index = batch_index + (batches * epoch) + 1
         images = images.to(train_config.device).float() / 255.0
         targets = targets.to(train_config.device)
 
         # Calculate the time it takes to load a batch of data
         data_time.update(time.time() - end)
+
+        if total_batch_index < 2:
+            plot_images(images=images, targets=targets, paths=paths, file_name=f"train_batch_{total_batch_index}.jpg")
 
         # Burn-in
         if total_batch_index <= num_burn:
