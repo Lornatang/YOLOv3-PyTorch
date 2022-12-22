@@ -41,10 +41,7 @@ def main():
     torch.cuda.manual_seed_all(test_config.seed)
 
     test_dataloader, num_classes, names = build_dataset()
-    print("Load all datasets successfully.")
-
     yolo_model = build_model(num_classes)
-    print("Load model successfully.")
 
     iouv = torch.linspace(0.5, 0.95, 10).to(device)  # iou vector for mAP@0.5:0.95
     iouv = iouv[0].view(1)  # comment for mAP@0.5:0.95
@@ -59,7 +56,8 @@ def main():
          test_config.test_augment,
          iouv,
          niou,
-         test_config.verbose)
+         test_config.verbose,
+         device)
 
 
 def build_dataset() -> [nn.Module, int, list]:
