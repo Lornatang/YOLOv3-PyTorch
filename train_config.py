@@ -68,7 +68,7 @@ batch_size = 64
 num_workers = 4
 
 # Load the address of the pre-trained model
-pretrained_model_weights_path = f"./results/pretrained_models/YOLOv3_tiny-COCO.weights"
+pretrained_model_weights_path = f""
 
 # Define this parameter when training is interrupted or migrated
 resume_model_weights_path = f""
@@ -85,5 +85,4 @@ optim_weight_decay = 5e-4
 model_ema_decay = 0.999
 
 # How many iterations to print the training result
-train_print_frequency = 200
-test_print_frequency = 1
+train_print_frequency = 100
