@@ -17,7 +17,7 @@ seed = 0
 # Model arch name
 model_arch_name = "yolov3_tiny_voc"
 # Set to True for faster training/testing
-cache_images = True
+cache_images = False
 # Set to True if the label is rectangular
 train_rect_label = True
 test_rect_label = True
