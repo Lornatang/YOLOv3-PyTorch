@@ -280,8 +280,8 @@ if __name__ == "__main__":
     parser.add_argument("--gray", type=bool, default=False,
                         help="Whether to use gray image. Default: ``False``.")
     parser.add_argument("--model_weights_path", type=str,
-                        default="./results/pretrained_models/YOLOv3_tiny-VOC0712-bce4b894.pth.tar",
-                        help="Model file weight path. Default: ``./results/pretrained_models/YOLOv3_tiny-VOC0712-bce4b894.pth.tar``.")
+                        default="./results/pretrained_models/YOLOv3_tiny-VOC0712-882d9055.pth.tar",
+                        help="Model file weight path. Default: ``./results/pretrained_models/YOLOv3_tiny-VOC0712-882d9055.pth.tar``.")
     parser.add_argument("--device", type=str, default="cpu",
                         help="Device. Default: ``cpu``.")
     parser.add_argument("--half", action="store_true", help="Half precision FP16 inference.")
@@ -292,8 +292,8 @@ if __name__ == "__main__":
                         help="output video codec (verify ffmpeg support). Default: ``mp4v``.")
     parser.add_argument("--conf_threshold", type=float, default=0.3,
                         help="Object confidence threshold. Default: 0.3.")
-    parser.add_argument("--iou_threshold", type=float, default=0.6,
-                        help="IOU threshold for NMS. Default: 0.6.")
+    parser.add_argument("--iou_threshold", type=float, default=0.5,
+                        help="IOU threshold for NMS. Default: 0.5.")
     parser.add_argument("--augment", action="store_true",
                         help="augmented inference")
     parser.add_argument("--filter_classes", nargs="+", type=int,
