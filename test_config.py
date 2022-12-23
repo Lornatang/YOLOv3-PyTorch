@@ -31,7 +31,7 @@ conf_threshold = 0.001
 iou_threshold = 0.5
 save_json = False
 test_augment = False
-verbose = False
+verbose = True
 
 test_dataset_config_path = f"./data/voc.data"
 test_image_size = 416

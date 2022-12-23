@@ -29,12 +29,19 @@ from numpy import ndarray
 from torch import nn, optim, Tensor
 
 __all__ = [
+    "load_classes",
     "load_torch_state_dict", "load_pretrained_torch_state_dict", "load_resume_torch_state_dict",
     "load_pretrained_darknet_state_dict", "save_torch_state_dict", "save_darknet_state_dict",
     "ap_per_class", "clip_coords", "coco80_to_coco91_class", "compute_ap", "make_directory", "make_divisible",
     "non_max_suppression", "plot_one_box", "plot_images", "scale_coords", "xywh2xyxy", "xyxy2xywh",
     "Summary", "AverageMeter", "ProgressMeter",
 ]
+
+
+def load_classes(path):
+    with open(path, "r") as f:
+        names = f.read().split("\n")
+    return list(filter(None, names))
 
 
 def load_torch_state_dict(
