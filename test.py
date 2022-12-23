@@ -28,8 +28,8 @@ from tqdm import tqdm
 import model
 import test_config
 from dataset import parse_dataset_config, LoadImagesAndLabels
-from utils import load_pretrained_torch_state_dict, load_pretrained_darknet_state_dict, ap_per_class, clip_coords, \
-    coco80_to_coco91_class, non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh
+from utils import load_classes, load_pretrained_torch_state_dict, load_pretrained_darknet_state_dict, ap_per_class, \
+    clip_coords, coco80_to_coco91_class, non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh
 
 
 def main():
@@ -64,7 +64,7 @@ def build_dataset() -> [nn.Module, int, list]:
     # Load dataset
     dataset_dict = parse_dataset_config(test_config.test_dataset_config_path)
     num_classes = 1 if test_config.single_classes else int(dataset_dict["classes"])
-    names = dataset_dict["names"]
+    names = load_classes(dataset_dict["names"])
 
     test_datasets = LoadImagesAndLabels(path=dataset_dict["test"],
                                         image_size=test_config.test_image_size,
