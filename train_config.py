@@ -19,8 +19,8 @@ model_arch_name = "yolov3_tiny_voc"
 # Set to True for faster training/testing
 cache_images = False
 # Set to True if the label is rectangular
-train_rect_label = True
-test_rect_label = True
+train_rect_label = False
+test_rect_label = False
 # Set to True if there is only 1 detection classes
 single_classes = False
 # If use grayscale image
