@@ -321,9 +321,9 @@ def train(
         data_time.update(time.time() - end)
 
         # Training shows
-        if os.path.exists("train_batch.jpg"):
-            os.remove("train_batch.jpg")
         if total_batch_index < 2:
+            if os.path.exists("train_batch.jpg"):
+                os.remove("train_batch.jpg")
             plot_images(images=images, targets=targets, paths=paths, file_name="train_batch.jpg")
 
         # Burn-in
