@@ -500,16 +500,25 @@ def compute_loss(p: Tensor, targets: Tensor, model: nn.Module):  # predictions, 
     return loss, torch.cat((lbox, lobj, lcls, loss)).detach()
 
 
-def convert_model_state_dict(model_config_path: str, model_weights_path: str) -> None:
-    """Convert darknet model to pytorch model
+def convert_model_state_dict(
+        model_config_path: str,
+        image_size: tuple = (416, 416),
+        gray: bool = False,
+        onnx_export: bool = False,
+        model_weights_path: str = None,
+) -> None:
+    """
 
     Args:
-        model_config_path (str): path to darknet model model_config file
+        model_config_path (str): Model configuration file path.
+        image_size (tuple, optional): Image size. Default: (416, 416).
+        gray (bool, optional): Whether to use grayscale images. Default: ``False``.
+        onnx_export (bool, optional): Whether to export to onnx. Default: ``False``.
         model_weights_path (str): path to darknet model weights file
 
-    """
+"""
     # Initialize model
-    model = Darknet(model_config_path)
+    model = Darknet(model_config_path, image_size, gray, onnx_export)
 
     # Load weights and save
     if model_weights_path.endswith(".pth.tar"):  # if PyTorch format
@@ -1062,5 +1071,17 @@ def yolov3_spp_voc(**kwargs) -> Darknet:
 
 def yolov3_spp_coco(**kwargs) -> Darknet:
     model = Darknet(model_config="./model_config/yolov3_spp-coco.cfg", **kwargs)
+
+    return model
+
+
+def yolov3_tiny_qr_code(**kwargs) -> Darknet:
+    model = Darknet(model_config="./model_config/yolov3_tiny-qr_code.cfg", **kwargs)
+
+    return model
+
+
+def yolov3_spp_qr_code(**kwargs) -> Darknet:
+    model = Darknet(model_config="./model_config/yolov3_spp-qr_code.cfg", **kwargs)
 
     return model
