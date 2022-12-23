@@ -1073,15 +1073,3 @@ def yolov3_spp_coco(**kwargs) -> Darknet:
     model = Darknet(model_config="./model_config/yolov3_spp-coco.cfg", **kwargs)
 
     return model
-
-
-def yolov3_tiny_qr_code(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/yolov3_tiny-qr_code.cfg", **kwargs)
-
-    return model
-
-
-def yolov3_spp_qr_code(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/yolov3_spp-qr_code.cfg", **kwargs)
-
-    return model
