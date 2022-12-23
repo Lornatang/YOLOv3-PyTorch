@@ -320,8 +320,11 @@ def train(
         # Calculate the time it takes to load a batch of data
         data_time.update(time.time() - end)
 
+        # Training shows
+        if os.path.exists("train_batch.jpg"):
+            os.remove("train_batch.jpg")
         if total_batch_index < 2:
-            plot_images(images=images, targets=targets, paths=paths, file_name=f"train_batch_{total_batch_index}.jpg")
+            plot_images(images=images, targets=targets, paths=paths, file_name="train_batch.jpg")
 
         # Burn-in
         if total_batch_index <= num_burn:
