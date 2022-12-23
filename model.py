@@ -1073,3 +1073,27 @@ def yolov3_spp_coco(**kwargs) -> Darknet:
     model = Darknet(model_config="./model_config/yolov3_spp-coco.cfg", **kwargs)
 
     return model
+
+
+def alexnet_voc(**kwargs) -> Darknet:
+    model = Darknet(model_config="./model_config/alexnet-voc.cfg", **kwargs)
+
+    return model
+
+
+def alexnet_coco(**kwargs) -> Darknet:
+    model = Darknet(model_config="./model_config/alexnet-coco.cfg", **kwargs)
+
+    return model
+
+
+def vgg16_voc(**kwargs) -> Darknet:
+    model = Darknet(model_config="./model_config/vgg16-voc.cfg", **kwargs)
+
+    return model
+
+
+def vgg16_coco(**kwargs) -> Darknet:
+    model = Darknet(model_config="./model_config/vgg16-coco.cfg", **kwargs)
+
+    return model
