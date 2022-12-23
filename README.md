@@ -81,16 +81,16 @@ In the following table, the mAP value in `()` indicates the result of the projec
 |         Model         |   Train dataset   | Test dataset |     mAP     | 
 |:---------------------:|:-----------------:|:------------:|:-----------:|
 |  yolov3_tiny_prn_voc  | VOC07+12 trainval |  VOC07 test  | -(**50.5**) |
-|    yolov3_tiny_voc    | VOC07+12 trainval |  VOC07 test  | -(**52.3**) |
+|    yolov3_tiny_voc    | VOC07+12 trainval |  VOC07 test  | -(**58.8**) |
 |      yolov3_voc       | VOC07+12 trainval |  VOC07 test  | -(**66.8**) |
 |    yolov3_spp_voc     | VOC07+12 trainval |  VOC07 test  | -(**52.3**) |
-|    mobilenetv1_voc    | VOC07+12 trainval |  VOC07 test  | -(**8.06**) |
+|    mobilenetv1_voc    | VOC07+12 trainval |  VOC07 test  | -(**66.4**) |
 |    mobilenetv2_voc    | VOC07+12 trainval |  VOC07 test  | -(**5.50**) |
 | mobilenetv3_small_voc | VOC07+12 trainval |  VOC07 test  | -(**5.50**) |
 | mobilenetv3_large_voc | VOC07+12 trainval |  VOC07 test  | -(**5.50**) |
 
 ```bash
-# Download `YOLOv3_tiny-VOC0712-882d9055.pth.tar` weights to `./results/pretrained_models`
+# Download `YOLOv3_tiny-VOC0712-d24f2c25.pth.tar` weights to `./results/pretrained_models`
 # More detail see `README.md<Download weights>`
 python3 ./detect.py
 ```
