@@ -56,7 +56,7 @@ def main(args):
     device = choice_device(args.device)
     yolo_model = build_model(args.model_arch_name,
                              args.image_size,
-                             False,
+                             args.gray,
                              args.model_weights_path,
                              device,
                              args.half,
