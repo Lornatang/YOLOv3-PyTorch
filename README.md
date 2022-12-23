@@ -84,7 +84,7 @@ In the following table, the mAP value in `()` indicates the result of the projec
 |    yolov3_tiny_voc    | VOC07+12 trainval |  VOC07 test  | -(**58.8**) |
 |      yolov3_voc       | VOC07+12 trainval |  VOC07 test  | -(**66.8**) |
 |    yolov3_spp_voc     | VOC07+12 trainval |  VOC07 test  | -(**52.3**) |
-|    mobilenetv1_voc    | VOC07+12 trainval |  VOC07 test  | -(**66.4**) |
+|    mobilenetv1_voc    | VOC07+12 trainval |  VOC07 test  | -(**66.0**) |
 |    mobilenetv2_voc    | VOC07+12 trainval |  VOC07 test  | -(**5.50**) |
 | mobilenetv3_small_voc | VOC07+12 trainval |  VOC07 test  | -(**5.50**) |
 | mobilenetv3_large_voc | VOC07+12 trainval |  VOC07 test  | -(**5.50**) |
