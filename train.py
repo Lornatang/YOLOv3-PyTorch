@@ -313,7 +313,7 @@ def train(
     accumulate = max(round(train_config.accumulate_batch_size / train_config.batch_size), 1)
 
     for batch_index, (images, targets, paths, _) in enumerate(train_dataloader):
-        total_batch_index = batch_index + (batches * epoch) + 1
+        total_batch_index = batch_index + (batches * epoch)
         images = images.to(train_config.device).float() / 255.0
         targets = targets.to(train_config.device)
 
@@ -321,7 +321,7 @@ def train(
         data_time.update(time.time() - end)
 
         # Training shows
-        if total_batch_index < 2:
+        if total_batch_index < 1:
             if os.path.exists("train_batch.jpg"):
                 os.remove("train_batch.jpg")
             plot_images(images=images, targets=targets, paths=paths, file_name="train_batch.jpg")
@@ -388,7 +388,7 @@ def train(
             writer.add_scalar("Train/ClsLoss", loss_item[2], total_batch_index)
             writer.add_scalar("Train/Loss", loss_item[3], total_batch_index)
 
-            progress.display(batch_index + 1)
+            progress.display(batch_index)
 
 
 if __name__ == "__main__":
