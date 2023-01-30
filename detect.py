@@ -53,7 +53,7 @@ def main(args):
     colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
 
     # Build model
-    device = choice_device(args.device)
+    device = torch.device(args.device)
     yolo_model = build_model(args.model_arch_name,
                              args.image_size,
                              args.gray,
@@ -80,19 +80,6 @@ def main(args):
            args.filter_classes,
            args.agnostic_nms,
            device)
-
-
-def choice_device(device: str = "cpu") -> torch.device:
-    # Select model processing equipment type
-    if device == "cuda":
-        device = torch.device("cuda", 0)
-    elif device[:4] == "cuda":
-        device = torch.device(device)
-    else:
-        device = torch.device("cpu")
-
-    return device
-
 
 def build_model(
         model_arch_name: str,
@@ -258,6 +245,7 @@ def detect(
                 if dataset.mode == "images":
                     cv2.imwrite(save_path, raw_frame)
                 else:
+                    vid_writer.release()
                     fps = video_capture.get(cv2.CAP_PROP_FPS)
                     w = int(video_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
                     h = int(video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
