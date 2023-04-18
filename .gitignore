@@ -134,3 +134,4 @@ data
 results
 results/pretrained_models
 samples
+*.jpg
