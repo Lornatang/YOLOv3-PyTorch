@@ -33,7 +33,7 @@ RECT_LABEL: False
 MODEL:
   YOLO:
     CONFIG_PATH: "./model_configs/yolov3-voc.cfg"
-    WEIGHTS_PATH: "./results/YOLOV3_VOC/last.pth.tar"
+    WEIGHTS_PATH: "./results/pretrained_models/YOLOv3-VOC0712-22338193.pth.tar"
     COMPILED: False
 
 DATASET_CONFIG_NAME: "./data/voc.data"
