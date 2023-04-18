@@ -1015,7 +1015,7 @@ class LoadImagesAndLabels(Dataset):
                     labels[:, 1] = 1 - labels[:, 1]
 
             # random up-down flip
-            ud_flip = False
+            ud_flip = True
             if ud_flip and random.random() < 0.5:
                 image = np.flipud(image)
                 if nL:
