@@ -120,7 +120,7 @@ def load_image(self, index: int) -> Tuple[np.ndarray, Tuple[int, int], Tuple[int
         h0, w0 = image.shape[:2]  # orig hw
         r = self.image_size / max(h0, w0)  # resize image to image_size
         if r != 1:  # always resize down, only resize up if training with augmentation
-            interp = cv2.INTER_AREA if r < 1 and not self.augment else cv2.INTER_LINEAR
+            interp = cv2.INTER_AREA if r < 1 and not self.image_augment else cv2.INTER_LINEAR
             image = cv2.resize(image, (int(w0 * r), int(h0 * r)), interpolation=interp)
         return image, (h0, w0), image.shape[:2]  # image, hw_original, hw_resized
     else:
@@ -207,10 +207,10 @@ def load_mosaic(self, index: int) -> Tuple[np.ndarray, List]:
     # Augment
     image4, labels4 = random_affine(image4,
                                     labels4,
-                                    degrees=self.hyper_parameters_dict["degrees"],
-                                    translate=self.hyper_parameters_dict["translate"],
-                                    scale=self.hyper_parameters_dict["scale"],
-                                    shear=self.hyper_parameters_dict["shear"],
+                                    degrees=int(self.image_augment_dict["DEGREES"]),
+                                    translate=float(self.image_augment_dict["TRANSLATE"]),
+                                    scale=float(self.image_augment_dict["SCALE"]),
+                                    shear=int(self.image_augment_dict["SHEAR"]),
                                     border=-s // 2)  # border to remove
 
     return image4, labels4
@@ -403,7 +403,7 @@ def kmean_anchors(
 
     # Get label wh
     wh = []
-    dataset = LoadImagesAndLabels(path, augment=True, rect_label=True)
+    dataset = LoadImagesAndLabels(path, image_augment=True, rect_label=True)
     nr = 1 if image_size[0] == image_size[1] else 10  # number augmentation repetitions
     for s, l in zip(dataset.shapes, dataset.labels):
         wh.append(l[:, 3:5] * (s / s.max()))  # image normalized to letterbox normalized wh
@@ -770,8 +770,8 @@ class LoadImagesAndLabels(Dataset):
             path: str,
             image_size: int = 416,
             batch_size: int = 16,
-            augment: bool = False,
-            hyper_parameters_dict: Any = None,
+            image_augment: bool = False,
+            image_augment_dict: Any = None,
             rect_label: bool = False,
             image_weights: bool = False,
             cache_images: bool = False,
@@ -785,8 +785,8 @@ class LoadImagesAndLabels(Dataset):
             path (str): The path to the images.
             image_size (int, optional): The size of the images. Defaults: 416.
             batch_size (int, optional): The size of the batch. Defaults: 16.
-            augment (bool, optional): Whether to augment the images. Defaults: ``False``.
-            hyper_parameters_dict (Any, optional): The hyper-parameters. Defaults: None.
+            image_augment (bool, optional): Whether to augment the images. Defaults: ``False``.
+            image_augment_dict (Any, optional): The image augment configure. Defaults: None.
             rect_label (bool, optional): Whether to use rectangular trainning. Defaults: ``False``.
             image_weights (bool, optional): Whether to use image weights. Defaults: ``False``.
             cache_images (bool, optional): Whether to cache the images. Defaults: ``False``.
@@ -819,11 +819,11 @@ class LoadImagesAndLabels(Dataset):
         self.num_images = num_images  # number of images
         self.batch_index = batch_index  # batch index of image
         self.image_size = image_size
-        self.augment = augment
-        self.hyper_parameters_dict = hyper_parameters_dict
+        self.image_augment = image_augment
+        self.image_augment_dict = image_augment_dict
         self.image_weights = image_weights
         self.rect_label = False if image_weights else rect_label
-        self.mosaic = self.augment and not self.rect_label  # load 4 images at a time into a mosaic (only during training)
+        self.mosaic = self.image_augment and not self.rect_label  # load 4 images at a time into a mosaic (only during training)
         self.gray = gray
 
         # Define labels
@@ -956,7 +956,6 @@ class LoadImagesAndLabels(Dataset):
         if self.image_weights:
             index = self.indices[index]
 
-        hyper_parameters_dict = self.hyper_parameters_dict
         if self.mosaic:
             # Load mosaic
             image, labels = load_mosaic(self, index)
@@ -969,7 +968,7 @@ class LoadImagesAndLabels(Dataset):
             # Letterbox
             shape = self.batch_shapes[
                 self.batch_index[index]] if self.rect_label else self.image_size  # final letterboxed shape
-            image, ratio, pad = letterbox(image, shape, auto=False, scaleup=self.augment)
+            image, ratio, pad = letterbox(image, shape, auto=False, scaleup=self.image_augment)
             shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
 
             # Load labels
@@ -983,20 +982,20 @@ class LoadImagesAndLabels(Dataset):
                 labels[:, 3] = ratio[0] * w * (x[:, 1] + x[:, 3] / 2) + pad[0]
                 labels[:, 4] = ratio[1] * h * (x[:, 2] + x[:, 4] / 2) + pad[1]
 
-        if self.augment:
-            # Augment imagespace
+        if self.image_augment:
+            # Augment image space
             if not self.mosaic:
                 image, labels = random_affine(image, labels,
-                                              degrees=hyper_parameters_dict["degrees"],
-                                              translate=hyper_parameters_dict["translate"],
-                                              scale=hyper_parameters_dict["scale"],
-                                              shear=hyper_parameters_dict["shear"])
+                                              degrees=self.image_augment_dict["DEGREES"],
+                                              translate=self.image_augment_dict["TRANSLATE"],
+                                              scale=self.image_augment_dict["SCALE"],
+                                              shear=self.image_augment_dict["SHEAR"])
 
             # Augment colorspace
             augment_hsv(image,
-                        hgain=hyper_parameters_dict["hsv_h"],
-                        sgain=hyper_parameters_dict["hsv_s"],
-                        vgain=hyper_parameters_dict["hsv_v"])
+                        hgain=self.image_augment_dict["HSV_H"],
+                        sgain=self.image_augment_dict["HSV_S"],
+                        vgain=self.image_augment_dict["HSV_V"])
 
         nL = len(labels)  # number of labels
         if nL:
@@ -1007,7 +1006,7 @@ class LoadImagesAndLabels(Dataset):
             labels[:, [2, 4]] /= image.shape[0]  # height
             labels[:, [1, 3]] /= image.shape[1]  # width
 
-        if self.augment:
+        if self.image_augment:
             # random left-right flip
             lr_flip = True
             if lr_flip and random.random() < 0.5:

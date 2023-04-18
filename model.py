@@ -25,12 +25,7 @@ from utils import save_darknet_state_dict, load_pretrained_darknet_state_dict, m
 
 __all__ = [
     "Darknet",
-    "yolov3_tiny_prn_voc", "yolov3_tiny_prn_coco",
-    "yolov3_tiny_voc", "yolov3_tiny_coco",
-    "mobilenetv1_voc", "mobilenetv1_coco",
-    "mobilenetv2_voc", "mobilenetv2_coco",
-    "mobilenetv3_small_voc", "mobilenetv3_small_coco", "mobilenetv3_large_voc", "mobilenetv3_large_coco",
-    "yolov3_voc", "yolov3_coco",
+    "compute_loss",
 ]
 
 
@@ -61,9 +56,9 @@ class Darknet(nn.Module):
 
     def forward(
             self, x: Tensor,
-            augment: bool = False
+            image_augment: bool = False
     ) -> list[Any] | tuple[Tensor, Tensor] | tuple[Tensor, Any] | tuple[Tensor, None]:
-        if not augment:
+        if not image_augment:
             return self.forward_once(x)
         else:
             image_size = x.shape[-2:]  # height, width
@@ -431,13 +426,21 @@ class _InvertedResidual(nn.Module):
         return out
 
 
-def compute_loss(p: Tensor, targets: Tensor, model: nn.Module):  # predictions, targets, model
+def compute_loss(
+        p: Tensor,
+        targets: Tensor,
+        model: nn.Module,
+        iou_threshold: float,
+        losses_dict: Any,
+):  # predictions, targets, model
     """Computes loss for YOLOv3.
 
     Args:
         p (Tensor): predictions
         targets (Tensor): targets
         model (nn.Module): model
+        iou_threshold (float): iou threshold
+        losses_dict (Any): losses dict
 
     Returns:
         loss (Tensor): loss
@@ -446,20 +449,19 @@ def compute_loss(p: Tensor, targets: Tensor, model: nn.Module):  # predictions, 
     lcls = torch.FloatTensor([0]).to(device=targets.device)
     lbox = torch.FloatTensor([0]).to(device=targets.device)
     lobj = torch.FloatTensor([0]).to(device=targets.device)
-    tcls, tbox, indices, anchors = _build_targets(p, targets, model)  # targets
-    hyper_parameters_dict = model.hyper_parameters_dict  # hyperparameters
+    tcls, tbox, indices, anchors = _build_targets(p, targets, model, iou_threshold)  # targets
 
     # Define criteria
     BCEcls = nn.BCEWithLogitsLoss(
-        pos_weight=torch.FloatTensor([hyper_parameters_dict["cls_pw"]]).to(targets.device))
+        pos_weight=torch.FloatTensor([losses_dict["CLS_BCE_PW_LOSS"]["WEIGHT"]]).to(targets.device))
     BCEobj = nn.BCEWithLogitsLoss(
-        pos_weight=torch.FloatTensor([hyper_parameters_dict["obj_pw"]]).to(targets.device))
+        pos_weight=torch.FloatTensor([losses_dict["OBJ_BCE_PW_LOSS"]["WEIGHT"]]).to(targets.device))
 
     # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
     cp, cn = _smooth_bce(eps=0.0)
 
     # focal loss
-    g = hyper_parameters_dict["fl_gamma"]  # focal loss gamma
+    g = losses_dict["FL_GAMMA_LOSS"]["WEIGHT"]  # focal loss gamma
     if g > 0:
         BCEcls, BCEobj = _FocalLoss(BCEcls, g), _FocalLoss(BCEobj, g)
 
@@ -492,9 +494,9 @@ def compute_loss(p: Tensor, targets: Tensor, model: nn.Module):  # predictions, 
 
         lobj += BCEobj(pi[..., 4], tobj)  # obj loss
 
-    lbox *= hyper_parameters_dict["giou"]
-    lobj *= hyper_parameters_dict["obj"]
-    lcls *= hyper_parameters_dict["cls"]
+    lbox *= losses_dict["GIOU_LOSS"]["WEIGHT"]
+    lobj *= losses_dict["OBJ_LOSS"]["WEIGHT"]
+    lcls *= losses_dict["CLS_LOSS"]["WEIGHT"]
 
     loss = lbox + lobj + lcls
     return loss, torch.cat((lbox, lobj, lcls, loss)).detach()
@@ -592,7 +594,8 @@ def _bbox_iou(box1, box2, x1y1x2y2=True, g_iou=False, d_iou=False, c_iou=False):
 def _build_targets(
         p: Tensor,
         targets: Tensor,
-        model: nn.Module
+        model: nn.Module,
+        iou_threshold: float = 0.5,
 ) -> tuple[list[Any], list[Tensor], list[tuple[Any, Tensor | list[Any] | Any, Any, Any]], list[Any]]:
     """Build targets for compute_loss(), input targets(image,class,x,y,w,h)
 
@@ -619,8 +622,8 @@ def _build_targets(
         # Match targets to anchors
         a, t, offsets = [], targets * gain, 0
         if nt:
-            j = _wh_iou(anchors, t[:, 4:6]) > model.hyper_parameters_dict[
-                "iou_t"]  # iou(3,n) = wh_iou(anchors(3,2), gwh(n,2))
+            j = _wh_iou(anchors, t[:, 4:6]) > iou_threshold
+            # iou(3,n) = wh_iou(anchors(3,2), gwh(n,2))
             a, t = at[j], t.repeat(na, 1, 1)[j]  # filter
 
         # Define
@@ -652,7 +655,7 @@ def _create_modules(
     Args:
         module_define (nn.ModuleList): Module definition of model.
         image_size (int or tuple): size of input image
-        model_config (str): Path to model model_config file
+        model_config (str): Path to model model_configs file
         gray (bool): If True, model is grayscale
         onnx_export (bool, optional): If ONNX export is ON. Defaults to False.
 
@@ -874,7 +877,7 @@ def _parse_model_config(model_config_path: str) -> List[Dict[str, Any]]:
     """Parses the yolo-v3 layer configuration file and returns module definitions.
 
     Args:
-        model_config_path (str): path to model model_config file
+        model_config_path (str): path to model model_configs file
 
     Returns:
         module_define (List[Dict[str, Any]]): module definitions
@@ -977,123 +980,3 @@ def _wh_iou(wh1, wh2):
     wh2 = wh2[None]  # [1,M,2]
     inter = torch.min(wh1, wh2).prod(2)  # [N,M]
     return inter / (wh1.prod(2) + wh2.prod(2) - inter)  # iou = inter / (area1 + area2 - inter)
-
-
-def yolov3_tiny_prn_voc(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/yolov3_tiny_prn-voc.cfg", **kwargs)
-
-    return model
-
-
-def yolov3_tiny_prn_coco(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/yolov3_tiny_prn-coco.cfg", **kwargs)
-
-    return model
-
-
-def yolov3_tiny_voc(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/yolov3_tiny-voc.cfg", **kwargs)
-
-    return model
-
-
-def yolov3_tiny_coco(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/yolov3_tiny-coco.cfg", **kwargs)
-
-    return model
-
-
-def mobilenetv1_voc(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/mobilenetv1-voc.cfg", **kwargs)
-
-    return model
-
-
-def mobilenetv1_coco(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/mobilenetv1-coco.cfg", **kwargs)
-
-    return model
-
-
-def mobilenetv2_voc(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/mobilenetv2-voc.cfg", **kwargs)
-
-    return model
-
-
-def mobilenetv2_coco(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/mobilenetv2-coco.cfg", **kwargs)
-
-    return model
-
-
-def mobilenetv3_small_voc(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/mobilenetv3_small-voc.cfg", **kwargs)
-
-    return model
-
-
-def mobilenetv3_small_coco(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/mobilenetv3_small-coco.cfg", **kwargs)
-
-    return model
-
-
-def mobilenetv3_large_voc(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/mobilenetv3_large-voc.cfg", **kwargs)
-
-    return model
-
-
-def mobilenetv3_large_coco(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/mobilenetv3_large-coco.cfg", **kwargs)
-
-    return model
-
-
-def yolov3_voc(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/yolov3-voc.cfg", **kwargs)
-
-    return model
-
-
-def yolov3_coco(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/yolov3-coco.cfg", **kwargs)
-
-    return model
-
-
-def yolov3_spp_voc(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/yolov3_spp-voc.cfg", **kwargs)
-
-    return model
-
-
-def yolov3_spp_coco(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/yolov3_spp-coco.cfg", **kwargs)
-
-    return model
-
-
-def alexnet_voc(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/alexnet-voc.cfg", **kwargs)
-
-    return model
-
-
-def alexnet_coco(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/alexnet-coco.cfg", **kwargs)
-
-    return model
-
-
-def vgg16_voc(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/vgg16-voc.cfg", **kwargs)
-
-    return model
-
-
-def vgg16_coco(**kwargs) -> Darknet:
-    model = Darknet(model_config="./model_config/vgg16-coco.cfg", **kwargs)
-
-    return model

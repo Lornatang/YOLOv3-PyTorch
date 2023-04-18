@@ -24,7 +24,7 @@ from torch import nn, Tensor
 from torch.utils.data import DataLoader
 from torchvision.ops import boxes
 from tqdm import tqdm
-
+from typing import Any
 import model
 import test_config
 from dataset import parse_dataset_config, LoadImagesAndLabels
@@ -50,13 +50,9 @@ def main():
     test(yolo_model,
          test_dataloader,
          names,
-         test_config.conf_threshold,
-         test_config.iou_threshold,
-         test_config.save_json,
-         test_config.test_augment,
          iouv,
          niou,
-         test_config.verbose,
+         test_config,
          device)
 
 
@@ -69,7 +65,7 @@ def build_dataset() -> [nn.Module, int, list]:
     test_datasets = LoadImagesAndLabels(path=dataset_dict["test"],
                                         image_size=test_config.test_image_size,
                                         batch_size=test_config.batch_size,
-                                        augment=test_config.test_augment,
+                                        image_augment=test_config.test_augment,
                                         rect_label=test_config.test_rect_label,
                                         cache_images=test_config.cache_images,
                                         single_classes=test_config.single_classes,
@@ -112,13 +108,9 @@ def test(
         yolo_model: nn.Module,
         test_dataloader: DataLoader,
         names: list,
-        conf_threshold: float,
-        iou_threshold: float,
-        save_json: bool,
-        augment: bool,
         iouv: Tensor,
         niou: int,
-        verbose: bool = False,
+        config: Any,
         device: torch.device = torch.device("cpu"),
 ):
     seen = 0
@@ -143,10 +135,10 @@ def test(
         # Inference
         with torch.no_grad():
             # Run model
-            output, train_out = yolo_model(images, augment=augment)  # inference and training outputs
+            output, train_out = yolo_model(images, image_augment=config["image_augment"])  # inference and training outputs
 
             # Run NMS
-            output = non_max_suppression(output, conf_threshold, iou_threshold)
+            output = non_max_suppression(output, config["CONF_THRESHOLD"], config["IOU_THRESHOLD"])
 
         # Statistics per image
         for si, pred in enumerate(output):
@@ -167,7 +159,7 @@ def test(
             clip_coords(pred, (height, width))
 
             # Append to pycocotools JSON dictionary
-            if save_json:
+            if config["SAVE_JSON"]:
                 # [{"image_id": 42, "category_id": 18, "bbox": [258.15, 41.29, 348.26, 243.78], "score": 0.236}, ...
                 image_id = int(Path(paths[si]).stem.split("_")[-1])
                 box = pred[:, :4].clone()  # xyxy
@@ -227,19 +219,19 @@ def test(
     print(pf % ("all", seen, nt.sum(), mp, mr, map50, mf1))
 
     # Print results per class
-    if verbose and yolo_model.num_classes > 1 and len(stats):
+    if config["verbose"] and yolo_model.num_classes > 1 and len(stats):
         for i, c in enumerate(ap_class):
             print(pf % (names[c], seen, nt[c], p[i], r[i], ap[i], f1[i]))
 
     # Save JSON
-    if save_json and map50 and len(jdict):
+    if config["SAVE_JSON"] and map50 and len(jdict):
         print("\nCOCO mAP with pycocotools...")
         imgIds = [int(Path(x).stem.split("_")[-1]) for x in test_dataloader.dataset.image_files]
-        with open("results.json", "w") as file:
+        with open(config["SAVE_JSON_PATH"], "w") as file:
             json.dump(jdict, file)
 
-        cocoGt = COCO(glob.glob("./data/COCO2014/annotations/instances_val*.json")[0])
-        cocoDt = cocoGt.loadRes("results.json")  # initialize COCO pred api
+        cocoGt = COCO(glob.glob(config["GT_JSON_PATH"])[0])
+        cocoDt = cocoGt.loadRes(config["SAVE_JSON_PATH"])  # initialize COCO pred api
 
         cocoEval = COCOeval(cocoGt, cocoDt, "bbox")
         cocoEval.params.imgIds = imgIds  # [:32]  # only evaluate these images
