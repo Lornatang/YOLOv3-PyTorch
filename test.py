@@ -135,7 +135,7 @@ def test(
         # Inference
         with torch.no_grad():
             # Run model
-            output, train_out = yolo_model(images, image_augment=config["image_augment"])  # inference and training outputs
+            output, train_out = yolo_model(images, image_augment=config["IMAGE_AUGMENT"])  # inference and training outputs
 
             # Run NMS
             output = non_max_suppression(output, config["CONF_THRESHOLD"], config["IOU_THRESHOLD"])
