@@ -21,7 +21,7 @@ import torch
 from torch import nn
 from torch.backends import cudnn
 
-import model
+from model import Darknet
 from dataset import LoadImages, LoadStreams
 from utils import load_pretrained_torch_state_dict, load_pretrained_darknet_state_dict, make_directory, \
     non_max_suppression, plot_one_box, scale_coords, xyxy2xywh
@@ -54,7 +54,7 @@ def main(args):
 
     # Build model
     device = torch.device(args.device)
-    yolo_model = build_model(args.model_arch_name,
+    yolo_model = build_model(args.model_config_path,
                              args.image_size,
                              args.gray,
                              args.model_weights_path,
@@ -76,14 +76,15 @@ def main(args):
            detect_result_dir,
            args.conf_threshold,
            args.iou_threshold,
-           args.augment,
+           args.image_augment,
            args.filter_classes,
            args.agnostic_nms,
            device)
 
+
 def build_model(
-        model_arch_name: str,
-        test_image_size: int | tuple[int, int],
+        model_config_path: str,
+        image_size: int | tuple[int, int],
         gray: bool = False,
         model_weights_path: str = None,
         device: torch.device = torch.device("cpu"),
@@ -93,8 +94,8 @@ def build_model(
     """Initialize YOLO model
 
     Args:
-        model_arch_name (str): Model architecture name
-        test_image_size (int | tuple[int, int]): Test image size
+        model_config_path (str): Model configuration path
+        image_size (int | tuple[int, int]): Test image size
         gray (bool, optional): Whether to use grayscale images. Default: ``False``.
         model_weights_path (str, optional): Model weights path. Default: ``None``.
         device (torch.device, optional): Model processing equipment. Default: ``torch.device("cpu")``.
@@ -106,7 +107,7 @@ def build_model(
 
     """
     # Create model
-    yolo_model = model.__dict__[model_arch_name](image_size=test_image_size, gray=gray)
+    yolo_model = Darknet(model_config=model_config_path, image_size=image_size, gray=gray)
     # Load the pre-trained model weights
     if model_weights_path.endswith(".pth.tar"):
         yolo_model = load_pretrained_torch_state_dict(yolo_model, model_weights_path)
@@ -142,7 +143,7 @@ def detect(
         detect_results_dir: str = None,
         conf_threshold: float = 0.3,
         iou_threshold: float = 0.5,
-        augment: bool = False,
+        image_augment: bool = False,
         filter_classes: list[int] = None,
         agnostic_nms: bool = False,
         device: torch.device = torch.device("cpu"),
@@ -164,7 +165,7 @@ def detect(
         detect_results_dir (str, optional): Detect result directory. Default: ``None``.
         conf_threshold (float, optional): Confidence threshold. Default: ``0.001``.
         iou_threshold (float, optional): IoU threshold. Default: ``0.5``.
-        augment (bool, optional): Whether to use data augmentation. Default: ``False``.
+        image_augment (bool, optional): Whether to use image data augmentation. Default: ``False``.
         filter_classes (list[int], optional): Filter classes. Default: ``None``.
         agnostic_nms (bool, optional): Whether to use agnostic nms. Default: ``False``.
         device (torch.device, optional): Model processing equipment. Default: ``torch.device("cpu")``.
@@ -183,7 +184,7 @@ def detect(
 
         # Inference
         with torch.no_grad():
-            output = yolo_model(image, augment=augment)[0]
+            output = yolo_model(image, image_augment=image_augment)[0]
 
         # For NMS
         if half:
@@ -255,21 +256,21 @@ def detect(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--detect_results_name", type=str, default="voc",
+    parser.add_argument("--detect_results_name", type=str, default="yolov3_coco",
                         help="detect results name")
-    parser.add_argument("--inputs", type=str, default="./data/examples",
-                        help="Input source. Default: ``./data/examples``.")
-    parser.add_argument("--names_file_path", type=str, default="./data/voc.names",
-                        help="Types of objects detected. Default: ``./data/voc.names``.")
-    parser.add_argument("--model_arch_name", type=str, default="yolov3_tiny_voc",
-                        help="model arch name. Default: ``yolov3_tiny_voc``.")
-    parser.add_argument("--image_size", type=int or tuple, default=608,
-                        help="Image size. Default: 608.")
+    parser.add_argument("--inputs", type=str, default="./data/coco",
+                        help="Input source. Default: ``./data/coco``.")
+    parser.add_argument("--names_file_path", type=str, default="./data/coco.names",
+                        help="Types of objects detected. Default: ``./data/coco.names``.")
+    parser.add_argument("--model_config_path", type=str, default="./model_configs/yolov3-coco.cfg",
+                        help="model config path. Default: ``./model_configs/yolov3-coco.cfg``.")
+    parser.add_argument("--image_size", type=int or tuple, default=416,
+                        help="Image size. Default: 416.")
     parser.add_argument("--gray", type=bool, default=False,
                         help="Whether to use gray image. Default: ``False``.")
     parser.add_argument("--model_weights_path", type=str,
-                        default="./results/pretrained_models/YOLOv3_tiny-VOC0712-882d9055.pth.tar",
-                        help="Model file weight path. Default: ``./results/pretrained_models/YOLOv3_tiny-VOC0712-882d9055.pth.tar``.")
+                        default="./results/pretrained_models/YOLOv3-COCO-ee62ed20.pth.tar",
+                        help="Model file weight path. Default: ``./results/pretrained_models/YOLOv3-COCO-ee62ed20.pth.tar``.")
     parser.add_argument("--device", type=str, default="cpu",
                         help="Device. Default: ``cpu``.")
     parser.add_argument("--half", action="store_true", help="Half precision FP16 inference.")
@@ -282,8 +283,8 @@ if __name__ == "__main__":
                         help="Object confidence threshold. Default: 0.3.")
     parser.add_argument("--iou_threshold", type=float, default=0.5,
                         help="IOU threshold for NMS. Default: 0.5.")
-    parser.add_argument("--augment", action="store_true",
-                        help="augmented inference")
+    parser.add_argument("--image_augment", action="store_true",
+                        help="Image augmented inference")
     parser.add_argument("--filter_classes", nargs="+", type=int,
                         help="Filter by class")
     parser.add_argument("--agnostic_nms", action="store_true",
