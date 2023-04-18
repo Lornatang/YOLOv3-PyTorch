@@ -48,6 +48,8 @@ IMAGE_AUGMENT_DICT:
   TRANSLATE: 0.0  # image translation (+/- fraction)
   SCALE: 0.0  # image scale (+/- gain)
   SHEAR: 0  # image shear (+/- gain)
+  USE_LR_FLIP: True  # image left-right flip up-down (probability)
+  USE_UD_FLIP: True  # image left-right flip up-down (probability)
 
 TRAIN:
   # Set to True if the label is rectangular

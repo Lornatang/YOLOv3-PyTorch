@@ -280,7 +280,7 @@ def random_affine(image, targets=(), degrees=10, translate=.1, scale=.1, shear=1
     # a += random.choice([-180, -90, 0, 90])  # add 90deg rotations to small rotations
     s = random.uniform(1 - scale, 1 + scale)
     # s = 2 ** random.uniform(-scale, scale)
-    R[:2] = cv2.getRotationMatrix2D(angle=a, center=(image.shape[1] / 2, image.shape[0] / 2), scale=s)
+    R[:2] = cv2.getRotationMatrix2D(center=(image.shape[1] / 2, image.shape[0] / 2), angle=a, scale=s)
 
     # Translation
     T = np.eye(3)
@@ -1008,15 +1008,13 @@ class LoadImagesAndLabels(Dataset):
 
         if self.image_augment:
             # random left-right flip
-            lr_flip = True
-            if lr_flip and random.random() < 0.5:
+            if self.image_augment_dict["USE_LR_FLIP"] and random.random() < 0.5:
                 image = np.fliplr(image)
                 if nL:
                     labels[:, 1] = 1 - labels[:, 1]
 
             # random up-down flip
-            ud_flip = True
-            if ud_flip and random.random() < 0.5:
+            if self.image_augment_dict["USE_UD_FLIP"] and random.random() < 0.5:
                 image = np.flipud(image)
                 if nL:
                     labels[:, 2] = 1 - labels[:, 2]
