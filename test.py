@@ -15,33 +15,44 @@ import glob
 import json
 import random
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import torch
+import yaml
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 from torch import nn, Tensor
+from torch.backends import cudnn
 from torch.utils.data import DataLoader
 from torchvision.ops import boxes
 from tqdm import tqdm
-from typing import Any
-import model
-import test_config
+
 from dataset import parse_dataset_config, LoadImagesAndLabels
-from utils import load_classes, load_pretrained_torch_state_dict, load_pretrained_darknet_state_dict, ap_per_class, \
+from model import Darknet
+from utils import load_pretrained_torch_state_dict, load_pretrained_darknet_state_dict, ap_per_class, \
     clip_coords, coco80_to_coco91_class, non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh
 
+# Read YAML configuration file
+with open("configs/test/YOLOV3_VOC.yaml", "r") as f:
+    config = yaml.full_load(f)
 
-def main():
-    device = torch.device(test_config.device)
+
+def main(seed: int):
     # Fixed random number seed
-    random.seed(test_config.seed)
-    np.random.seed(test_config.seed)
-    torch.manual_seed(test_config.seed)
-    torch.cuda.manual_seed_all(test_config.seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
-    test_dataloader, num_classes, names = build_dataset()
-    yolo_model = build_model(num_classes)
+    # Because the size of the input image is fixed, the fixed CUDNN convolution method can greatly increase the running speed
+    cudnn.benchmark = True
+
+    # Define the running device number
+    device = torch.device("cuda", config["DEVICE_ID"])
+
+    test_dataloader, num_classes, names = build_dataset(config)
+    yolo_model = build_model(config, num_classes, device)
 
     iouv = torch.linspace(0.5, 0.95, 10).to(device)  # iou vector for mAP@0.5:0.95
     iouv = iouv[0].view(1)  # comment for mAP@0.5:0.95
@@ -52,54 +63,58 @@ def main():
          names,
          iouv,
          niou,
-         test_config,
+         config,
          device)
 
 
-def build_dataset() -> [nn.Module, int, list]:
+def build_dataset(config: Any) -> [nn.Module, int, list]:
     # Load dataset
-    dataset_dict = parse_dataset_config(test_config.test_dataset_config_path)
-    num_classes = 1 if test_config.single_classes else int(dataset_dict["classes"])
-    names = load_classes(dataset_dict["names"])
+    dataset_dict = parse_dataset_config(config["DATASET_CONFIG_NAME"])
+    num_classes = 1 if config["SINGLE_CLASSES"] else int(dataset_dict["classes"])
+    names = dataset_dict["names"]
 
     test_datasets = LoadImagesAndLabels(path=dataset_dict["test"],
-                                        image_size=test_config.test_image_size,
-                                        batch_size=test_config.batch_size,
-                                        image_augment=test_config.test_augment,
-                                        rect_label=test_config.test_rect_label,
-                                        cache_images=test_config.cache_images,
-                                        single_classes=test_config.single_classes,
+                                        image_size=config["IMAGE_SIZE"],
+                                        batch_size=config["HYP"]["IMGS_PER_BATCH"],
+                                        image_augment=config["IMAGE_AUGMENT"],
+                                        image_augment_dict=config["IMAGE_AUGMENT_DICT"],
+                                        rect_label=config["RECT_LABEL"],
+                                        cache_images=config["CACHE_IMAGES"],
+                                        single_classes=config["SINGLE_CLASSES"],
                                         pad=0.5,
-                                        gray=test_config.gray)
+                                        gray=config["GRAY"])
     # generate dataset iterator
     test_dataloader = DataLoader(test_datasets,
-                                 batch_size=test_config.batch_size,
-                                 shuffle=False,
-                                 num_workers=test_config.num_workers,
-                                 pin_memory=True,
-                                 drop_last=False,
-                                 persistent_workers=True,
+                                 batch_size=config["HYP"]["IMGS_PER_BATCH"],
+                                 shuffle=config["HYP"]["SHUFFLE"],
+                                 num_workers=config["HYP"]["NUM_WORKERS"],
+                                 pin_memory=config["HYP"]["PIN_MEMORY"],
+                                 drop_last=config["HYP"]["DROP_LAST"],
+                                 persistent_workers=config["HYP"]["PERSISTENT_WORKERS"],
                                  collate_fn=test_datasets.collate_fn)
 
     return test_dataloader, num_classes, names
 
 
-def build_model(num_classes: int) -> nn.Module:
+def build_model(config: Any, num_classes: int, device: torch.device) -> nn.Module:
     # Create model
-    yolo_model = model.__dict__[test_config.model_arch_name](image_size=(test_config.test_image_size,
-                                                                         test_config.test_image_size),
-                                                             gray=test_config.gray,
-                                                             onnx_export=test_config.onnx_export)
+    yolo_model = Darknet(model_config=config["MODEL"]["YOLO"]["CONFIG_PATH"],
+                         image_size=(config["IMAGE_SIZE"], config["IMAGE_SIZE"]),
+                         gray=config["GRAY"],
+                         onnx_export=config["ONNX_EXPORT"])
+    yolo_model = yolo_model.to(device)
+
     yolo_model.num_classes = num_classes
-    yolo_model = yolo_model.to(device=test_config.device)
+
     # Load the pre-trained model weights and fine-tune the model
-    if test_config.model_weights_path.endswith(".pth.tar"):
-        yolo_model = load_pretrained_torch_state_dict(yolo_model, test_config.model_weights_path)
-    elif test_config.model_weights_path.endswith(".weights"):
-        load_pretrained_darknet_state_dict(yolo_model, test_config.model_weights_path)
+    model_weights_path = config["MODEL"]["YOLO"]["WEIGHTS_PATH"]
+    if model_weights_path.endswith(".pth.tar"):
+        yolo_model = load_pretrained_torch_state_dict(yolo_model, model_weights_path)
+    elif model_weights_path.endswith(".weights"):
+        load_pretrained_darknet_state_dict(yolo_model, model_weights_path)
     else:
-        yolo_model = load_pretrained_torch_state_dict(yolo_model, test_config.model_weights_path)
-    print(f"Loaded `{test_config.model_weights_path}` pretrained model weights successfully.")
+        yolo_model = load_pretrained_torch_state_dict(yolo_model, model_weights_path)
+    print(f"Loaded `{model_weights_path}` pretrained model weights successfully.")
 
     return yolo_model
 
@@ -135,7 +150,8 @@ def test(
         # Inference
         with torch.no_grad():
             # Run model
-            output, train_out = yolo_model(images, image_augment=config["IMAGE_AUGMENT"])  # inference and training outputs
+            output, train_out = yolo_model(images,
+                                           image_augment=config["IMAGE_AUGMENT"])  # inference and training outputs
 
             # Run NMS
             output = non_max_suppression(output, config["CONF_THRESHOLD"], config["IOU_THRESHOLD"])
@@ -248,4 +264,4 @@ def test(
 
 
 if __name__ == "__main__":
-    main()
+    main(config["SEED"])
