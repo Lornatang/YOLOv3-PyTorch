@@ -1,11 +1,11 @@
-tqdm>=4.63.1
-torch>=2.0.0+cu118
 numpy>=1.23.5
+torch>=2.0.0+cu118
+PyYAML>=6.0
+typing>=3.7.4.3
 pycocotools>=2.0.6
 torchvision>=0.15.1+cu118
-typing>=3.7.4.3
-PyYAML>=6.0
+tqdm>=4.63.1
 opencv-python>=4.6.0.66
 matplotlib>=3.7.0
 Pillow>=9.3.0
-scipy>=1.9.3
+scipy>=1.10.1

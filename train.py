@@ -325,10 +325,11 @@ def train(
         data_time.update(time.time() - end)
 
         # Training shows
+        train_batch_name = config["EXP_NAME"] + ".jpg"
         if total_batch_index < 1:
-            if os.path.exists("train_batch.jpg"):
-                os.remove("train_batch.jpg")
-            plot_images(images=images, targets=targets, paths=paths, file_name="train_batch.jpg")
+            if os.path.exists(train_batch_name):
+                os.remove(train_batch_name)
+            plot_images(images, targets, paths, train_batch_name, max_size=config["TRAIN"]["IMAGE_SIZE_MAX"])
 
         # Burn-in
         if total_batch_index <= num_burn:
