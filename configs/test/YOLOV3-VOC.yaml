@@ -32,7 +32,7 @@ RECT_LABEL: False
 # Model definition
 MODEL:
   YOLO:
-    CONFIG_PATH: "./model_configs/yolov3-voc.cfg"
+    CONFIG_PATH: "./model_configs/yolov3.cfg"
     WEIGHTS_PATH: "./results/pretrained_models/YOLOv3-VOC0712-22338193.pth.tar"
     COMPILED: False
 

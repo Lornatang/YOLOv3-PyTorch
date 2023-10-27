@@ -36,7 +36,7 @@ from utils import load_pretrained_torch_state_dict, load_pretrained_darknet_stat
     save_torch_state_dict, make_directory, AverageMeter, ProgressMeter, plot_images
 
 # Read YAML configuration file
-with open("configs/train/YOLOV3_VOC.yaml", "r") as f:
+with open("configs/train/YOLOV3-VOC.yaml", "r") as f:
     config = yaml.full_load(f)
 
 # Initialize the number of training epochs
