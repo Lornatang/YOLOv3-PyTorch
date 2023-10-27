@@ -34,7 +34,7 @@ from utils import load_pretrained_torch_state_dict, load_pretrained_darknet_stat
     clip_coords, coco80_to_coco91_class, non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh
 
 # Read YAML configuration file
-with open("configs/test/YOLOV3-VOC.yaml", "r") as f:
+with open("configs/test/YOLOV3_tiny-VOC.yaml", "r") as f:
     config = yaml.full_load(f)
 
 
