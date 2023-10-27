@@ -488,7 +488,7 @@ def labels_to_class_weights(labels: Tensor, num_classes: int = 80) -> Tensor:
         return torch.Tensor()
 
     labels = np.concatenate(labels, 0)  # labels.shape = (866643, 5) for COCO
-    classes = labels[:, 0].astype(np.int)  # labels = [class xywh]
+    classes = labels[:, 0].astype(np.int16)  # labels = [class xywh]
     weights = np.bincount(classes, minlength=num_classes)  # occurences per class
     weights[weights == 0] = 1  # replace empty bins with 1
     weights = 1 / weights  # number of targets per class
@@ -813,7 +813,7 @@ class LoadImagesAndLabels(Dataset):
 
         num_images = len(self.image_files)
         assert num_images > 0, f"No images found in {path}"
-        batch_index = np.floor(np.arange(num_images) / batch_size).astype(np.int)  # batch index
+        batch_index = np.floor(np.arange(num_images) / batch_size).astype(np.int16)  # batch index
         nb = batch_index[-1] + 1  # number of batches
 
         self.num_images = num_images  # number of images
@@ -862,7 +862,7 @@ class LoadImagesAndLabels(Dataset):
                 elif mini > 1:
                     shapes[i] = [1, 1 / mini]
 
-            self.batch_shapes = np.ceil(np.array(shapes) * image_size / 32. + pad).astype(np.int) * 32
+            self.batch_shapes = np.ceil(np.array(shapes) * image_size / 32. + pad).astype(np.int16) * 32
 
         # Cache labels
         self.images = [None] * num_images
@@ -917,7 +917,7 @@ class LoadImagesAndLabels(Dataset):
                         b = x[1:] * [w, h, w, h]  # box
                         b[2:] = b[2:].max()  # rectangle to square
                         b[2:] = b[2:] * 1.3 + 30  # pad
-                        b = xywh2xyxy(b.reshape(-1, 4)).ravel().astype(np.int)
+                        b = xywh2xyxy(b.reshape(-1, 4)).ravel().astype(np.int16)
 
                         b[[0, 2]] = np.clip(b[[0, 2]], 0, w)  # clip boxes outside of image
                         b[[1, 3]] = np.clip(b[[1, 3]], 0, h)
