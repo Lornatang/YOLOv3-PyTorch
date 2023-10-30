@@ -21,16 +21,18 @@ import torch
 from torch import nn
 from torch.backends import cudnn
 
-from model import Darknet
 from dataset import LoadImages, LoadStreams
-from utils import load_pretrained_torch_state_dict, load_pretrained_darknet_state_dict, make_directory, \
-    non_max_suppression, plot_one_box, scale_coords, xyxy2xywh
+from model import Darknet
+from yolov3.models.utils import load_state_dict
+from yolov3.utils.common import scale_coords, xyxy2xywh
+from yolov3.utils.nms import non_max_suppression
+from yolov3.utils.plots import plot_one_box
 
 
 def main(args):
     # Detect result save address
     detect_result_dir = os.path.join("results", "detect", args.detect_results_name)
-    make_directory(detect_result_dir)
+    os.makedirs(detect_result_dir, exist_ok=True)
 
     # Load data
     if args.inputs.startswith("rtsp") or args.inputs.startswith("http"):
@@ -52,7 +54,7 @@ def main(args):
     names = list(filter(None, names))
     colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
 
-    # Build model
+    # Build models
     device = torch.device(args.device)
     yolo_model = build_model(args.model_config_path,
                              args.image_size,
@@ -91,7 +93,7 @@ def build_model(
         half: bool = False,
         fuse: bool = False,
 ) -> nn.Module:
-    """Initialize YOLO model
+    """Initialize YOLO models
 
     Args:
         model_config_path (str): Model configuration path
@@ -100,22 +102,23 @@ def build_model(
         model_weights_path (str, optional): Model weights path. Default: ``None``.
         device (torch.device, optional): Model processing equipment. Default: ``torch.device("cpu")``.
         half (bool, optional): Whether to use half precision. Default: ``False``.
-        fuse (bool, optional): Whether to fuse model. Default: ``False``.
+        fuse (bool, optional): Whether to fuse models. Default: ``False``.
 
     Returns:
-        yolo_model (nn.Module): YOLO model
+        yolo_model (nn.Module): YOLO models
 
     """
-    # Create model
+    # Create models
     yolo_model = Darknet(model_config=model_config_path, image_size=image_size, gray=gray)
-    # Load the pre-trained model weights
+    # Load the pre-trained models weights
     if model_weights_path.endswith(".pth.tar"):
-        yolo_model = load_pretrained_torch_state_dict(yolo_model, model_weights_path)
+        state_dict = torch.load(model_weights_path, map_location=device)["state_dict"]
+        yolo_model = load_state_dict(yolo_model, state_dict)
     elif model_weights_path.endswith(".weights"):
-        load_pretrained_darknet_state_dict(yolo_model, model_weights_path)
+        yolo_model.load_darknet_weights(model_weights_path)
     else:
-        raise "The model weights path is not correct."
-    print(f"Loaded `{model_weights_path}` pretrained model weights successfully.")
+        raise "The models weights path is not correct."
+    print(f"Loaded `{model_weights_path}` pretrained models weights successfully.")
 
     yolo_model = yolo_model.to(device=device)
 
@@ -151,7 +154,7 @@ def detect(
     """Detect
 
     Args:
-        yolo_model (nn.Module): YOLO model
+        yolo_model (nn.Module): YOLO models
         dataset (LoadStreams or LoadImages): Dataset
         half (bool, optional): Whether to use half precision. Default: ``False``.
         names (list[str], optional): Class names. Default: ``None``.
@@ -263,7 +266,7 @@ if __name__ == "__main__":
     parser.add_argument("--names_file_path", type=str, default="./data/coco.names",
                         help="Types of objects detected. Default: ``./data/coco.names``.")
     parser.add_argument("--model_config_path", type=str, default="./model_configs/yolov3-coco.cfg",
-                        help="model config path. Default: ``./model_configs/yolov3-coco.cfg``.")
+                        help="models config path. Default: ``./model_configs/yolov3-coco.cfg``.")
     parser.add_argument("--image_size", type=int or tuple, default=416,
                         help="Image size. Default: 416.")
     parser.add_argument("--gray", type=bool, default=False,

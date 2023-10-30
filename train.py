@@ -14,6 +14,7 @@
 import math
 import os
 import random
+import shutil
 import time
 from typing import Any
 
@@ -32,8 +33,9 @@ from torch.utils.tensorboard import SummaryWriter
 from dataset import parse_dataset_config, labels_to_class_weights, LoadImagesAndLabels
 from model import Darknet, compute_loss
 from test import test
-from utils import load_pretrained_torch_state_dict, load_pretrained_darknet_state_dict, load_resume_torch_state_dict, \
-    save_torch_state_dict, make_directory, AverageMeter, ProgressMeter, plot_images
+from yolov3.models.utils import load_state_dict, load_resume_state_dict
+from yolov3.utils.loggers import AverageMeter, ProgressMeter
+from yolov3.utils.plots import plot_images
 
 # Read YAML configuration file
 with open("configs/train/YOLOV3_tiny-VOC.yaml", "r") as f:
@@ -45,13 +47,13 @@ start_epoch = 0
 # Initialize training to generate network evaluation indicators
 best_map50 = 0.0
 
-# Create the folder where the model weights are saved
+# Create the folder where the models weights are saved
 samples_dir = os.path.join("samples", config["EXP_NAME"])
 results_dir = os.path.join("results", config["EXP_NAME"])
-make_directory(samples_dir)
-make_directory(results_dir)
+os.makedirs(samples_dir, exist_ok=True)
+os.makedirs(results_dir, exist_ok=True)
 
-# create model training log
+# create models training log
 writer = SummaryWriter(os.path.join("samples", "logs", config["EXP_NAME"]))
 
 
@@ -80,31 +82,32 @@ def main(seed: int):
     )
     optimizer = define_optimizer(yolo_model, config)
 
-    # Load the pre-trained model weights and fine-tune the model
-    print("Check whether to load pretrained model weights...")
+    # Load the pre-trained models weights and fine-tune the models
+    print("Check whether to load pretrained models weights...")
     pretrained_model_weights_path = config["TRAIN"]["CHECKPOINT"]["PRETRAINED_MODEL_WEIGHTS_PATH"]
     if pretrained_model_weights_path.endswith(".pth.tar"):
-        yolo_model = load_pretrained_torch_state_dict(yolo_model, pretrained_model_weights_path)
-        print(f"Loaded `{pretrained_model_weights_path}` pretrained model weights successfully.")
+        state_dict = torch.load(pretrained_model_weights_path, map_location=device)["state_dict"]
+        yolo_model = load_state_dict(yolo_model, state_dict)
+        print(f"Loaded `{pretrained_model_weights_path}` pretrained models weights successfully.")
     elif pretrained_model_weights_path.endswith(".weights"):
-        load_pretrained_darknet_state_dict(yolo_model, pretrained_model_weights_path)
-        print(f"Loaded `{config['TRAIN']['PRETRAINED_MODEL_WEIGHTS_PATH']}` pretrained model weights successfully.")
+        yolo_model.load_darknet_weights(pretrained_model_weights_path)
+        print(f"Loaded `{config['TRAIN']['PRETRAINED_MODEL_WEIGHTS_PATH']}` pretrained models weights successfully.")
     else:
-        print("Pretrained model weights not found.")
+        print("Pretrained models weights not found.")
 
     # Load the last training interruption node
-    print("Check whether the resume model is restored...")
+    print("Check whether the resume models is restored...")
     resume_model_weights_path = config["TRAIN"]["CHECKPOINT"]["RESUME_MODEL_WEIGHTS_PATH"]
     if resume_model_weights_path.endswith(".pth.tar"):
-        yolo_model, ema_yolo_model, start_epoch, best_map50, optimizer = load_resume_torch_state_dict(
+        yolo_model, ema_yolo_model, start_epoch, best_map50, optimizer = load_resume_state_dict(
             yolo_model,
             resume_model_weights_path,
             ema_yolo_model,
             optimizer,
         )
-        print(f"Loaded `{resume_model_weights_path}` resume model weights successfully.")
+        print(f"Loaded `{resume_model_weights_path}` resume models weights successfully.")
     else:
-        print("Resume training model not found. Start training from scratch.")
+        print("Resume training models not found. Start training from scratch.")
 
     scheduler = define_scheduler(optimizer, start_epoch, config)
 
@@ -143,22 +146,22 @@ def main(seed: int):
         # Update the learning rate after each training epoch
         scheduler.step()
 
-        # Automatically save model weights
+        # Automatically save models weights
         is_best = map50 > best_map50
         is_last = (epoch + 1) == config["TRAIN"]["HYP"]["EPOCHS"]
         best_map50 = max(map50, best_map50)
-        save_torch_state_dict({"epoch": epoch + 1,
-                               "best_map50": best_map50,
-                               "state_dict": yolo_model.state_dict(),
-                               "ema_state_dict": ema_yolo_model.state_dict(),
-                               "optimizer": optimizer.state_dict()},
-                              f"epoch_{epoch + 1}.pth.tar",
-                              samples_dir,
-                              results_dir,
-                              "best.pth.tar",
-                              "last.pth.tar",
-                              is_best,
-                              is_last)
+        weights_path = os.path.join(samples_dir, f"epoch_{epoch + 1}.pth.tar")
+        torch.save({"epoch": epoch + 1,
+                    "best_map50": best_map50,
+                    "state_dict": yolo_model.state_dict(),
+                    "ema_state_dict": ema_yolo_model.state_dict(),
+                    "optimizer": optimizer.state_dict()},
+                   weights_path)
+
+        if is_best:
+            shutil.copyfile(weights_path, os.path.join(samples_dir, "best.pth.tar"))
+        if is_last:
+            shutil.copyfile(weights_path, os.path.join(samples_dir, "last.pth.tar"))
 
 
 def build_dataset_and_model(
@@ -207,7 +210,7 @@ def build_dataset_and_model(
                                  persistent_workers=config["TEST"]["HYP"]["PERSISTENT_WORKERS"],
                                  collate_fn=test_datasets.collate_fn)
 
-    # Create model
+    # Create models
     yolo_model = Darknet(model_config=config["MODEL"]["YOLO"]["CONFIG_PATH"],
                          image_size=(416, 416),
                          gray=config["GRAY"],
@@ -221,7 +224,7 @@ def build_dataset_and_model(
                                                        1 if config["SINGLE_CLASSES"] else num_classes)
 
     if config["MODEL"]["EMA"]["ENABLE"]:
-        # Generate an exponential average model based on the generator to stabilize model training
+        # Generate an exponential average models based on the generator to stabilize models training
         ema_decay = config["MODEL"]["EMA"]["DECAY"]
         ema_avg_fn = lambda averaged_model_parameter, model_parameter, num_averaged: \
             (1 - ema_decay) * averaged_model_parameter + ema_decay * model_parameter
@@ -283,8 +286,8 @@ def train(
     """training main function
 
     Args:
-        yolo_model (nn.Module): generator model
-        ema_yolo_model (nn.Module): Generator-based exponential mean model
+        yolo_model (nn.Module): generator models
+        ema_yolo_model (nn.Module): Generator-based exponential mean models
         train_dataloader (DataLoader): training dataset iterator
         optimizer (optim.Adam): optimizer function
         epoch (int): number of training epochs
@@ -376,7 +379,7 @@ def train(
             scaler.step(optimizer)
             scaler.update()
 
-        # update exponential average model weights
+        # update exponential average models weights
         ema_yolo_model.update_parameters(yolo_model)
 
         # Statistical loss value for terminal data output

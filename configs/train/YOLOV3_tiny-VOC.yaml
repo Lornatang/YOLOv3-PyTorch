@@ -15,7 +15,7 @@
 EXP_NAME: YOLOV3-VOC0712
 # random number seed
 SEED: 0
-# run device model
+# run device models
 DEVICE_ID: 0
 
 # Set to True for faster training/testing
@@ -24,7 +24,7 @@ CACHE_IMAGES: False
 SINGLE_CLASSES: False
 # If use grayscale image training/testing
 GRAY: False
-# Export ONNX model
+# Export ONNX models
 ONNX_EXPORT: False
 
 # Model definition

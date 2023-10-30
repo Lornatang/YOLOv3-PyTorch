@@ -30,8 +30,10 @@ from tqdm import tqdm
 
 from dataset import parse_dataset_config, LoadImagesAndLabels
 from model import Darknet
-from utils import load_pretrained_torch_state_dict, load_pretrained_darknet_state_dict, ap_per_class, \
-    clip_coords, coco80_to_coco91_class, non_max_suppression, scale_coords, xywh2xyxy, xyxy2xywh
+from yolov3.models.utils import load_state_dict
+from yolov3.utils.common import clip_coords, coco80_to_coco91_class, scale_coords, xywh2xyxy, xyxy2xywh
+from yolov3.utils.metrics.ap import ap_per_class
+from yolov3.utils.nms import non_max_suppression
 
 # Read YAML configuration file
 with open("configs/test/YOLOV3_tiny-VOC.yaml", "r") as f:
@@ -97,7 +99,7 @@ def build_dataset(config: Any) -> [nn.Module, int, list]:
 
 
 def build_model(config: Any, num_classes: int, device: torch.device) -> nn.Module:
-    # Create model
+    # Create models
     yolo_model = Darknet(model_config=config["MODEL"]["YOLO"]["CONFIG_PATH"],
                          image_size=(config["IMAGE_SIZE"], config["IMAGE_SIZE"]),
                          gray=config["GRAY"],
@@ -106,15 +108,16 @@ def build_model(config: Any, num_classes: int, device: torch.device) -> nn.Modul
 
     yolo_model.num_classes = num_classes
 
-    # Load the pre-trained model weights and fine-tune the model
+    # Load the pre-trained models weights and fine-tune the models
     model_weights_path = config["MODEL"]["YOLO"]["WEIGHTS_PATH"]
     if model_weights_path.endswith(".pth.tar"):
-        yolo_model = load_pretrained_torch_state_dict(yolo_model, model_weights_path)
+        state_dict = torch.load(model_weights_path, map_location=device)["state_dict"]
+        yolo_model = load_state_dict(yolo_model, state_dict)
     elif model_weights_path.endswith(".weights"):
-        load_pretrained_darknet_state_dict(yolo_model, model_weights_path)
+        yolo_model.load_darknet_weights(model_weights_path)
     else:
-        yolo_model = load_pretrained_torch_state_dict(yolo_model, model_weights_path)
-    print(f"Loaded `{model_weights_path}` pretrained model weights successfully.")
+        raise ValueError(f"'{model_weights_path}' is not supported.")
+    print(f"Loaded `{model_weights_path}` pretrained models weights successfully.")
 
     return yolo_model
 
@@ -130,7 +133,7 @@ def test(
 ):
     seen = 0
 
-    # Put the model in eval mode
+    # Put the models in eval mode
     yolo_model.eval()
 
     # if test coco91 dataset
@@ -149,7 +152,7 @@ def test(
 
         # Inference
         with torch.no_grad():
-            # Run model
+            # Run models
             output, train_out = yolo_model(images,
                                            image_augment=config["IMAGE_AUGMENT"])  # inference and training outputs
 

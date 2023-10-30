@@ -31,8 +31,6 @@ from torch.utils.data import Dataset
 from torchvision.transforms import functional as F_vision
 from tqdm import tqdm
 
-from utils import make_directory
-
 __all__ = [
     "parse_dataset_config", "load_image", "augment_hsv", "load_mosaic", "letterbox", "random_affine", "cutout",
     "xywh2xyxy", "xyxy2xywh", "labels_to_class_weights",
@@ -897,7 +895,7 @@ class LoadImagesAndLabels(Dataset):
                 # Create sub dataset (a smaller dataset)
                 if create_data_subset and ns < 1E4:
                     if ns == 0:
-                        make_directory(os.path.join("samples", "data_subset", "images"))
+                        os.makedirs(os.path.join("samples", "data_subset", "images"), exist_ok=True)
                     exclude_classes = 43
                     if exclude_classes not in labels[:, 0]:
                         ns += 1
@@ -912,7 +910,7 @@ class LoadImagesAndLabels(Dataset):
                     for j, x in enumerate(labels):
                         f = "%s%sclassifier%s%g_%g_%s" % (p.parent.parent, os.sep, os.sep, x[0], j, p.name)
                         if not os.path.exists(Path(f).parent):
-                            make_directory(Path(f).parent)  # make new output folder
+                            os.makedirs(Path(f).parent, exist_ok=True)  # make new output folder
 
                         b = x[1:] * [w, h, w, h]  # box
                         b[2:] = b[2:].max()  # rectangle to square
