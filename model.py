@@ -122,16 +122,16 @@ class Darknet(nn.Module):
         # Fuse Conv2d + BatchNorm2d layers throughout model
         print("Fusing layers...")
         fused_list = nn.ModuleList()
-        for a in list(self.children())[0]:
-            if isinstance(a, nn.Sequential):
-                for i, b in enumerate(a):
+        for layer in list(self.children())[0]:
+            if isinstance(layer, nn.Sequential):
+                for i, b in enumerate(layer):
                     if isinstance(b, nn.modules.batchnorm.BatchNorm2d):
                         # fuse this bn layer with the previous conv2d layer
-                        conv = a[i - 1]
+                        conv = layer[i - 1]
                         fused = _fuse_conv_and_bn(conv, b)
-                        a = nn.Sequential(fused, *list(a.children())[i + 1:])
+                        layer = nn.Sequential(fused, *list(layer.children())[i + 1:])
                         break
-            fused_list.append(a)
+            fused_list.append(layer)
         self.module_list = fused_list
 
 
@@ -291,7 +291,7 @@ class _MixConv2d(nn.Module):
             dilation: int = 1,
             bias: bool = True,
             method: str = "equal_params") -> None:
-        """MixConv: Mixed Depthwise Convolutional Kernels https://arxiv.org/abs/1907.09595
+        """MixConv: Mixed Depth-Wise Convolutional Kernels https://arxiv.org/abs/1907.09595
         
         Args:
             in_channels (int): Number of channels in the input image
@@ -319,12 +319,12 @@ class _MixConv2d(nn.Module):
             ch = np.linalg.lstsq(a, b, rcond=None)[0].round().astype(int)  # solve for equal weight indices, ax = b
 
         mix_conv2d = []
-        for g in range(groups):
+        for group in range(groups):
             mix_conv2d.append(nn.Conv2d(in_channels=in_channels,
-                                        out_channels=ch[g],
-                                        kernel_size=kernel_size_tuple[g],
+                                        out_channels=ch[group],
+                                        kernel_size=kernel_size_tuple[group],
                                         stride=stride,
-                                        padding=kernel_size_tuple[g] // 2,
+                                        padding=kernel_size_tuple[group] // 2,
                                         dilation=dilation,
                                         bias=bias))
         self.mix_conv2d = nn.ModuleList(*mix_conv2d)

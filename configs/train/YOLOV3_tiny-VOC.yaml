@@ -64,7 +64,7 @@ TRAIN:
 
   # Model file address, used for pre-training and recovery training
   CHECKPOINT:
-    PRETRAINED_MODEL_WEIGHTS_PATH: ""
+    PRETRAINED_MODEL_WEIGHTS_PATH: "./results/pretrained_models/YOLOv3_tiny-VOC0712-20200420.pth.tar"
     RESUME_MODEL_WEIGHTS_PATH: ""
 
   # training hyperparameters
