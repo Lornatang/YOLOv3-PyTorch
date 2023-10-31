@@ -2,7 +2,8 @@
 .vscode/
 
 ./data/
-./results/*
+./results/
+./results/pretrained_models/*
 
 .DS_Store
 *.pth.tar
