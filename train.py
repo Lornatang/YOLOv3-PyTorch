@@ -30,9 +30,11 @@ from torch.optim.swa_utils import AveragedModel
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from dataset import parse_dataset_config, labels_to_class_weights, LoadImagesAndLabels
 from model import Darknet, compute_loss
 from test import test
+from yolov3.data.dataloader import LoadImagesAndLabels
+from yolov3.data.datasets import labels_to_class_weights
+from yolov3.data.parse import parse_dataset_config
 from yolov3.models.utils import load_state_dict, load_resume_state_dict
 from yolov3.utils.loggers import AverageMeter, ProgressMeter
 from yolov3.utils.plots import plot_images

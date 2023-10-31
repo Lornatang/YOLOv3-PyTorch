@@ -28,8 +28,9 @@ from torch.utils.data import DataLoader
 from torchvision.ops import boxes
 from tqdm import tqdm
 
-from dataset import parse_dataset_config, LoadImagesAndLabels
 from model import Darknet
+from yolov3.data.dataloader import LoadImagesAndLabels
+from yolov3.data.parse import parse_dataset_config
 from yolov3.models.utils import load_state_dict
 from yolov3.utils.common import clip_coords, coco80_to_coco91_class, scale_coords, xywh2xyxy, xyxy2xywh
 from yolov3.utils.metrics.ap import ap_per_class

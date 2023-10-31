@@ -21,8 +21,8 @@ import torch
 from torch import nn
 from torch.backends import cudnn
 
-from dataset import LoadImages, LoadStreams
 from model import Darknet
+from yolov3.data.dataloader import LoadImages, LoadStreams
 from yolov3.models.utils import load_state_dict
 from yolov3.utils.common import scale_coords, xyxy2xywh
 from yolov3.utils.nms import non_max_suppression
