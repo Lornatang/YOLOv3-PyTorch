@@ -1,9 +1,9 @@
 .idea/
 .vscode/
 
-./data/
-./results/
-./results/pretrained_models/*
+data/
+results/
+results/pretrained_models/*
 
 .DS_Store
 *.pth.tar
