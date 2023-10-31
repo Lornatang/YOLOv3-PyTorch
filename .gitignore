@@ -5,6 +5,7 @@
 ./results/*
 
 .DS_Store
+*.pth.tar
 *.jpg
 *.jpeg
 *.png
