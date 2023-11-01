@@ -15,6 +15,7 @@ import math
 import os
 from pathlib import Path
 from typing import Any, List, Dict
+from typing import Optional
 
 import numpy as np
 import torch
@@ -23,7 +24,6 @@ from torch.nn import functional as F_torch
 from torchvision.ops.misc import SqueezeExcitation
 
 from yolov3_pytorch.losses import FocalLoss
-from yolov3_pytorch.models.utils import make_divisible
 
 
 class Darknet(nn.Module):
@@ -678,7 +678,7 @@ def _create_modules(
 
         elif module["type"] == "squeeze_excitation":
             in_channels = module["in_channels"]
-            squeeze_channels = make_divisible(in_channels // 4, 8)
+            squeeze_channels = _make_divisible(in_channels // 4, 8)
             modules.add_module("SeModule", SqueezeExcitation(in_channels,
                                                              squeeze_channels,
                                                              scale_activation=nn.Hardsigmoid))
@@ -919,6 +919,30 @@ def _wh_iou(wh1, wh2):
     wh2 = wh2[None]  # [1,M,2]
     inter = torch.min(wh1, wh2).prod(2)  # [N,M]
     return inter / (wh1.prod(2) + wh2.prod(2) - inter)  # iou = inter / (area1 + area2 - inter)
+
+
+def _make_divisible(v: float, divisor: int, min_value: Optional[int] = None) -> int:
+    """Divisor to the number of channels.
+
+    Args:
+        v (float): input value
+        divisor (int): divisor
+        min_value (int): minimum value
+
+    Returns:
+        int: divisible value
+    """
+
+    if min_value is None:
+        min_value = divisor
+
+    new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
+
+    # Make sure that round down does not go down by more than 10%.
+    if new_v < 0.9 * v:
+        new_v += divisor
+
+    return new_v
 
 
 def compute_loss(

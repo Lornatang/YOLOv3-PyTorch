@@ -13,7 +13,6 @@
 # ==============================================================================
 import os
 from pathlib import Path
-from typing import Optional
 
 import torch
 from torch import nn, optim
@@ -62,30 +61,6 @@ def convert_model_state_dict(
         print(f"Success: converted {model_weights_path} to {target}")
     else:
         print("Error: extension not supported.")
-
-
-def make_divisible(v: float, divisor: int, min_value: Optional[int] = None) -> int:
-    """Divisor to the number of channels.
-
-    Args:
-        v (float): input value
-        divisor (int): divisor
-        min_value (int): minimum value
-
-    Returns:
-        int: divisible value
-    """
-
-    if min_value is None:
-        min_value = divisor
-
-    new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
-
-    # Make sure that round down does not go down by more than 10%.
-    if new_v < 0.9 * v:
-        new_v += divisor
-
-    return new_v
 
 
 def load_state_dict(

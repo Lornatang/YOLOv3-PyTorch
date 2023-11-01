@@ -46,6 +46,8 @@ python3 setup.py install
 ## Inference
 
 ```bash
+# Download YOLOv3-tiny model weights to `./results/pretrained_models`
+wget .
 python3 ./tools/detect.py
 ```
 
@@ -56,16 +58,6 @@ python3 ./tools/detect.py
 - [Google Driver](https://drive.google.com/drive/folders/1b5f3FSeZwIFs4bp17OWKhQeaEcMKJyma?usp=sharing)
 - [Baidu Driver](https://pan.baidu.com/s/1GvepU_8APWChG_03yUVQ_w?pwd=7e0g)
 
-
-## Download weights
-
-- [Google Driver](https://drive.google.com/drive/folders/17ju2HN7Y6pyPK2CC_AqnAfTOe9_3hCQ8?usp=sharing)
-- [Baidu Driver](https://pan.baidu.com/s/1yNs4rqIb004-NKEdKBJtYg?pwd=llot)
-
-## Download datasets
-
-- [Google Driver](https://drive.google.com/drive/folders/1xuXk-uvAe-F2m6oxbOQB3DFM573GPN57?usp=share_link)
-- [Baidu Driver](https://pan.baidu.com/s/1UsLQvMLbm1uhv-tYTL2q-w?pwd=llot)
 
 Please refer to `README.md` in the `data` directory for the method of making a dataset.
 

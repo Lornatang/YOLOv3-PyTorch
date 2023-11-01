@@ -4,6 +4,7 @@
 ./data
 ./results
 ./results/pretrained_models
+yolov3_pytorch.egg-info
 
 .DS_Store
 *.pth.tar
