@@ -27,7 +27,7 @@ from torch.utils.data import Dataset
 from torchvision.transforms import functional as F_vision
 from tqdm import tqdm
 
-from yolov3.utils.common import xywh2xyxy, xyxy2xywh
+from yolov3_pytorch.utils.common import xywh2xyxy, xyxy2xywh
 from .data_augment import augment_hsv, load_mosaic, random_affine
 from .datasets import letterbox, load_image
 

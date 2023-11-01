@@ -11,8 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from .utils import make_divisible
+from .average_meter import *
+from .progress_meter import *
+from .summary import *
 
 __all__ = [
-    "make_divisible",
+    "AverageMeter",
+    "ProgressMeter",
+    "Summary",
 ]

@@ -30,17 +30,15 @@ from torch.optim.swa_utils import AveragedModel
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from model import Darknet, compute_loss
 from test import test
-from yolov3.data.dataloader import LoadImagesAndLabels
-from yolov3.data.datasets import labels_to_class_weights
-from yolov3.data.parse import parse_dataset_config
-from yolov3.models.utils import load_state_dict, load_resume_state_dict
-from yolov3.utils.loggers import AverageMeter, ProgressMeter
-from yolov3.utils.plots import plot_images
+from yolov3_pytorch.data.dataloader import LoadImagesAndLabels
+from yolov3_pytorch.data.datasets import labels_to_class_weights
+from yolov3_pytorch.data.parse import parse_dataset_config
+from yolov3_pytorch.models import Darknet, compute_loss, load_state_dict, load_resume_state_dict
+from yolov3_pytorch.utils import AverageMeter, ProgressMeter, plot_images
 
 # Read YAML configuration file
-with open("configs/train/YOLOV3_tiny-VOC.yaml", "r") as f:
+with open("../configs/train/YOLOV3_tiny-VOC.yaml", "r") as f:
     config = yaml.full_load(f)
 
 # Initialize the number of training epochs
@@ -50,13 +48,13 @@ start_epoch = 0
 best_map50 = 0.0
 
 # Create the folder where the models weights are saved
-samples_dir = os.path.join("samples", config["EXP_NAME"])
-results_dir = os.path.join("results", config["EXP_NAME"])
+samples_dir = os.path.join("../samples", config["EXP_NAME"])
+results_dir = os.path.join("../results", config["EXP_NAME"])
 os.makedirs(samples_dir, exist_ok=True)
 os.makedirs(results_dir, exist_ok=True)
 
 # create models training log
-writer = SummaryWriter(os.path.join("samples", "logs", config["EXP_NAME"]))
+writer = SummaryWriter(os.path.join("../samples", "logs", config["EXP_NAME"]))
 
 
 def main(seed: int):

@@ -21,17 +21,17 @@ import torch
 from torch import nn
 from torch.backends import cudnn
 
-from model import Darknet
-from yolov3.data.dataloader import LoadImages, LoadStreams
-from yolov3.models.utils import load_state_dict
-from yolov3.utils.common import scale_coords, xyxy2xywh
-from yolov3.utils.nms import non_max_suppression
-from yolov3.utils.plots import plot_one_box
+from yolov3_pytorch.data.dataloader import LoadImages, LoadStreams
+from yolov3_pytorch.models import Darknet
+from yolov3_pytorch.models.utils import load_state_dict
+from yolov3_pytorch.utils.common import scale_coords, xyxy2xywh
+from yolov3_pytorch.utils.nms import non_max_suppression
+from yolov3_pytorch.utils.plots import plot_one_box
 
 
 def main(args):
     # Detect result save address
-    detect_result_dir = os.path.join("results", "detect", args.detect_results_name)
+    detect_result_dir = os.path.join("../results", "detect", args.detect_results_name)
     os.makedirs(detect_result_dir, exist_ok=True)
 
     # Load data
@@ -265,8 +265,8 @@ if __name__ == "__main__":
                         help="Input source. Default: ``./data/coco``.")
     parser.add_argument("--names_file_path", type=str, default="./data/coco.names",
                         help="Types of objects detected. Default: ``./data/coco.names``.")
-    parser.add_argument("--model_config_path", type=str, default="./model_configs/yolov3-coco.cfg",
-                        help="models config path. Default: ``./model_configs/yolov3-coco.cfg``.")
+    parser.add_argument("--model_config_path", type=str, default="./model_configs/yolov3_pytorch-coco.cfg",
+                        help="models config path. Default: ``./model_configs/yolov3_pytorch-coco.cfg``.")
     parser.add_argument("--image_size", type=int or tuple, default=416,
                         help="Image size. Default: 416.")
     parser.add_argument("--gray", type=bool, default=False,

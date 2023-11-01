@@ -18,6 +18,51 @@ from typing import Optional
 import torch
 from torch import nn, optim
 
+from .darknet import Darknet
+
+
+def convert_model_state_dict(
+        model_config_path: str,
+        image_size: tuple = (416, 416),
+        gray: bool = False,
+        onnx_export: bool = False,
+        model_weights_path: str = None,
+) -> None:
+    """
+
+    Args:
+        model_config_path (str): Model configuration file path.
+        image_size (tuple, optional): Image size. Default: (416, 416).
+        gray (bool, optional): Whether to use grayscale images. Default: ``False``.
+        onnx_export (bool, optional): Whether to export to onnx. Default: ``False``.
+        model_weights_path (str): path to darknet models weights file
+
+"""
+    # Initialize models
+    model = Darknet(model_config_path, image_size, gray, onnx_export)
+
+    # Load weights and save
+    if model_weights_path.endswith(".pth.tar"):  # if PyTorch format
+        model.load_state_dict(torch.load(model_weights_path, map_location="cpu")["state_dict"])
+        target = model_weights_path[:-8] + ".weights"
+        model.save_darknet_weights(target)
+        print(f"Success: converted {model_weights_path} to {target}")
+
+    elif model_weights_path.endswith(".weights"):  # darknet format
+        model.load_darknet_weights(model_weights_path)
+
+        chkpt = {"epoch": 0,
+                 "best_map50": None,
+                 "state_dict": model.state_dict(),
+                 "ema_state_dict": model.state_dict(),
+                 "optimizer": None}
+
+        target = model_weights_path[:-8] + ".pth.tar"
+        torch.save(chkpt, target)
+        print(f"Success: converted {model_weights_path} to {target}")
+    else:
+        print("Error: extension not supported.")
+
 
 def make_divisible(v: float, divisor: int, min_value: Optional[int] = None) -> int:
     """Divisor to the number of channels.

@@ -11,3 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+from .ap import compute_ap, ap_per_class
+
+__all__ = [
+    "compute_ap", "ap_per_class",
+]

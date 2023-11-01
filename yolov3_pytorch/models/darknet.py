@@ -1,4 +1,4 @@
-# Copyright 2022 Dakewe Biotech Corporation. All Rights Reserved.
+# Copyright 2023 AlphaBetter Corporation. All Rights Reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
 #   You may obtain a copy of the License at
@@ -22,12 +22,8 @@ from torch import nn, Tensor
 from torch.nn import functional as F_torch
 from torchvision.ops.misc import SqueezeExcitation
 
-from yolov3.models.utils import make_divisible
-
-__all__ = [
-    "Darknet",
-    "compute_loss",
-]
+from yolov3_pytorch.losses import FocalLoss
+from yolov3_pytorch.models.utils import make_divisible
 
 
 class Darknet(nn.Module):
@@ -343,39 +339,6 @@ class _FeatureConcat(nn.Module):
         return x
 
 
-class _FocalLoss(nn.Module):
-    def __init__(self, loss_fcn: nn.Module, gamma: float = 1.5, alpha: float = 0.25):
-        """Focal loss for binary classification
-
-        Args:
-            loss_fcn (nn.Module): loss function
-            gamma (float, optional): gamma. Defaults to 1.5.
-            alpha (float, optional): alpha. Defaults to 0.25.
-        """
-        super(_FocalLoss, self).__init__()
-        self.loss_fcn = loss_fcn  # must be nn.BCEWithLogitsLoss()
-        self.gamma = gamma
-        self.alpha = alpha
-        self.reduction = loss_fcn.reduction
-        self.loss_fcn.reduction = "none"  # required to apply FL to each element
-
-    def forward(self, pred, true):
-        loss = self.loss_fcn(pred, true)
-
-        pred_prob = torch.sigmoid(pred)  # prob from logits
-        p_t = true * pred_prob + (1 - true) * (1 - pred_prob)
-        alpha_factor = true * self.alpha + (1 - true) * (1 - self.alpha)
-        modulating_factor = (1.0 - p_t) ** self.gamma
-        loss *= alpha_factor * modulating_factor
-
-        if self.reduction == "mean":
-            return loss.mean()
-        elif self.reduction == "sum":
-            return loss.sum()
-        else:  # "none"
-            return loss
-
-
 class _MixConv2d(nn.Module):
     def __init__(
             self,
@@ -387,7 +350,7 @@ class _MixConv2d(nn.Module):
             bias: bool = True,
             method: str = "equal_params") -> None:
         """MixConv: Mixed Depth-Wise Convolutional Kernels https://arxiv.org/abs/1907.09595
-        
+
         Args:
             in_channels (int): Number of channels in the input image
             out_channels (int): Number of channels produced by the convolution
@@ -396,7 +359,7 @@ class _MixConv2d(nn.Module):
             dilation (int, optional): Spacing between kernel elements. Defaults to 1.
             bias (bool, optional): If True, adds a learnable bias to the output. Defaults to True.
             method (str, optional): Method to split channels. Defaults to "equal_params".
-            
+
         """
         super(_MixConv2d, self).__init__()
 
@@ -519,125 +482,6 @@ class _InvertedResidual(nn.Module):
         out = F_torch.channel_shuffle(out, 2)
 
         return out
-
-
-def compute_loss(
-        p: Tensor,
-        targets: Tensor,
-        model: nn.Module,
-        iou_threshold: float,
-        losses_dict: Any,
-):  # predictions, targets, models
-    """Computes loss for YOLOv3.
-
-    Args:
-        p (Tensor): predictions
-        targets (Tensor): targets
-        model (nn.Module): models
-        iou_threshold (float): iou threshold
-        losses_dict (Any): losses dict
-
-    Returns:
-        loss (Tensor): loss
-
-    """
-    lcls = torch.FloatTensor([0]).to(device=targets.device)
-    lbox = torch.FloatTensor([0]).to(device=targets.device)
-    lobj = torch.FloatTensor([0]).to(device=targets.device)
-    tcls, tbox, indices, anchors = _build_targets(p, targets, model, iou_threshold)  # targets
-
-    # Define criteria
-    BCEcls = nn.BCEWithLogitsLoss(
-        pos_weight=torch.FloatTensor([losses_dict["CLS_BCE_PW_LOSS"]["WEIGHT"]]).to(targets.device))
-    BCEobj = nn.BCEWithLogitsLoss(
-        pos_weight=torch.FloatTensor([losses_dict["OBJ_BCE_PW_LOSS"]["WEIGHT"]]).to(targets.device))
-
-    # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
-    cp, cn = _smooth_bce(eps=0.0)
-
-    # focal loss
-    g = losses_dict["FL_GAMMA_LOSS"]["WEIGHT"]  # focal loss gamma
-    if g > 0:
-        BCEcls, BCEobj = _FocalLoss(BCEcls, g), _FocalLoss(BCEobj, g)
-
-    # per output
-    nt = 0  # targets
-    for i, pi in enumerate(p):  # layer index, layer predictions
-        b, a, gj, gi = indices[i]  # image, anchor, gridy, gridx
-        tobj = torch.zeros_like(pi[..., 0])  # target obj
-
-        nb = b.shape[0]  # number of targets
-        if nb:
-            nt += nb  # cumulative targets
-            ps = pi[b, a, gj, gi]  # prediction subset corresponding to targets
-
-            # GIoU
-            pxy = ps[:, :2].sigmoid()
-            pwh = ps[:, 2:4].exp().clamp(max=1E3) * anchors[i]
-            pbox = torch.cat((pxy, pwh), 1)  # predicted box
-            giou = _bbox_iou(pbox.t(), tbox[i], x1y1x2y2=False, g_iou=True)  # giou(prediction, target)
-            lbox += (1.0 - giou).mean()  # giou loss
-
-            # Obj
-            tobj[b, a, gj, gi] = (1.0 - model.gr) + model.gr * giou.detach().clamp(0).type(tobj.dtype)  # giou ratio
-
-            # Class
-            if model.num_classes > 1:  # cls loss (only if multiple classes)
-                t = torch.full_like(ps[:, 5:], cn)  # targets
-                t[range(nb), tcls[i]] = cp
-                lcls += BCEcls(ps[:, 5:], t)  # BCE
-
-        lobj += BCEobj(pi[..., 4], tobj)  # obj loss
-
-    lbox *= losses_dict["GIOU_LOSS"]["WEIGHT"]
-    lobj *= losses_dict["OBJ_LOSS"]["WEIGHT"]
-    lcls *= losses_dict["CLS_LOSS"]["WEIGHT"]
-
-    loss = lbox + lobj + lcls
-    return loss, torch.cat((lbox, lobj, lcls, loss)).detach()
-
-
-def convert_model_state_dict(
-        model_config_path: str,
-        image_size: tuple = (416, 416),
-        gray: bool = False,
-        onnx_export: bool = False,
-        model_weights_path: str = None,
-) -> None:
-    """
-
-    Args:
-        model_config_path (str): Model configuration file path.
-        image_size (tuple, optional): Image size. Default: (416, 416).
-        gray (bool, optional): Whether to use grayscale images. Default: ``False``.
-        onnx_export (bool, optional): Whether to export to onnx. Default: ``False``.
-        model_weights_path (str): path to darknet models weights file
-
-"""
-    # Initialize models
-    model = Darknet(model_config_path, image_size, gray, onnx_export)
-
-    # Load weights and save
-    if model_weights_path.endswith(".pth.tar"):  # if PyTorch format
-        model.load_state_dict(torch.load(model_weights_path, map_location="cpu")["state_dict"])
-        target = model_weights_path[:-8] + ".weights"
-        model.save_darknet_weights(target)
-        print(f"Success: converted {model_weights_path} to {target}")
-
-    elif model_weights_path.endswith(".weights"):  # darknet format
-        model.load_darknet_weights(model_weights_path)
-
-        chkpt = {"epoch": 0,
-                 "best_map50": None,
-                 "state_dict": model.state_dict(),
-                 "ema_state_dict": model.state_dict(),
-                 "optimizer": None}
-
-        target = model_weights_path[:-8] + ".pth.tar"
-        torch.save(chkpt, target)
-        print(f"Success: converted {model_weights_path} to {target}")
-    else:
-        print("Error: extension not supported.")
 
 
 def _bbox_iou(box1, box2, x1y1x2y2=True, g_iou=False, d_iou=False, c_iou=False):
@@ -820,7 +664,7 @@ def _create_modules(
             k = module["size"]  # kernel size
             stride = module["stride"]
             maxpool = nn.MaxPool2d(kernel_size=k, stride=stride, padding=(k - 1) // 2)
-            if k == 2 and stride == 1:  # yolov3-tiny
+            if k == 2 and stride == 1:  # yolov3_pytorch-tiny
                 modules.add_module("ZeroPad2d", nn.ZeroPad2d((0, 1, 0, 1)))
                 modules.add_module("MaxPool2d", maxpool)
             else:
@@ -879,7 +723,7 @@ def _create_modules(
             routs.extend([i + layer if layer < 0 else layer for layer in layers])
             modules = _WeightedFeatureFusion(layers=layers, weight="weights_type" in module)
 
-        elif module["type"] == "reorg3d":  # yolov3-spp-pan-scale
+        elif module["type"] == "reorg3d":  # yolov3_pytorch-spp-pan-scale
             pass
 
         elif module["type"] == "yolo":
@@ -1075,3 +919,79 @@ def _wh_iou(wh1, wh2):
     wh2 = wh2[None]  # [1,M,2]
     inter = torch.min(wh1, wh2).prod(2)  # [N,M]
     return inter / (wh1.prod(2) + wh2.prod(2) - inter)  # iou = inter / (area1 + area2 - inter)
+
+
+def compute_loss(
+        p: Tensor,
+        targets: Tensor,
+        model: nn.Module,
+        iou_threshold: float,
+        losses_dict: Any,
+):  # predictions, targets, models
+    """Computes loss for YOLOv3.
+
+    Args:
+        p (Tensor): predictions
+        targets (Tensor): targets
+        model (nn.Module): models
+        iou_threshold (float): iou threshold
+        losses_dict (Any): losses dict
+
+    Returns:
+        loss (Tensor): loss
+
+    """
+    lcls = torch.FloatTensor([0]).to(device=targets.device)
+    lbox = torch.FloatTensor([0]).to(device=targets.device)
+    lobj = torch.FloatTensor([0]).to(device=targets.device)
+    tcls, tbox, indices, anchors = _build_targets(p, targets, model, iou_threshold)  # targets
+
+    # Define criteria
+    BCEcls = nn.BCEWithLogitsLoss(
+        pos_weight=torch.FloatTensor([losses_dict["CLS_BCE_PW_LOSS"]["WEIGHT"]]).to(targets.device))
+    BCEobj = nn.BCEWithLogitsLoss(
+        pos_weight=torch.FloatTensor([losses_dict["OBJ_BCE_PW_LOSS"]["WEIGHT"]]).to(targets.device))
+
+    # class label smoothing https://arxiv.org/pdf/1902.04103.pdf eqn 3
+    cp, cn = _smooth_bce(eps=0.0)
+
+    # focal loss
+    g = losses_dict["FL_GAMMA_LOSS"]["WEIGHT"]  # focal loss gamma
+    if g > 0:
+        BCEcls, BCEobj = FocalLoss(BCEcls, g), FocalLoss(BCEobj, g)
+
+    # per output
+    nt = 0  # targets
+    for i, pi in enumerate(p):  # layer index, layer predictions
+        b, a, gj, gi = indices[i]  # image, anchor, gridy, gridx
+        tobj = torch.zeros_like(pi[..., 0])  # target obj
+
+        nb = b.shape[0]  # number of targets
+        if nb:
+            nt += nb  # cumulative targets
+            ps = pi[b, a, gj, gi]  # prediction subset corresponding to targets
+
+            # GIoU
+            pxy = ps[:, :2].sigmoid()
+            pwh = ps[:, 2:4].exp().clamp(max=1E3) * anchors[i]
+            pbox = torch.cat((pxy, pwh), 1)  # predicted box
+            giou = _bbox_iou(pbox.t(), tbox[i], x1y1x2y2=False, g_iou=True)  # giou(prediction, target)
+            lbox += (1.0 - giou).mean()  # giou loss
+
+            # Obj
+            tobj[b, a, gj, gi] = (1.0 - model.gr) + model.gr * giou.detach().clamp(0).type(tobj.dtype)  # giou ratio
+
+            # Class
+            if model.num_classes > 1:  # cls loss (only if multiple classes)
+                t = torch.full_like(ps[:, 5:], cn)  # targets
+                t[range(nb), tcls[i]] = cp
+                lcls += BCEcls(ps[:, 5:], t)  # BCE
+
+        lobj += BCEobj(pi[..., 4], tobj)  # obj loss
+
+    lbox *= losses_dict["GIOU_LOSS"]["WEIGHT"]
+    lobj *= losses_dict["OBJ_LOSS"]["WEIGHT"]
+    lcls *= losses_dict["CLS_LOSS"]["WEIGHT"]
+
+    loss = lbox + lobj + lcls
+    return loss, torch.cat((lbox, lobj, lcls, loss)).detach()

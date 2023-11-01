@@ -11,14 +11,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
 import numpy as np
 import torch
 from scipy.cluster.vq import kmeans
 from torch import Tensor
 from tqdm import tqdm
 
-from yolov3.data.dataloder import LoadImagesAndLabels
+from yolov3_pytorch.data.dataloader import LoadImagesAndLabels
+
 
 def wh_iou(wh1: Tensor, wh2: Tensor) -> Tensor:
     """Returns the IoU of two set of boxes, wh1 is 1st set of bboxes, wh2 is 2nd set of bboxes
