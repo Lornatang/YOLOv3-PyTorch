@@ -21,6 +21,8 @@ import numpy as np
 import torch
 from torch import Tensor
 
+from .common import xywh2xyxy
+
 
 def plot_one_box(
         xyxy: tuple,
