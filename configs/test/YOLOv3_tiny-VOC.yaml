@@ -54,7 +54,7 @@ IMAGE_AUGMENT: False  # image augmentation
 
 # test hyperparameters
 HYP:
-  IMGS_PER_BATCH: 64
+  IMGS_PER_BATCH: 16
   SHUFFLE: False
   NUM_WORKERS: 4
   PIN_MEMORY: True
