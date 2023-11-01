@@ -9,9 +9,10 @@
 - [Introduction](#introduction)
 - [Getting Started](#getting-started)
     - [Requirements](#requirements)
+    - [From PyPI](#from-pypi)
     - [Local Install](#local-install)
-- [Download weights](#download-weights)
-- [Download datasets](#download-datasets)
+- [Inference (TODO)](#inference-todo)
+- [All pretrained model weights](#all-pretrained-model-weights)
 - [How Test and Train](#how-test-and-train)
     - [Test yolov3_tiny_voc model](#test-yolov3tinyvoc-model)
     - [Train yolov3_tiny_voc model](#train-yolov3tinyvoc-model)
@@ -34,6 +35,12 @@ This repository contains an op-for-op PyTorch reimplementation of [YOLOv3: An In
 - CUDA 11.8+
 - Ubuntu 22.04+
 
+### From PyPI
+
+```bash
+pip3 install yolov3_pytorch==0.1.1 -i https://pypi.org/simple
+```
+
 ### Local Install
 
 ```bash
@@ -43,7 +50,7 @@ pip3 install -r requirements.txt
 python3 setup.py install
 ```
 
-## Inference
+## Inference (TODO)
 
 ```bash
 # Download YOLOv3-tiny model weights to `./results/pretrained_models`
@@ -51,15 +58,11 @@ wget .
 python3 ./tools/detect.py
 ```
 
-
-
-### All pretrained model weights
+## All pretrained model weights
 
 - [Google Driver](https://drive.google.com/drive/folders/1b5f3FSeZwIFs4bp17OWKhQeaEcMKJyma?usp=sharing)
 - [Baidu Driver](https://pan.baidu.com/s/1GvepU_8APWChG_03yUVQ_w?pwd=7e0g)
 
-
-Please refer to `README.md` in the `data` directory for the method of making a dataset.
 
 ## How Test and Train
 

@@ -1,12 +1,15 @@
 .idea/
 .vscode/
 
-./data
-./results
-./results/pretrained_models
-yolov3_pytorch.egg-info
+build/*
+data/*
+dist/*
+results/*
+yolov3_pytorch.egg-info/*
 
 .DS_Store
+*.pth
+*.pt
 *.pth.tar
 *.jpg
 *.jpeg
