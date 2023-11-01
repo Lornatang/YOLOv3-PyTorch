@@ -2,7 +2,8 @@
 .vscode/
 
 build/*
-data/*
+data/voc
+data/coco
 dist/*
 results/*
 yolov3_pytorch.egg-info/*
@@ -11,6 +12,7 @@ yolov3_pytorch.egg-info/*
 *.pth
 *.pt
 *.pth.tar
+*.tar
 *.jpg
 *.jpeg
 *.png
