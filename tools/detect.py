@@ -31,7 +31,7 @@ from yolov3_pytorch.utils.plots import plot_one_box
 
 def main(args):
     # Detect result save address
-    detect_result_dir = os.path.join("../results", "detect", args.detect_results_name)
+    detect_result_dir = os.path.join("./results", "detect", args.detect_results_name)
     os.makedirs(detect_result_dir, exist_ok=True)
 
     # Load data

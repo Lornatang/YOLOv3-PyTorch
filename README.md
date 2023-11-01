@@ -1,25 +1,61 @@
+<div align="center">
+<img src="figure/dog.jpg" width="400px">
+</div>
+
 # YOLOv3-PyTorch
 
-## Overview
+## Contents
 
-This repository contains an op-for-op PyTorch reimplementation
-of [YOLOv3: An Incremental Improvement](https://arxiv.org/pdf/1804.02767v1.pdf).
+- [Introduction](#introduction)
+- [Getting Started](#getting-started)
+    - [Requirements](#requirements)
+    - [Local Install](#local-install)
+- [Download weights](#download-weights)
+- [Download datasets](#download-datasets)
+- [How Test and Train](#how-test-and-train)
+    - [Test yolov3_tiny_voc model](#test-yolov3tinyvoc-model)
+    - [Train yolov3_tiny_voc model](#train-yolov3tinyvoc-model)
+    - [Resume train yolov3_tiny_voc model](#resume-train-yolov3tinyvoc-model)
+- [Result](#result)
+- [Contributing](#contributing)
+- [Credit](#credit)
+    - [YOLOv3: An Incremental Improvement](#yolov3--an-incremental-improvement)
 
-## Table of contents
+## Introduction
 
-- [YOLOv3-PyTorch](#yolov3-pytorch)
-    - [Overview](#overview)
-    - [Table of contents](#table-of-contents)
-    - [Download weights](#download-weights)
-    - [Download datasets](#download-datasets)
-    - [How Test and Train](#how-test-and-train)
-        - [Test yolov3_tiny_voc model](#test-yolov3tinyvoc-model)
-        - [Train yolov3_tiny_voc model](#train-yolov3tinyvoc-model)
-        - [Resume train yolov3_tiny_voc model](#resume-train-yolov3tinyvoc-model)
-    - [Result](#result)
-    - [Contributing](#contributing)
-    - [Credit](#credit)
-        - [YOLOv3: An Incremental Improvement](#yolov3--an-incremental-improvement)
+This repository contains an op-for-op PyTorch reimplementation of [YOLOv3: An Incremental Improvement](https://arxiv.org/pdf/1804.02767v1.pdf).
+
+## Getting Started
+
+### Requirements
+
+- Python 3.10+
+- PyTorch 2.0.0+
+- CUDA 11.8+
+- Ubuntu 22.04+
+
+### Local Install
+
+```bash
+git clone https://github.com/Lornatang/YOLOv3-PyTorch.git
+cd YOLOv3-PyTorch
+pip3 install -r requirements.txt
+python3 setup.py install
+```
+
+## Inference
+
+```bash
+python3 ./tools/detect.py
+```
+
+
+
+### All pretrained model weights
+
+- [Google Driver](https://drive.google.com/drive/folders/1b5f3FSeZwIFs4bp17OWKhQeaEcMKJyma?usp=sharing)
+- [Baidu Driver](https://pan.baidu.com/s/1GvepU_8APWChG_03yUVQ_w?pwd=7e0g)
+
 
 ## Download weights
 

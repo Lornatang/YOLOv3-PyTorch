@@ -38,7 +38,7 @@ from yolov3_pytorch.models import Darknet, compute_loss, load_state_dict, load_r
 from yolov3_pytorch.utils import AverageMeter, ProgressMeter, plot_images
 
 # Read YAML configuration file
-with open("../configs/train/YOLOV3_tiny-VOC.yaml", "r") as f:
+with open("./configs/train/YOLOV3_tiny-VOC.yaml", "r") as f:
     config = yaml.full_load(f)
 
 # Initialize the number of training epochs
@@ -48,13 +48,13 @@ start_epoch = 0
 best_map50 = 0.0
 
 # Create the folder where the models weights are saved
-samples_dir = os.path.join("../samples", config["EXP_NAME"])
-results_dir = os.path.join("../results", config["EXP_NAME"])
+samples_dir = os.path.join("./samples", config["EXP_NAME"])
+results_dir = os.path.join("./results", config["EXP_NAME"])
 os.makedirs(samples_dir, exist_ok=True)
 os.makedirs(results_dir, exist_ok=True)
 
 # create models training log
-writer = SummaryWriter(os.path.join("../samples", "logs", config["EXP_NAME"]))
+writer = SummaryWriter(os.path.join("./samples", "logs", config["EXP_NAME"]))
 
 
 def main(seed: int):
