@@ -259,12 +259,7 @@ def test(
         cocoEval.accumulate()
         cocoEval.summarize()
 
-    # Return results
-    maps = np.zeros(yolo_model.num_classes) + map50
-    for ap_index, c in enumerate(ap_class):
-        maps[c] = ap[ap_index]
-
-    return mp, mr, map50, mf1, maps
+    return mp, mr, map50, mf1
 
 
 if __name__ == "__main__":

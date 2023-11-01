@@ -130,13 +130,13 @@ def main(seed: int):
               max(3 * batches, 500),
               device,
               config["TRAIN"]["PRINT_FREQ"])
-        p, r, map50, f1, maps = test(yolo_model,
-                                     test_dataloader,
-                                     names,
-                                     iouv,
-                                     niou,
-                                     config["TEST"],
-                                     device)
+        p, r, map50, f1 = test(yolo_model,
+                               test_dataloader,
+                               names,
+                               iouv,
+                               niou,
+                               config["TEST"],
+                               device)
         writer.add_scalar("Test/Precision", p, epoch + 1)
         writer.add_scalar("Test/Recall", r, epoch + 1)
         writer.add_scalar("Test/mAP0.5", map50, epoch + 1)
