@@ -38,7 +38,7 @@ from yolov3_pytorch.models import Darknet, compute_loss, load_state_dict, load_r
 from yolov3_pytorch.utils import AverageMeter, ProgressMeter, plot_images
 
 # Read YAML configuration file
-with open("./configs/train/YOLOV3_tiny-VOC.yaml", "r") as f:
+with open("./configs/train/YOLOv3_tiny-VOC.yaml", "r") as f:
     config = yaml.full_load(f)
 
 # Initialize the number of training epochs

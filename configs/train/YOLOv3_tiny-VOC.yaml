@@ -12,7 +12,7 @@
 # limitations under the License.
 # ==============================================================================
 # experiment name
-EXP_NAME: YOLOV3-VOC0712
+EXP_NAME: YOLOv3_tiny-VOC
 # random number seed
 SEED: 0
 # run device models
