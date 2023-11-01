@@ -33,7 +33,7 @@ RECT_LABEL: False
 MODEL:
   YOLO:
     CONFIG_PATH: "./model_configs/yolov3_tiny.cfg"
-    WEIGHTS_PATH: "./results/pretrained_models/YOLOv3_tiny-VOC0712-20200420.pth.tar"
+    WEIGHTS_PATH: "./results/pretrained_models/YOLOv3_tiny-VOC-20200420.pth.tar"
     COMPILED: False
 
 DATASET_CONFIG_NAME: "./data/voc.data"
@@ -61,7 +61,7 @@ HYP:
   DROP_LAST: False
   PERSISTENT_WORKERS: True
 
-CONF_THRESHOLD: 0.001
+CONF_THRESHOLD: 0.01
 IOU_THRESHOLD: 0.5
 SAVE_JSON: False
 GT_JSON_PATH: "./data/COCO2014/annotations/instances_val*.json"
