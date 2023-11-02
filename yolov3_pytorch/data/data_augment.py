@@ -19,7 +19,7 @@ import cv2
 import numpy as np
 from numpy import ndarray
 
-from .datasets import load_image
+from .dataloader import load_image
 
 
 def adjust_hsv(image: ndarray, hgain: float = 0.5, sgain: float = 0.5, vgain: float = 0.5) -> None:
