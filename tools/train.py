@@ -82,17 +82,16 @@ def main(seed: int):
     optimizer = define_optimizer(yolo_model, config)
 
     # Load the pre-trained models weights and fine-tune the models
-    print("Check whether to load pretrained models weights...")
     pretrained_model_weights_path = config["TRAIN"]["CHECKPOINT"]["PRETRAINED_MODEL_WEIGHTS_PATH"]
+    if pretrained_model_weights_path is not None:
+        print(f"Load `{pretrained_model_weights_path}` pretrained models weights successfully.")
     if pretrained_model_weights_path.endswith(".pth.tar"):
         state_dict = torch.load(pretrained_model_weights_path, map_location=device)["state_dict"]
         yolo_model = load_state_dict(yolo_model, state_dict)
-        print(f"Loaded `{pretrained_model_weights_path}` pretrained models weights successfully.")
     elif pretrained_model_weights_path.endswith(".weights"):
         yolo_model.load_darknet_weights(pretrained_model_weights_path)
-        print(f"Loaded `{config['TRAIN']['PRETRAINED_MODEL_WEIGHTS_PATH']}` pretrained models weights successfully.")
     else:
-        print("Pretrained models weights not found.")
+        print("Unsupported pretrained models format. Only support `.pth.tar` and `.weights`.")
 
     # Load the last training interruption node
     print("Check whether the resume models is restored...")
