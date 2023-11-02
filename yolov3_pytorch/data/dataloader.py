@@ -17,7 +17,7 @@ import random
 import time
 from pathlib import Path
 from threading import Thread
-from typing import Any, Tuple
+from typing import Any, Tuple, List
 
 import cv2
 import numpy as np
@@ -29,7 +29,7 @@ from tqdm import tqdm
 
 from yolov3_pytorch.utils import letterbox
 from yolov3_pytorch.utils.common import xywh2xyxy, xyxy2xywh
-from .data_augment import adjust_hsv, load_mosaic, random_affine
+from .data_augment import adjust_hsv, random_affine
 
 support_image_formats = [".bmp", ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".dng"]
 support_video_formats = [".mov", ".avi", ".mp4", ".mpg", ".mpeg", ".m4v", ".wmv", ".mkv"]
@@ -635,3 +635,69 @@ def load_image(self, index: int) -> Tuple[np.ndarray, Tuple[int, int], Tuple[int
         return image, (h0, w0), image.shape[:2]  # image, hw_original, hw_resized
     else:
         return self.images[index], self.image_hw0[index], self.image_hw[index]  # image, hw_original, hw_resized
+
+
+def load_mosaic(self, index: int) -> Tuple[np.ndarray, List]:
+    """loads images in a mosaic
+
+    Args:
+        self: Dataset object
+        index (int): Index of the image to load
+
+    Returns:
+        image (ndarray): Image as a numpy array
+
+    """
+    # loads images in a mosaic
+    labels4 = []
+    s = self.image_size
+    xc, yc = [int(random.uniform(s * 0.5, s * 1.5)) for _ in range(2)]  # mosaic center x, y
+    indices = [index] + [random.randint(0, len(self.labels) - 1) for _ in range(3)]  # 3 additional image indices
+    for i, index in enumerate(indices):
+        # Load image
+        image, _, (h, w) = load_image(self, index)
+
+        # place image in image4
+        if i == 0:  # top left
+            image4 = np.full((s * 2, s * 2, image.shape[2]), 114, dtype=np.uint8)  # base image with 4 tiles
+            x1a, y1a, x2a, y2a = max(xc - w, 0), max(yc - h, 0), xc, yc  # xmin, ymin, xmax, ymax (large image)
+            x1b, y1b, x2b, y2b = w - (x2a - x1a), h - (y2a - y1a), w, h  # xmin, ymin, xmax, ymax (small image)
+        elif i == 1:  # top right
+            x1a, y1a, x2a, y2a = xc, max(yc - h, 0), min(xc + w, s * 2), yc
+            x1b, y1b, x2b, y2b = 0, h - (y2a - y1a), min(w, x2a - x1a), h
+        elif i == 2:  # bottom left
+            x1a, y1a, x2a, y2a = max(xc - w, 0), yc, xc, min(s * 2, yc + h)
+            x1b, y1b, x2b, y2b = w - (x2a - x1a), 0, max(xc, w), min(y2a - y1a, h)
+        elif i == 3:  # bottom right
+            x1a, y1a, x2a, y2a = xc, yc, min(xc + w, s * 2), min(s * 2, yc + h)
+            x1b, y1b, x2b, y2b = 0, 0, min(w, x2a - x1a), min(y2a - y1a, h)
+
+        image4[y1a:y2a, x1a:x2a] = image[y1b:y2b, x1b:x2b]  # image4[ymin:ymax, xmin:xmax]
+        padw = x1a - x1b
+        padh = y1a - y1b
+
+        # Labels
+        x = self.labels[index]
+        labels = x.copy()
+        if x.size > 0:  # Normalized xywh to pixel xyxy format
+            labels[:, 1] = w * (x[:, 1] - x[:, 3] / 2) + padw
+            labels[:, 2] = h * (x[:, 2] - x[:, 4] / 2) + padh
+            labels[:, 3] = w * (x[:, 1] + x[:, 3] / 2) + padw
+            labels[:, 4] = h * (x[:, 2] + x[:, 4] / 2) + padh
+        labels4.append(labels)
+
+    # Concat/clip labels
+    if len(labels4):
+        labels4 = np.concatenate(labels4, 0)
+        np.clip(labels4[:, 1:], 0, 2 * s, out=labels4[:, 1:])  # use with random_affine
+
+    # Augment
+    image4, labels4 = random_affine(image4,
+                                    labels4,
+                                    degrees=int(self.image_augment_dict["DEGREES"]),
+                                    translate=float(self.image_augment_dict["TRANSLATE"]),
+                                    scale=float(self.image_augment_dict["SCALE"]),
+                                    shear=int(self.image_augment_dict["SHEAR"]),
+                                    border=-s // 2)  # border to remove
+
+    return image4, labels4
