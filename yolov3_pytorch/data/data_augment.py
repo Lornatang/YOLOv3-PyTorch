@@ -13,13 +13,10 @@
 # ==============================================================================
 import math
 import random
-from typing import Tuple, List
 
 import cv2
 import numpy as np
 from numpy import ndarray
-
-from .dataloader import load_image
 
 
 def adjust_hsv(image: ndarray, hgain: float = 0.5, sgain: float = 0.5, vgain: float = 0.5) -> None:
@@ -88,9 +85,6 @@ def cutout(image, labels):
             labels = labels[ioa < 0.60]  # remove >60% obscured labels
 
     return labels
-
-
-
 
 
 def random_affine(image, targets=(), degrees=10, translate=.1, scale=.1, shear=10, border=0):
