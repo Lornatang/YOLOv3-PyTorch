@@ -11,10 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import math
 from pathlib import Path
 from typing import Any, Union
 
-import cv2
 import numpy as np
 import torch
 from PIL import Image

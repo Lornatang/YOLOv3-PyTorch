@@ -109,7 +109,7 @@ def build_model(
 
     """
     # Create models
-    yolo_model = Darknet(model_config=model_config_path, image_size=image_size, gray=gray)
+    yolo_model = Darknet(model_config_path, image_size, gray, False)
     # Load the pre-trained models weights
     if model_weights_path.endswith(".pth.tar"):
         state_dict = torch.load(model_weights_path, map_location=device)["state_dict"]
@@ -146,7 +146,7 @@ def detect(
         detect_results_dir: str = None,
         conf_threshold: float = 0.3,
         iou_threshold: float = 0.5,
-        image_augment: bool = False,
+        augment: bool = False,
         filter_classes: list[int] = None,
         agnostic_nms: bool = False,
         device: torch.device = torch.device("cpu"),
@@ -168,7 +168,7 @@ def detect(
         detect_results_dir (str, optional): Detect result directory. Default: ``None``.
         conf_threshold (float, optional): Confidence threshold. Default: ``0.001``.
         iou_threshold (float, optional): IoU threshold. Default: ``0.5``.
-        image_augment (bool, optional): Whether to use image data augmentation. Default: ``False``.
+        augment (bool, optional): Whether to use image data augmentation. Default: ``False``.
         filter_classes (list[int], optional): Filter classes. Default: ``None``.
         agnostic_nms (bool, optional): Whether to use agnostic nms. Default: ``False``.
         device (torch.device, optional): Model processing equipment. Default: ``torch.device("cpu")``.
@@ -187,7 +187,7 @@ def detect(
 
         # Inference
         with torch.no_grad():
-            output = yolo_model(image, image_augment=image_augment)[0]
+            output = yolo_model(image, augment)[0]
 
         # For NMS
         if half:

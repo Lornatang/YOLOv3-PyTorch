@@ -12,6 +12,6 @@
 # limitations under the License.
 # ==============================================================================
 from .data import *
-from .losses import *
+from yolov3_pytorch.models.losses import *
 from .models import *
 from .utils import *

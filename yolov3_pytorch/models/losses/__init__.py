@@ -11,8 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from .focal_loss import FocalLoss
+from .loss import *
 
 __all__ = [
-    "FocalLoss",
+    "BCEBlurWithLogitsLoss", "FocalLoss", "build_targets", "compute_loss", "smooth_bce",
 ]

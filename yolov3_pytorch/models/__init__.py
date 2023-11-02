@@ -12,9 +12,11 @@
 # limitations under the License.
 # ==============================================================================
 from .darknet import *
+from .losses import *
 from .utils import *
 
 __all__ = [
-    "Darknet", "compute_loss",
+    "BCEBlurWithLogitsLoss", "FocalLoss", "build_targets", "compute_loss", "smooth_bce",
+    "Darknet",
     "convert_model_state_dict", "load_state_dict", "load_resume_state_dict",
 ]

@@ -100,7 +100,7 @@ def build_dataset(config: Any) -> [nn.Module, int, list]:
 
 def build_model(config: Any, num_classes: int, device: torch.device) -> nn.Module:
     # Create models
-    yolo_model = Darknet(model_config=config["MODEL"]["YOLO"]["CONFIG_PATH"],
+    yolo_model = Darknet(model_config_path=config["MODEL"]["YOLO"]["CONFIG_PATH"],
                          image_size=(config["IMAGE_SIZE"], config["IMAGE_SIZE"]),
                          gray=config["GRAY"],
                          onnx_export=config["ONNX_EXPORT"])
@@ -154,7 +154,7 @@ def test(
         with torch.no_grad():
             # Run models
             output, train_out = yolo_model(images,
-                                           image_augment=config["IMAGE_AUGMENT"])  # inference and training outputs
+                                           augment=config["IMAGE_AUGMENT"])  # inference and training outputs
 
             # Run NMS
             output = non_max_suppression(output, config["CONF_THRESHOLD"], config["IOU_THRESHOLD"])

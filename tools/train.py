@@ -210,8 +210,8 @@ def build_dataset_and_model(
                                  collate_fn=test_datasets.collate_fn)
 
     # Create models
-    yolo_model = Darknet(model_config=config["MODEL"]["YOLO"]["CONFIG_PATH"],
-                         image_size=(416, 416),
+    yolo_model = Darknet(model_config_path=config["MODEL"]["YOLO"]["CONFIG_PATH"],
+                         img_size=(416, 416),
                          gray=config["GRAY"],
                          onnx_export=config["ONNX_EXPORT"])
     yolo_model = yolo_model.to(device)
