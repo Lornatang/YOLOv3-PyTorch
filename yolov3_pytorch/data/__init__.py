@@ -13,10 +13,8 @@
 # ==============================================================================
 from .data_augment import *
 from .dataloader import *
-from .parse import *
 
 __all__ = [
     "adjust_hsv", "cutout", "random_affine",
     "LoadImages", "LoadImagesAndLabels", "LoadWebcam", "LoadStreams", "load_image",
-    "parse_dataset_config",
 ]

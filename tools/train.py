@@ -31,9 +31,10 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from test import test
-from yolov3_pytorch.data import LoadImagesAndLabels, parse_dataset_config
+from yolov3_pytorch.data import LoadImagesAndLabels
 from yolov3_pytorch.models import Darknet, compute_loss, load_state_dict, load_resume_state_dict
 from yolov3_pytorch.utils import AverageMeter, ProgressMeter, labels_to_class_weights, plot_images
+from yolov3_pytorch.utils.common import parse_dataset_config
 
 # Read YAML configuration file
 with open("./configs/train/YOLOv3_tiny-VOC.yaml", "r") as f:

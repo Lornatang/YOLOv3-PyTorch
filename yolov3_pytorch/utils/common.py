@@ -11,7 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from typing import Any
+from pathlib import Path
+from typing import Any, Union
 
 import cv2
 import numpy as np
@@ -125,6 +126,36 @@ def letterbox(
     image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
 
     return image, ratio, (dw, dh)
+
+
+def parse_dataset_config(config_path: Union[str, Path]) -> dict:
+    r"""Parses the data configuration file
+
+    Args:
+        config_path (str or Path): path to data config file
+
+    Returns:
+        data_config (dict): A dictionary containing the information from the data config file
+    """
+
+    # Open the config file and read all lines
+    with open(config_path, "r") as config_file:
+        lines = config_file.readlines()
+
+    # Dictionary to store the config options
+    config_options = {}
+    for line in lines:
+        # Remove leading and trailing whitespace from the line
+        line = line.strip()
+        # Skip empty lines and comment lines
+        if line == "" or line.startswith("#"):
+            continue
+        # Split the line into key and value based on the "=" delimiter
+        key, value = line.split("=")
+        # Remove whitespace from the key and value, and store in the dictionary
+        config_options[key.strip()] = value.strip()
+
+    return config_options
 
 
 def scale_coords(new_image_shape, coords, raw_image_shape, ratio_pad=None):

@@ -259,21 +259,21 @@ def detect(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--detect_results_name", type=str, default="yolov3_coco",
+    parser.add_argument("--detect_results_name", type=str, default="yolov3_tiny",
                         help="detect results name")
-    parser.add_argument("--inputs", type=str, default="./data/coco",
-                        help="Input source. Default: ``./data/coco``.")
-    parser.add_argument("--names_file_path", type=str, default="./data/coco.names",
-                        help="Types of objects detected. Default: ``./data/coco.names``.")
-    parser.add_argument("--model_config_path", type=str, default="./model_configs/yolov3_pytorch-coco.cfg",
-                        help="models config path. Default: ``./model_configs/yolov3_pytorch-coco.cfg``.")
+    parser.add_argument("--inputs", type=str, default="./data/examples/dog.jpg",
+                        help="Input source. Default: ``./data/examples/dog.jpg``.")
+    parser.add_argument("--names_file_path", type=str, default="./data/voc.names",
+                        help="Types of objects detected. Default: ``./data/voc.names``.")
+    parser.add_argument("--model_config_path", type=str, default="./model_configs/yolov3_tiny.cfg",
+                        help="models config path. Default: ``./model_configs/yolov3_tiny.cfg``.")
     parser.add_argument("--image_size", type=int or tuple, default=416,
                         help="Image size. Default: 416.")
     parser.add_argument("--gray", type=bool, default=False,
                         help="Whether to use gray image. Default: ``False``.")
     parser.add_argument("--model_weights_path", type=str,
-                        default="./results/pretrained_models/YOLOv3-COCO-ee62ed20.pth.tar",
-                        help="Model file weight path. Default: ``./results/pretrained_models/YOLOv3-COCO-ee62ed20.pth.tar``.")
+                        default="./results/pretrained_models/YOLOv3_tiny-VOC-20200402.pth.tar",
+                        help="Model file weight path. Default: ``./results/pretrained_models/YOLOv3_tiny-VOC-20200402.pth.tar``.")
     parser.add_argument("--device", type=str, default="cpu",
                         help="Device. Default: ``cpu``.")
     parser.add_argument("--half", action="store_true", help="Half precision FP16 inference.")
@@ -282,10 +282,10 @@ if __name__ == "__main__":
     parser.add_argument("--save_txt", action="store_true", help="Save results to *.txt.")
     parser.add_argument("--fourcc", type=str, default="mp4v",
                         help="output video codec (verify ffmpeg support). Default: ``mp4v``.")
-    parser.add_argument("--conf_threshold", type=float, default=0.3,
-                        help="Object confidence threshold. Default: 0.3.")
-    parser.add_argument("--iou_threshold", type=float, default=0.5,
-                        help="IOU threshold for NMS. Default: 0.5.")
+    parser.add_argument("--conf_threshold", type=float, default=0.25,
+                        help="Object confidence threshold. Default: 0.25.")
+    parser.add_argument("--iou_threshold", type=float, default=0.45,
+                        help="IOU threshold for NMS. Default: 0.45.")
     parser.add_argument("--image_augment", action="store_true",
                         help="Image augmented inference")
     parser.add_argument("--filter_classes", nargs="+", type=int,

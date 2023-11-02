@@ -19,10 +19,11 @@ from .nms import *
 from .plots import *
 
 __all__ = [
+    "wh_iou", "kmean_anchors",
+    "clip_coords", "coco80_to_coco91_class", "labels_to_class_weights", "letterbox", "parse_dataset_config", "scale_coords", "xywh2xyxy", "xyxy2xywh",
     "AverageMeter", "ProgressMeter", "Summary",
     "compute_ap", "ap_per_class",
     "wh_iou", "kmean_anchors",
-    "clip_coords", "coco80_to_coco91_class", "labels_to_class_weights", "letterbox", "scale_coords", "xywh2xyxy", "xyxy2xywh",
     "non_max_suppression",
     "plot_one_box", "plot_images",
 ]
