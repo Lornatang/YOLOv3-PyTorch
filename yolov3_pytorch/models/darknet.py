@@ -294,7 +294,7 @@ class Darknet(nn.Module):
         return module_list, routs_binary
 
     def get_yolo_layers(self):
-        return [i for i, m in enumerate(self.module_defines) if m.__class__.__name__ == "_YOLOLayer"]
+        return [i for i, m in enumerate(self.module_list) if m.__class__.__name__ == "_YOLOLayer"]
 
     def fuse(self):
         # Fuse Conv2d + BatchNorm2d layers throughout models

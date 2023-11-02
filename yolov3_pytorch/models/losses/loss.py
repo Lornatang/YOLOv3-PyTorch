@@ -52,7 +52,8 @@ class FocalLoss(nn.Module):
             alpha (float, optional): alpha. Defaults to 0.25.
         """
         super(FocalLoss, self).__init__()
-        self.loss_fcn = loss_fcn  # must be nn.BCEWithLogitsLoss()
+        # must be nn.BCEWithLogitsLoss()
+        self.loss_fcn = loss_fcn
         self.gamma = gamma
         self.alpha = alpha
         self.reduction = loss_fcn.reduction
