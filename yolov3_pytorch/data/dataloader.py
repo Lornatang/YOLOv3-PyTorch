@@ -558,10 +558,10 @@ class LoadImagesAndLabels(Dataset):
                                               shear=self.image_augment_dict["SHEAR"])
 
             # Augment colorspace
-            adjust_hsv(image,
-                       hgain=self.image_augment_dict["HSV_H"],
-                       sgain=self.image_augment_dict["HSV_S"],
-                       vgain=self.image_augment_dict["HSV_V"])
+            image = adjust_hsv(image,
+                               h_gain=self.image_augment_dict["HSV_H"],
+                               s_gain=self.image_augment_dict["HSV_S"],
+                               v_gain=self.image_augment_dict["HSV_V"])
 
         nL = len(labels)  # number of labels
         if nL:
