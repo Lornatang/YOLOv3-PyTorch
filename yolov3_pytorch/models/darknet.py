@@ -48,7 +48,7 @@ class Darknet(nn.Module):
         self.module_list, self.routs = _create_modules(self.module_define, image_size, model_config, gray, onnx_export)
         self.yolo_layers = _get_yolo_layers(self)
         self.version = np.array([0, 2, 5], dtype=np.int32)  # (int32) version info: major, minor, revision
-        self.seen = np.array([0], dtype=np.int64)  # (int64) number of images seen during training
+        self.seen = 0
         self.header_info = np.array([0, 0, 0, self.seen, 0], dtype=np.int32)
         self.onnx_export = onnx_export
 
