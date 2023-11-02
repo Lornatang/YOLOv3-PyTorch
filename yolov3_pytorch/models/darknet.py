@@ -13,8 +13,10 @@
 # ==============================================================================
 import math
 import os
+import warnings
+from collections import OrderedDict
 from pathlib import Path
-from typing import Any, List, Dict, Optional, Union
+from typing import Any, List, Dict, Optional, Union, Mapping
 
 import numpy as np
 import torch
@@ -29,6 +31,7 @@ class Darknet(nn.Module):
             model_config_path: str,
             img_size: tuple = (416, 416),
             gray: bool = False,
+            compile_mode: bool = False,
             onnx_export: bool = False,
     ) -> None:
         """
@@ -37,6 +40,8 @@ class Darknet(nn.Module):
             self.model_config_path_path (str): Model configuration file path.
             img_size (tuple, optional): Image size. Default: (416, 416).
             gray (bool, optional): Whether to use grayscale imgs. Default: ``False``.
+            compile_mode (bool, optional): PyTorch 2.0 supports model compilation, the compiled model will have a prefix than
+                the original model parameters, default: ``False``.
             onnx_export (bool, optional): Whether to export to onnx. Default: ``False``.
 
         """
@@ -44,13 +49,18 @@ class Darknet(nn.Module):
         self.model_config_path = model_config_path
         self.img_size = img_size
         self.gray = gray
+        self.compile_mode = compile_mode
         self.onnx_export = onnx_export
 
         self.module_defines = self.parse_model_config_path()
         self.module_list, self.routs = self.create_modules()
         self.yolo_layers = self.get_yolo_layers()
 
-        # Darknet weights
+        # compile keyword
+        if compile_mode:
+            compile_state = "_orig_mod"
+
+        # Darknet parameters
         self.version = np.array([0, 2, 5], dtype=np.int32)  # (int32) version info: major, minor, revision
         self.seen = 0
         self.header_info = np.array([0, 0, 0, self.seen, 0], dtype=np.int32)
@@ -301,6 +311,50 @@ class Darknet(nn.Module):
                         break
             fused_lists.append(layer)
         self.module_list = fused_lists
+
+    def load_torch_state_dict(
+            self,
+            state_dict: Mapping[str, Any],
+    ):
+        r"""Copies parameters and buffers from :attr:`state_dict` into
+        this module and its descendants. If :attr:`strict` is ``True``, then
+        the keys of :attr:`state_dict` must exactly match the keys returned
+        by this module's :meth:`~torch.nn.Module.state_dict` function.
+
+        Args:
+            state_dict (dict): a dict containing parameters and
+                persistent buffers.
+        """
+
+        # When the PyTorch version is less than 2.0, the model compilation is not supported.
+        if int(torch.__version__[0]) < 2 and self.compile_mode:
+            warnings.warn("PyTorch version is less than 2.0, does not support model compilation.")
+            self.compile_mode = False
+
+        # Create new OrderedDict that does not contain the module prefix
+        model_state_dict = self.module_list.state_dict()
+        new_state_dict = OrderedDict()
+
+        # Remove the module prefix and update the model weight
+        for k, v in state_dict.items():
+            current_compile_state = k.split(".")[0]
+
+            if current_compile_state == self.compile_state and not self.compile_mode:
+                name = k[len(self.compile_state) + 1:]
+            elif current_compile_state != self.compile_state and self.compile_mode:
+                raise ValueError("The model is not compiled, but the weight is compiled.")
+            else:
+                name = k
+            new_state_dict[name] = v
+        state_dict = new_state_dict
+
+        # Filter out unnecessary parameters
+        new_state_dict = {k: v for k, v in state_dict.items() if
+                          k in model_state_dict.keys() and v.size() == model_state_dict[k].size()}
+
+        # Update model parameters
+        model_state_dict.update(new_state_dict)
+        self.module_list.load_state_dict(model_state_dict)
 
     def load_darknet_weights(self, weights_path: Union[str, Path]) -> None:
         r"""Parses and loads the weights stored in 'weights_path'
