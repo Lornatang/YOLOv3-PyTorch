@@ -45,7 +45,7 @@ class Darknet(nn.Module):
         """
         super(Darknet, self).__init__()
         self.module_defines = _parse_model_config(model_config)
-        self.module_lists, self.routs = _create_modules(self.module_defines, image_size, model_config, gray, onnx_export)
+        self.module_list, self.routs = _create_modules(self.module_defines, image_size, model_config, gray, onnx_export)
         self.yolo_layers = _get_yolo_layers(self)
         self.version = np.array([0, 2, 5], dtype=np.int32)  # (int32) version info: major, minor, revision
         self.seen = 0
@@ -87,7 +87,7 @@ class Darknet(nn.Module):
         if augment:
             x = torch.cat((x, _scale_image(x.flip(3), scale_factor[0]), _scale_image(x, scale_factor[1])), 0)
 
-        for i, module in enumerate(self.module_lists):
+        for i, module in enumerate(self.module_list):
             name = module.__class__.__name__
             if name == "_WeightedFeatureFusion":
                 x = module(x, out)
@@ -130,7 +130,7 @@ class Darknet(nn.Module):
                         layer = nn.Sequential(fused, *list(layer.children())[i + 1:])
                         break
             fused_lists.append(layer)
-        self.module_lists = fused_lists
+        self.module_list = fused_lists
 
     def load_darknet_weights(self, weights_path: str | Path):
         """Parses and loads the weights stored in 'weights_path'"""
@@ -155,7 +155,7 @@ class Darknet(nn.Module):
                 pass
 
         ptr = 0
-        for i, (module_define, module) in enumerate(zip(self.module_defines, self.module_lists)):
+        for i, (module_define, module) in enumerate(zip(self.module_defines, self.module_list)):
             if i == cutoff:
                 break
             if module_define["type"] == "convolutional":
@@ -202,7 +202,7 @@ class Darknet(nn.Module):
         self.header_info.tofile(fp)
 
         # Iterate through layers
-        for i, (module_define, module) in enumerate(zip(self.module_defines[:cutoff], self.module_lists[:cutoff])):
+        for i, (module_define, module) in enumerate(zip(self.module_defines[:cutoff], self.module_list[:cutoff])):
             if module_define["type"] == "convolutional":
                 conv_layer = module[0]
                 # If batch norm, load bn first
@@ -804,7 +804,7 @@ def _fuse_conv_and_bn(conv: nn.Conv2d, bn: nn.BatchNorm2d) -> nn.Module:
 
 
 def _get_yolo_layers(model):
-    return [i for i, m in enumerate(model.module_lists) if m.__class__.__name__ == "_YOLOLayer"]  # [89, 101, 113]
+    return [i for i, m in enumerate(model.module_list) if m.__class__.__name__ == "_YOLOLayer"]  # [89, 101, 113]
 
 
 def _parse_model_config(model_config_path: str) -> List[Dict[str, Any]]:
