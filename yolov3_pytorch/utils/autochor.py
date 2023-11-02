@@ -36,9 +36,9 @@ def wh_iou(wh1: Tensor, wh2: Tensor) -> Tensor:
 
 
 def kmean_anchors(
-        path: str = "./data/VOC0712/train.txt",
+        path: str = "./data/voc/train.txt",
         num_anchor: int = 9,
-        image_size: tuple = (608, 608),
+        image_size: tuple = (416, 416),
         iou_threshold: float = 0.50,
         gen: int = 1000):
     """Compute kmean anchors for dataset

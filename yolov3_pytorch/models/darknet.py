@@ -53,7 +53,7 @@ class Darknet(nn.Module):
         self.onnx_export = onnx_export
 
         self.module_defines = self.parse_model_config_path()
-        self.module_list, self.routs = self.create_modules()
+        self.module_list, self.routs = self.create_module_list()
         self.yolo_layers = self.get_yolo_layers()
 
         # compile keyword
@@ -117,7 +117,7 @@ class Darknet(nn.Module):
 
         return module_defines
 
-    def create_modules(self) -> [nn.ModuleList, list]:
+    def create_module_list(self) -> [nn.ModuleList, list]:
         """Constructs module list of layer blocks from module configuration in module_define
 
         Returns:
