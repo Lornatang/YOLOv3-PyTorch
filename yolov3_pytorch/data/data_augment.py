@@ -11,11 +11,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+"""
+Data augmentation functions
+"""
 import math
 import random
 
 import cv2
 import numpy as np
+from typing import Any
 
 
 def adjust_hsv(img: np.ndarray, h_gain: float = 0.5, s_gain: float = 0.5, v_gain: float = 0.5) -> np.ndarray:
@@ -126,6 +130,86 @@ def cutout(img: np.ndarray, labels: np.ndarray) -> np.ndarray:
             labels = labels[ioa < 0.60]
 
     return labels
+
+
+def letterbox(
+        image: np.ndarray,
+        new_shape: int or tuple = (416, 416),
+        color: tuple = (114, 114, 114),
+        auto: bool = True,
+        scale_fill: bool = False,
+        scaleup: bool = True
+) -> tuple[Any, tuple[float | Any, float | Any], tuple[float | int | Any, float | int | Any]]:
+    """Resize image to a 32-pixel-multiple rectangle.
+
+    Args:
+        image (ndarray): Image to resize
+        new_shape (int or tuple): Desired output shape of the image
+        color (tuple): Color of the border
+        auto (bool): Whether to choose the smaller dimension as the new shape
+        scale_fill (bool): Whether to stretch the image to fill the new shape
+        scaleup (bool): Whether to scale up the image if the image is smaller than the new shape
+
+    Returns:
+        ndarray: Resized image
+
+    """
+    shape = image.shape[:2]  # current shape [height, width]
+    if isinstance(new_shape, int):
+        new_shape = (new_shape, new_shape)
+
+    # Scale ratio (new / old)
+    r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
+    if not scaleup:  # only scale down, do not scale up (for better test mAP)
+        r = min(r, 1.0)
+
+    # Compute padding
+    ratio = r, r  # width, height ratios
+    new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
+    dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]  # wh padding
+    if auto:  # minimum rectangle
+        dw, dh = np.mod(dw, 32), np.mod(dh, 32)  # wh padding
+    elif scale_fill:  # stretch
+        dw, dh = 0.0, 0.0
+        new_unpad = new_shape
+        ratio = new_shape[0] / shape[1], new_shape[1] / shape[0]  # width, height ratios
+
+    dw /= 2  # divide padding into 2 sides
+    dh /= 2
+
+    if shape[::-1] != new_unpad:  # resize
+        image = cv2.resize(image, new_unpad, interpolation=cv2.INTER_LINEAR)
+    top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
+    left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
+    image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
+
+    return image, ratio, (dw, dh)
+
+
+def mixup(img1, labels, img2, labels2):
+    r"""Applies MixUp augmentation https://arxiv.org/pdf/1710.09412.pdf.
+    
+    Args:
+        img1 (np.ndarray): Image to augment
+        labels (np.ndarray): Image labels
+        img2 (np.ndarray): Image to augment
+        labels2 (np.ndarray): Image labels
+    
+    Examples:
+        >>> img = cv2.imread("image.jpg")
+        >>> labels = np.array([[0, 0.1, 0.2, 0.3, 0.4]])
+        >>> img2 = cv2.imread("image2.jpg")
+        >>> labels2 = np.array([[0, 0.1, 0.2, 0.3, 0.4]])
+        >>> img, labels = mixup(img, labels, img2, labels2)
+    
+    Returns:
+        np.ndarray: Augmented image
+        np.ndarray: Augmented labels
+    """
+    r = np.random.beta(32.0, 32.0)  # mixup ratio, alpha=beta=32.0
+    img1 = (img1 * r + img2 * (1 - r)).astype(np.uint8)
+    labels = np.concatenate((labels, labels2), 0)
+    return img1, labels
 
 
 def random_affine(

@@ -11,28 +11,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+"""
+Data loader for YOLOv3.
+"""
 import glob
 import os
 import random
 import time
 from pathlib import Path
 from threading import Thread
-from typing import Any, Tuple, List
+from typing import Any, Tuple, List, Union
 
 import cv2
 import numpy as np
 import torch
-from PIL import Image, ExifTags
+from PIL import ExifTags, Image
 from torch.utils.data import Dataset
 from torchvision.transforms import functional as F_vision
 from tqdm import tqdm
 
-from yolov3_pytorch.utils import letterbox
 from yolov3_pytorch.utils.common import xywh2xyxy, xyxy2xywh
-from .data_augment import adjust_hsv, random_affine
+from .data_augment import adjust_hsv, letterbox, random_affine
 
-support_image_formats = [".bmp", ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".dng"]
-support_video_formats = [".mov", ".avi", ".mp4", ".mpg", ".mpeg", ".m4v", ".wmv", ".mkv"]
+# Parameters
+IMG_FORMATS = ["bmp", "jpg", "jpeg", "png", "tif", "tiff", "dng", "webp", "mpo"]
+VID_FORMATS = ["mp4", "mov", "avi", "mkv"]
+IMG_FORMATS.extend([f.upper() for f in IMG_FORMATS])
+VID_FORMATS.extend([f.upper() for f in VID_FORMATS])
+# Get orientation exif tag
+for k, v in ExifTags.TAGS.items():
+    if v == "Orientation":
+        ORIENTATION = k
+        break
 
 # Get orientation exif tag
 for orientation in ExifTags.TAGS.keys():
@@ -40,50 +50,29 @@ for orientation in ExifTags.TAGS.keys():
         break
 
 
-def _exif_size(image: Image.Image) -> tuple:
-    """Get the size of an image from its EXIF data.
-
-    Args:
-        image (Image.Image): The image to get the size from.
-
-    Returns:
-        image_size (tuple): The size of the image.
-
-    """
-    # Returns exif-corrected PIL size
-    image_size = image.size  # (width, height)
-    try:
-        rotation = dict(image._getexif().items())[orientation]
-        if rotation == 6:  # rotation 270
-            image_size = (image_size[1], image_size[0])
-        elif rotation == 8:  # rotation 90
-            image_size = (image_size[1], image_size[0])
-    except:
-        pass
-
-    return image_size
-
-
 class LoadImages:  # for inference
-    def __init__(self, images_path: str, image_size: int = 416, gray: bool = False) -> None:
+    def __init__(
+            self,
+            img_path: Union[str, Path],
+            image_size: int = 416,
+            gray: bool = False,
+    ) -> None:
         """Load images from a path.
 
         Args:
-            images_path (str): The path to the images.
-            image_size (int, optional): The size of the images. Defaults: 416.
-            gray (bool, optional): Whether to convert the images to grayscale. Defaults: ``False``.
-
+            img_path (str or Path): The path to the images
+            image_size (int, optional): The size of the images. Defaults: 416
+            gray (bool, optional): Whether to convert the images to grayscale. Defaults: ``False``
         """
-        images_path = str(Path(images_path))  # os-agnostic
         files = []
 
-        if os.path.isdir(images_path):
-            files = sorted(glob.glob(os.path.join(images_path, "*.*")))
-        elif os.path.isfile(images_path):
-            files = [images_path]
+        if os.path.isdir(img_path):
+            files = sorted(glob.glob(os.path.join(img_path, "*.*")))
+        elif os.path.isfile(img_path):
+            files = [img_path]
 
-        images = [x for x in files if os.path.splitext(x)[-1].lower() in support_image_formats]
-        videos = [x for x in files if os.path.splitext(x)[-1].lower() in support_video_formats]
+        images = [x for x in files if x.split(".")[-1].lower() in IMG_FORMATS]
+        videos = [x for x in files if x.split(".")[-1].lower() in VID_FORMATS]
         nI, nV = len(images), len(videos)
 
         self.image_size = image_size
@@ -96,10 +85,10 @@ class LoadImages:  # for inference
             self.new_video(videos[0])  # new video
         else:
             self.cap = None
-        assert self.nF > 0, f"No images or videos found in {images_path}. " \
+        assert self.nF > 0, f"No images or videos found in {img_path}. " \
                             f"Supported formats are:\n" \
-                            f"images: {support_image_formats}\n" \
-                            f"videos: {support_video_formats}"
+                            f"images: {IMG_FORMATS}\n" \
+                            f"videos: {VID_FORMATS}"
 
     def __iter__(self):
         """Iterate over the images."""
@@ -373,7 +362,7 @@ class LoadImagesAndLabels(Dataset):
             else:
                 raise Exception(f"{path} does not exist")
             self.image_files = [x.replace("/", os.sep) for x in f if
-                                os.path.splitext(x)[-1].lower() in support_image_formats]
+                                x.split(".")[-1].lower() in IMG_FORMATS]
         except:
             raise Exception(f"Error loading data from {path}")
 
@@ -403,7 +392,7 @@ class LoadImagesAndLabels(Dataset):
                 s = [x.split() for x in f.read().splitlines()]
                 assert len(s) == num_images, "Shapefile out of sync"
         except:
-            s = [_exif_size(Image.open(f)) for f in tqdm(self.image_files, desc="Reading image shapes")]
+            s = [self._exif_size(Image.open(f)) for f in tqdm(self.image_files, desc="Reading image shapes")]
 
         self.shapes = np.asarray(s, dtype=np.float64)
 
@@ -500,7 +489,7 @@ class LoadImagesAndLabels(Dataset):
             pbar = tqdm(range(len(self.image_files)), desc="Caching images")
             self.image_hw0, self.image_hw = [None] * num_images, [None] * num_images
             for i in pbar:  # max 10k images
-                self.images[i], self.image_hw0[i], self.image_hw[i] = load_image(self, i)
+                self.images[i], self.image_hw0[i], self.image_hw[i] = self.load_image(i)
                 gb += self.images[i].nbytes
                 pbar.desc = f"Caching images ({gb / 1e9:.1f}GB)"
 
@@ -513,6 +502,121 @@ class LoadImagesAndLabels(Dataset):
                 except:
                     print(f"Corrupted image detected: {file}")
 
+    @staticmethod
+    def _exif_size(img: Image.Image) -> tuple:
+        """Get the size of an image from its EXIF data.
+
+        Args:
+            img (Image.Image): The image to get the size from.
+
+        Returns:
+            image_size (tuple): The size of the image.
+        """
+
+        # Returns exif-corrected PIL size
+        img_size = img.size  # (width, height)
+        try:
+            rotation = dict(img._getexif().items())[orientation]
+            if rotation == 6:  # rotation 270
+                img_size = (img_size[1], img_size[0])
+            elif rotation == 8:  # rotation 90
+                img_size = (img_size[1], img_size[0])
+        except:
+            pass
+
+        return img_size
+
+    def load_image(self, index: int) -> Tuple[np.ndarray, Tuple[int, int], Tuple[int, int]]:
+        """Loads an image from a file into a numpy array.
+
+        Args:
+            self: Dataset object
+            index (int): Index of the image to load
+
+        Returns:
+            image (np.ndarray): Image as a numpy array
+
+        """
+        # loads 1 image from dataset, returns image, original hw, resized hw
+        image = self.images[index]
+        if image is None:  # not cached
+            path = self.image_files[index]
+            image = cv2.imread(path)  # BGR
+            assert image is not None, "Image Not Found " + path
+            h0, w0 = image.shape[:2]  # orig hw
+            r = self.image_size / max(h0, w0)  # resize image to image_size
+            if r != 1:  # always resize down, only resize up if training with augmentation
+                interp = cv2.INTER_AREA if r < 1 and not self.image_augment else cv2.INTER_LINEAR
+                image = cv2.resize(image, (int(w0 * r), int(h0 * r)), interpolation=interp)
+            return image, (h0, w0), image.shape[:2]  # image, hw_original, hw_resized
+        else:
+            return self.images[index], self.image_hw0[index], self.image_hw[index]  # image, hw_original, hw_resized
+
+    def load_mosaic(self, index: int) -> Tuple[np.ndarray, List]:
+        """loads images in a mosaic
+
+        Args:
+            self: Dataset object
+            index (int): Index of the image to load
+
+        Returns:
+            image (ndarray): Image as a numpy array
+
+        """
+        # loads images in a mosaic
+        labels4 = []
+        s = self.image_size
+        xc, yc = [int(random.uniform(s * 0.5, s * 1.5)) for _ in range(2)]  # mosaic center x, y
+        indices = [index] + [random.randint(0, len(self.labels) - 1) for _ in range(3)]  # 3 additional image indices
+        for i, index in enumerate(indices):
+            # Load image
+            image, _, (h, w) = self.load_image(index)
+
+            # place image in image4
+            if i == 0:  # top left
+                image4 = np.full((s * 2, s * 2, image.shape[2]), 114, dtype=np.uint8)  # base image with 4 tiles
+                x1a, y1a, x2a, y2a = max(xc - w, 0), max(yc - h, 0), xc, yc  # xmin, ymin, xmax, ymax (large image)
+                x1b, y1b, x2b, y2b = w - (x2a - x1a), h - (y2a - y1a), w, h  # xmin, ymin, xmax, ymax (small image)
+            elif i == 1:  # top right
+                x1a, y1a, x2a, y2a = xc, max(yc - h, 0), min(xc + w, s * 2), yc
+                x1b, y1b, x2b, y2b = 0, h - (y2a - y1a), min(w, x2a - x1a), h
+            elif i == 2:  # bottom left
+                x1a, y1a, x2a, y2a = max(xc - w, 0), yc, xc, min(s * 2, yc + h)
+                x1b, y1b, x2b, y2b = w - (x2a - x1a), 0, max(xc, w), min(y2a - y1a, h)
+            elif i == 3:  # bottom right
+                x1a, y1a, x2a, y2a = xc, yc, min(xc + w, s * 2), min(s * 2, yc + h)
+                x1b, y1b, x2b, y2b = 0, 0, min(w, x2a - x1a), min(y2a - y1a, h)
+
+            image4[y1a:y2a, x1a:x2a] = image[y1b:y2b, x1b:x2b]  # image4[ymin:ymax, xmin:xmax]
+            padw = x1a - x1b
+            padh = y1a - y1b
+
+            # Labels
+            x = self.labels[index]
+            labels = x.copy()
+            if x.size > 0:  # Normalized xywh to pixel xyxy format
+                labels[:, 1] = w * (x[:, 1] - x[:, 3] / 2) + padw
+                labels[:, 2] = h * (x[:, 2] - x[:, 4] / 2) + padh
+                labels[:, 3] = w * (x[:, 1] + x[:, 3] / 2) + padw
+                labels[:, 4] = h * (x[:, 2] + x[:, 4] / 2) + padh
+            labels4.append(labels)
+
+        # Concat/clip labels
+        if len(labels4):
+            labels4 = np.concatenate(labels4, 0)
+            np.clip(labels4[:, 1:], 0, 2 * s, out=labels4[:, 1:])  # use with random_affine
+
+        # Augment
+        image4, labels4 = random_affine(image4,
+                                        labels4,
+                                        degrees=int(self.image_augment_dict["DEGREES"]),
+                                        translate=float(self.image_augment_dict["TRANSLATE"]),
+                                        scale=float(self.image_augment_dict["SCALE"]),
+                                        shear=int(self.image_augment_dict["SHEAR"]),
+                                        border=-s // 2)  # border to remove
+
+        return image4, labels4
+
     def __len__(self):
         """Number of images."""
         return len(self.image_files)
@@ -524,12 +628,12 @@ class LoadImagesAndLabels(Dataset):
 
         if self.mosaic:
             # Load mosaic
-            image, labels = load_mosaic(self, index)
+            image, labels = self.load_mosaic(index)
             shapes = None
 
         else:
             # Load image
-            image, (h0, w0), (h, w) = load_image(self, index)
+            image, (h0, w0), (h, w) = self.load_image(index)
 
             # Letterbox
             shape = self.batch_shapes[
@@ -608,96 +712,3 @@ class LoadImagesAndLabels(Dataset):
         for i, l in enumerate(label):
             l[:, 0] = i  # add target image index for build_targets()
         return torch.stack(image, 0), torch.cat(label, 0), path, shapes
-
-
-def load_image(self, index: int) -> Tuple[np.ndarray, Tuple[int, int], Tuple[int, int]]:
-    """Loads an image from a file into a numpy array.
-
-    Args:
-        self: Dataset object
-        index (int): Index of the image to load
-
-    Returns:
-        image (np.ndarray): Image as a numpy array
-
-    """
-    # loads 1 image from dataset, returns image, original hw, resized hw
-    image = self.images[index]
-    if image is None:  # not cached
-        path = self.image_files[index]
-        image = cv2.imread(path)  # BGR
-        assert image is not None, "Image Not Found " + path
-        h0, w0 = image.shape[:2]  # orig hw
-        r = self.image_size / max(h0, w0)  # resize image to image_size
-        if r != 1:  # always resize down, only resize up if training with augmentation
-            interp = cv2.INTER_AREA if r < 1 and not self.image_augment else cv2.INTER_LINEAR
-            image = cv2.resize(image, (int(w0 * r), int(h0 * r)), interpolation=interp)
-        return image, (h0, w0), image.shape[:2]  # image, hw_original, hw_resized
-    else:
-        return self.images[index], self.image_hw0[index], self.image_hw[index]  # image, hw_original, hw_resized
-
-
-def load_mosaic(self, index: int) -> Tuple[np.ndarray, List]:
-    """loads images in a mosaic
-
-    Args:
-        self: Dataset object
-        index (int): Index of the image to load
-
-    Returns:
-        image (ndarray): Image as a numpy array
-
-    """
-    # loads images in a mosaic
-    labels4 = []
-    s = self.image_size
-    xc, yc = [int(random.uniform(s * 0.5, s * 1.5)) for _ in range(2)]  # mosaic center x, y
-    indices = [index] + [random.randint(0, len(self.labels) - 1) for _ in range(3)]  # 3 additional image indices
-    for i, index in enumerate(indices):
-        # Load image
-        image, _, (h, w) = load_image(self, index)
-
-        # place image in image4
-        if i == 0:  # top left
-            image4 = np.full((s * 2, s * 2, image.shape[2]), 114, dtype=np.uint8)  # base image with 4 tiles
-            x1a, y1a, x2a, y2a = max(xc - w, 0), max(yc - h, 0), xc, yc  # xmin, ymin, xmax, ymax (large image)
-            x1b, y1b, x2b, y2b = w - (x2a - x1a), h - (y2a - y1a), w, h  # xmin, ymin, xmax, ymax (small image)
-        elif i == 1:  # top right
-            x1a, y1a, x2a, y2a = xc, max(yc - h, 0), min(xc + w, s * 2), yc
-            x1b, y1b, x2b, y2b = 0, h - (y2a - y1a), min(w, x2a - x1a), h
-        elif i == 2:  # bottom left
-            x1a, y1a, x2a, y2a = max(xc - w, 0), yc, xc, min(s * 2, yc + h)
-            x1b, y1b, x2b, y2b = w - (x2a - x1a), 0, max(xc, w), min(y2a - y1a, h)
-        elif i == 3:  # bottom right
-            x1a, y1a, x2a, y2a = xc, yc, min(xc + w, s * 2), min(s * 2, yc + h)
-            x1b, y1b, x2b, y2b = 0, 0, min(w, x2a - x1a), min(y2a - y1a, h)
-
-        image4[y1a:y2a, x1a:x2a] = image[y1b:y2b, x1b:x2b]  # image4[ymin:ymax, xmin:xmax]
-        padw = x1a - x1b
-        padh = y1a - y1b
-
-        # Labels
-        x = self.labels[index]
-        labels = x.copy()
-        if x.size > 0:  # Normalized xywh to pixel xyxy format
-            labels[:, 1] = w * (x[:, 1] - x[:, 3] / 2) + padw
-            labels[:, 2] = h * (x[:, 2] - x[:, 4] / 2) + padh
-            labels[:, 3] = w * (x[:, 1] + x[:, 3] / 2) + padw
-            labels[:, 4] = h * (x[:, 2] + x[:, 4] / 2) + padh
-        labels4.append(labels)
-
-    # Concat/clip labels
-    if len(labels4):
-        labels4 = np.concatenate(labels4, 0)
-        np.clip(labels4[:, 1:], 0, 2 * s, out=labels4[:, 1:])  # use with random_affine
-
-    # Augment
-    image4, labels4 = random_affine(image4,
-                                    labels4,
-                                    degrees=int(self.image_augment_dict["DEGREES"]),
-                                    translate=float(self.image_augment_dict["TRANSLATE"]),
-                                    scale=float(self.image_augment_dict["SCALE"]),
-                                    shear=int(self.image_augment_dict["SHEAR"]),
-                                    border=-s // 2)  # border to remove
-
-    return image4, labels4
