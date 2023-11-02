@@ -44,8 +44,8 @@ class Darknet(nn.Module):
 
         """
         super(Darknet, self).__init__()
-        self.module_define = _parse_model_config(model_config)
-        self.module_list, self.routs = _create_modules(self.module_define, image_size, model_config, gray, onnx_export)
+        self.module_defines = _parse_model_config(model_config)
+        self.module_lists, self.routs = _create_modules(self.module_defines, image_size, model_config, gray, onnx_export)
         self.yolo_layers = _get_yolo_layers(self)
         self.version = np.array([0, 2, 5], dtype=np.int32)  # (int32) version info: major, minor, revision
         self.seen = 0
@@ -87,7 +87,7 @@ class Darknet(nn.Module):
         if augment:
             x = torch.cat((x, _scale_image(x.flip(3), scale_factor[0]), _scale_image(x, scale_factor[1])), 0)
 
-        for i, module in enumerate(self.module_list):
+        for i, module in enumerate(self.module_lists):
             name = module.__class__.__name__
             if name == "_WeightedFeatureFusion":
                 x = module(x, out)
@@ -119,7 +119,7 @@ class Darknet(nn.Module):
     def fuse(self):
         # Fuse Conv2d + BatchNorm2d layers throughout models
         print("Fusing layers...")
-        fused_list = nn.ModuleList()
+        fused_lists = nn.ModuleList()
         for layer in list(self.children())[0]:
             if isinstance(layer, nn.Sequential):
                 for i, b in enumerate(layer):
@@ -129,8 +129,8 @@ class Darknet(nn.Module):
                         fused = _fuse_conv_and_bn(conv, b)
                         layer = nn.Sequential(fused, *list(layer.children())[i + 1:])
                         break
-            fused_list.append(layer)
-        self.module_list = fused_list
+            fused_lists.append(layer)
+        self.module_lists = fused_lists
 
     def load_darknet_weights(self, weights_path: str | Path):
         """Parses and loads the weights stored in 'weights_path'"""
@@ -155,46 +155,40 @@ class Darknet(nn.Module):
                 pass
 
         ptr = 0
-        for i, (module_def, module) in enumerate(zip(self.module_defs, self.module_list)):
+        for i, (module_define, module) in enumerate(zip(self.module_defines, self.module_lists)):
             if i == cutoff:
                 break
-            if module_def["type"] == "convolutional":
+            if module_define["type"] == "convolutional":
                 conv_layer = module[0]
-                if module_def["batch_normalize"]:
+                if module_define["batch_normalize"]:
                     # Load BN bias, weights, running mean and running variance
                     bn_layer = module[1]
                     num_b = bn_layer.bias.numel()  # Number of biases
                     # Bias
-                    bn_b = torch.from_numpy(
-                        weights[ptr: ptr + num_b]).view_as(bn_layer.bias)
+                    bn_b = torch.from_numpy(weights[ptr: ptr + num_b]).view_as(bn_layer.bias)
                     bn_layer.bias.data.copy_(bn_b)
                     ptr += num_b
                     # Weight
-                    bn_w = torch.from_numpy(
-                        weights[ptr: ptr + num_b]).view_as(bn_layer.weight)
+                    bn_w = torch.from_numpy(weights[ptr: ptr + num_b]).view_as(bn_layer.weight)
                     bn_layer.weight.data.copy_(bn_w)
                     ptr += num_b
                     # Running Mean
-                    bn_rm = torch.from_numpy(
-                        weights[ptr: ptr + num_b]).view_as(bn_layer.running_mean)
+                    bn_rm = torch.from_numpy(weights[ptr: ptr + num_b]).view_as(bn_layer.running_mean)
                     bn_layer.running_mean.data.copy_(bn_rm)
                     ptr += num_b
                     # Running Var
-                    bn_rv = torch.from_numpy(
-                        weights[ptr: ptr + num_b]).view_as(bn_layer.running_var)
+                    bn_rv = torch.from_numpy(weights[ptr: ptr + num_b]).view_as(bn_layer.running_var)
                     bn_layer.running_var.data.copy_(bn_rv)
                     ptr += num_b
                 else:
                     # Load conv. bias
                     num_b = conv_layer.bias.numel()
-                    conv_b = torch.from_numpy(
-                        weights[ptr: ptr + num_b]).view_as(conv_layer.bias)
+                    conv_b = torch.from_numpy(weights[ptr: ptr + num_b]).view_as(conv_layer.bias)
                     conv_layer.bias.data.copy_(conv_b)
                     ptr += num_b
                 # Load conv. weights
                 num_w = conv_layer.weight.numel()
-                conv_w = torch.from_numpy(
-                    weights[ptr: ptr + num_w]).view_as(conv_layer.weight)
+                conv_w = torch.from_numpy(weights[ptr: ptr + num_w]).view_as(conv_layer.weight)
                 conv_layer.weight.data.copy_(conv_w)
                 ptr += num_w
 
@@ -208,11 +202,11 @@ class Darknet(nn.Module):
         self.header_info.tofile(fp)
 
         # Iterate through layers
-        for i, (module_def, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
-            if module_def["type"] == "convolutional":
+        for i, (module_define, module) in enumerate(zip(self.module_defines[:cutoff], self.module_lists[:cutoff])):
+            if module_define["type"] == "convolutional":
                 conv_layer = module[0]
                 # If batch norm, load bn first
-                if module_def["batch_normalize"]:
+                if module_define["batch_normalize"]:
                     bn_layer = module[1]
                     bn_layer.bias.data.cpu().numpy().tofile(fp)
                     bn_layer.weight.data.cpu().numpy().tofile(fp)
@@ -810,7 +804,7 @@ def _fuse_conv_and_bn(conv: nn.Conv2d, bn: nn.BatchNorm2d) -> nn.Module:
 
 
 def _get_yolo_layers(model):
-    return [i for i, m in enumerate(model.module_list) if m.__class__.__name__ == "_YOLOLayer"]  # [89, 101, 113]
+    return [i for i, m in enumerate(model.module_lists) if m.__class__.__name__ == "_YOLOLayer"]  # [89, 101, 113]
 
 
 def _parse_model_config(model_config_path: str) -> List[Dict[str, Any]]:
