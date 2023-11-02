@@ -22,7 +22,7 @@ from numpy import ndarray
 from .datasets import load_image
 
 
-def augment_hsv(image: ndarray, hgain: float = 0.5, sgain: float = 0.5, vgain: float = 0.5) -> None:
+def adjust_hsv(image: ndarray, hgain: float = 0.5, sgain: float = 0.5, vgain: float = 0.5) -> None:
     """Augment HSV channels of an image.
 
     Args:

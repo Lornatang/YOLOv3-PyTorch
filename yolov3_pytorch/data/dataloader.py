@@ -17,7 +17,7 @@ import random
 import time
 from pathlib import Path
 from threading import Thread
-from typing import Any
+from typing import Any, Tuple
 
 import cv2
 import numpy as np
@@ -27,9 +27,9 @@ from torch.utils.data import Dataset
 from torchvision.transforms import functional as F_vision
 from tqdm import tqdm
 
+from yolov3_pytorch.utils import letterbox
 from yolov3_pytorch.utils.common import xywh2xyxy, xyxy2xywh
-from .data_augment import augment_hsv, load_mosaic, random_affine
-from .datasets import letterbox, load_image
+from .data_augment import adjust_hsv, load_mosaic, random_affine
 
 support_image_formats = [".bmp", ".jpg", ".jpeg", ".png", ".tif", ".tiff", ".dng"]
 support_video_formats = [".mov", ".avi", ".mp4", ".mpg", ".mpeg", ".m4v", ".wmv", ".mkv"]
@@ -558,10 +558,10 @@ class LoadImagesAndLabels(Dataset):
                                               shear=self.image_augment_dict["SHEAR"])
 
             # Augment colorspace
-            augment_hsv(image,
-                        hgain=self.image_augment_dict["HSV_H"],
-                        sgain=self.image_augment_dict["HSV_S"],
-                        vgain=self.image_augment_dict["HSV_V"])
+            adjust_hsv(image,
+                       hgain=self.image_augment_dict["HSV_H"],
+                       sgain=self.image_augment_dict["HSV_S"],
+                       vgain=self.image_augment_dict["HSV_V"])
 
         nL = len(labels)  # number of labels
         if nL:
@@ -608,3 +608,30 @@ class LoadImagesAndLabels(Dataset):
         for i, l in enumerate(label):
             l[:, 0] = i  # add target image index for build_targets()
         return torch.stack(image, 0), torch.cat(label, 0), path, shapes
+
+
+def load_image(self, index: int) -> Tuple[np.ndarray, Tuple[int, int], Tuple[int, int]]:
+    """Loads an image from a file into a numpy array.
+
+    Args:
+        self: Dataset object
+        index (int): Index of the image to load
+
+    Returns:
+        image (np.ndarray): Image as a numpy array
+
+    """
+    # loads 1 image from dataset, returns image, original hw, resized hw
+    image = self.images[index]
+    if image is None:  # not cached
+        path = self.image_files[index]
+        image = cv2.imread(path)  # BGR
+        assert image is not None, "Image Not Found " + path
+        h0, w0 = image.shape[:2]  # orig hw
+        r = self.image_size / max(h0, w0)  # resize image to image_size
+        if r != 1:  # always resize down, only resize up if training with augmentation
+            interp = cv2.INTER_AREA if r < 1 and not self.image_augment else cv2.INTER_LINEAR
+            image = cv2.resize(image, (int(w0 * r), int(h0 * r)), interpolation=interp)
+        return image, (h0, w0), image.shape[:2]  # image, hw_original, hw_resized
+    else:
+        return self.images[index], self.image_hw0[index], self.image_hw[index]  # image, hw_original, hw_resized

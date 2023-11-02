@@ -11,10 +11,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from .loggers import *
-from .metrics import *
 from .autochor import *
 from .common import *
+from .loggers import *
+from .metrics import *
 from .nms import *
 from .plots import *
 
@@ -22,7 +22,7 @@ __all__ = [
     "AverageMeter", "ProgressMeter", "Summary",
     "compute_ap", "ap_per_class",
     "wh_iou", "kmean_anchors",
-    "clip_coords", "coco80_to_coco91_class", "scale_coords", "xywh2xyxy", "xyxy2xywh",
+    "clip_coords", "coco80_to_coco91_class", "labels_to_class_weights", "letterbox", "scale_coords", "xywh2xyxy", "xyxy2xywh",
     "non_max_suppression",
     "plot_one_box", "plot_images",
 ]

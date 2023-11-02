@@ -28,12 +28,12 @@ from torch.utils.data import DataLoader
 from torchvision.ops import boxes
 from tqdm import tqdm
 
-from yolov3_pytorch.models import Darknet
 from yolov3_pytorch.data.dataloader import LoadImagesAndLabels
 from yolov3_pytorch.data.parse import parse_dataset_config
+from yolov3_pytorch.models.darknet import Darknet
 from yolov3_pytorch.models.utils import load_state_dict
 from yolov3_pytorch.utils.common import clip_coords, coco80_to_coco91_class, scale_coords, xywh2xyxy, xyxy2xywh
-from yolov3_pytorch.utils.metrics.ap import ap_per_class
+from yolov3_pytorch.utils.metrics import ap_per_class
 from yolov3_pytorch.utils.nms import non_max_suppression
 
 # Read YAML configuration file

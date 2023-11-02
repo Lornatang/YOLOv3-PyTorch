@@ -38,7 +38,7 @@ This repository contains an op-for-op PyTorch reimplementation of [YOLOv3: An In
 ### From PyPI
 
 ```bash
-pip3 install yolov3_pytorch==0.1.1 -i https://pypi.org/simple
+pip3 install yolov3_pytorch -i https://pypi.org/simple
 ```
 
 ### Local Install
@@ -50,11 +50,11 @@ pip3 install -r requirements.txt
 python3 setup.py install
 ```
 
-## Inference (TODO)
+## Inference (e.g YOLOv3_tiny-VOC)
 
 ```bash
-# Download YOLOv3-tiny model weights to `./results/pretrained_models`
-wget .
+# Download YOLOv3_tiny-VOC model weights to `./results/pretrained_models`
+wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_tiny-VOC-20200402.pth.tar ./resutls/pretrained_models/YOLOv3_tiny-VOC-20200402.pth.tar
 python3 ./tools/detect.py
 ```
 

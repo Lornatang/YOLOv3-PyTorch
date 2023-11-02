@@ -22,8 +22,11 @@ from torch import nn
 from torch.backends import cudnn
 
 from yolov3_pytorch.data import LoadImages, LoadStreams
-from yolov3_pytorch.models import Darknet, load_state_dict
-from yolov3_pytorch.utils import non_max_suppression, scale_coords, xyxy2xywh, plot_one_box
+from yolov3_pytorch.models.darknet import Darknet
+from yolov3_pytorch.models.utils import load_state_dict
+from yolov3_pytorch.utils.common import scale_coords, xyxy2xywh
+from yolov3_pytorch.utils.nms import non_max_suppression
+from yolov3_pytorch.utils.plots import plot_one_box
 
 
 def main(args):
