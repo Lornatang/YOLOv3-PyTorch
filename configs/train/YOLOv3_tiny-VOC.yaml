@@ -69,7 +69,7 @@ TRAIN:
 
   # training hyperparameters
   HYP:
-    IMGS_PER_BATCH: 64
+    IMGS_PER_BATCH: 16
     SHUFFLE: True
     NUM_WORKERS: 4
     PIN_MEMORY: True
@@ -113,7 +113,7 @@ TEST:
 
   # test hyperparameters
   HYP:
-    IMGS_PER_BATCH: 64
+    IMGS_PER_BATCH: 16
     SHUFFLE: False
     NUM_WORKERS: 4
     PIN_MEMORY: True
@@ -123,6 +123,6 @@ TEST:
   CONF_THRESHOLD: 0.001
   IOU_THRESHOLD: 0.5
   SAVE_JSON: False
-  GT_JSON_PATH: "./data/COCO2014/annotations/instances_val*.json"
+  GT_JSON_PATH: "./data/coco/annotations/instances_val*.json"
   SAVE_JSON_PATH: "results.csv"
   verbose: False
