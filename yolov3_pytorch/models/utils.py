@@ -13,6 +13,7 @@
 # ==============================================================================
 import os
 from pathlib import Path
+from typing import Union
 
 import torch
 from torch import nn, optim
@@ -20,34 +21,26 @@ from torch import nn, optim
 from .darknet import Darknet
 
 
-def convert_model_state_dict(
-        model_config_path: str,
-        image_size: tuple = (416, 416),
-        gray: bool = False,
-        onnx_export: bool = False,
-        model_weights_path: str = None,
-) -> None:
+def convert_model_state_dict(model_config_path: Union[str, Path], model_weights_path: Union[str, Path]) -> None:
     """
 
     Args:
-        model_config_path (str): Model configuration file path.
-        image_size (tuple, optional): Image size. Default: (416, 416).
-        gray (bool, optional): Whether to use grayscale images. Default: ``False``.
-        onnx_export (bool, optional): Whether to export to onnx. Default: ``False``.
-        model_weights_path (str): path to darknet models weights file
+        model_config_path (str or Path): Model configuration file path.
+        model_weights_path (str or Path): path to darknet models weights file
+    """
 
-"""
     # Initialize models
-    model = Darknet(model_config_path, image_size, gray, onnx_export)
+    model = Darknet(model_config_path)
 
     # Load weights and save
-    if model_weights_path.endswith(".pth.tar"):  # if PyTorch format
+    # if PyTorch format
+    if model_weights_path.endswith(".pth.tar"):
         model.load_state_dict(torch.load(model_weights_path, map_location="cpu")["state_dict"])
         target = model_weights_path[:-8] + ".weights"
         model.save_darknet_weights(target)
         print(f"Success: converted {model_weights_path} to {target}")
-
-    elif model_weights_path.endswith(".weights"):  # darknet format
+    # Darknet format
+    elif model_weights_path.endswith(".weights"):
         model.load_darknet_weights(model_weights_path)
 
         chkpt = {"epoch": 0,
@@ -60,7 +53,7 @@ def convert_model_state_dict(
         torch.save(chkpt, target)
         print(f"Success: converted {model_weights_path} to {target}")
     else:
-        print("Error: extension not supported.")
+        raise ValueError(f"Model weight file '{model_weights_path}' not supported. Only support '.pth.tar' and '.weights'")
 
 
 def load_state_dict(
