@@ -16,7 +16,7 @@ import os
 import warnings
 from collections import OrderedDict
 from pathlib import Path
-from typing import Any, List, Dict, Optional, Union, Mapping
+from typing import Any, List, Dict, Optional, Union
 
 import numpy as np
 import torch
@@ -52,20 +52,16 @@ class Darknet(nn.Module):
         self.compile_mode = compile_mode
         self.onnx_export = onnx_export
 
-        self.module_defines = self.parse_model_config_path()
+        self.module_defines = self.create_module_defines()
         self.module_list, self.routs = self.create_module_list()
         self.yolo_layers = self.get_yolo_layers()
-
-        # compile keyword
-        if compile_mode:
-            compile_state = "_orig_mod"
 
         # Darknet parameters
         self.version = np.array([0, 2, 5], dtype=np.int32)  # (int32) version info: major, minor, revision
         self.seen = 0
         self.header_info = np.array([0, 0, 0, self.seen, 0], dtype=np.int32)
 
-    def parse_model_config_path(self) -> List[Dict[str, Any]]:
+    def create_module_defines(self) -> List[Dict[str, Any]]:
         """Parses the yolo-v3 layer configuration file and returns module definitions.
 
         Returns:
@@ -256,7 +252,7 @@ class Darknet(nn.Module):
                 layers = module["from"] if "from" in module else []
                 modules = _YOLOLayer(anchors=module["anchors"][module["mask"]],  # anchor list
                                      num_classes=module["classes"],  # number of classes
-                                     img_size=img_size,  # (416, 416)
+                                     image_size=img_size,  # (416, 416)
                                      yolo_index=yolo_index,  # 0, 1, 2...
                                      layers=layers,  # output layers
                                      stride=stride[yolo_index])
@@ -312,18 +308,14 @@ class Darknet(nn.Module):
             fused_lists.append(layer)
         self.module_list = fused_lists
 
-    def load_torch_state_dict(
-            self,
-            state_dict: Mapping[str, Any],
-    ):
+    def load_torch_weights(self, weights_path: Union[str, Path]) -> None:
         r"""Copies parameters and buffers from :attr:`state_dict` into
         this module and its descendants. If :attr:`strict` is ``True``, then
         the keys of :attr:`state_dict` must exactly match the keys returned
         by this module's :meth:`~torch.nn.Module.state_dict` function.
 
         Args:
-            state_dict (dict): a dict containing parameters and
-                persistent buffers.
+            weights_path (str or Path): Path to the weights file.
         """
 
         # When the PyTorch version is less than 2.0, the model compilation is not supported.
@@ -331,17 +323,25 @@ class Darknet(nn.Module):
             warnings.warn("PyTorch version is less than 2.0, does not support model compilation.")
             self.compile_mode = False
 
+        # compile keyword
+        compile_keyword = ""
+        if self.compile_mode:
+            compile_keyword = "_orig_mod"
+
+        # Load the state dict from the weights file
+        old_state_dict = torch.load(weights_path, map_location=torch.device("cpu"))["state_dict"]
+
         # Create new OrderedDict that does not contain the module prefix
         model_state_dict = self.module_list.state_dict()
         new_state_dict = OrderedDict()
 
         # Remove the module prefix and update the model weight
-        for k, v in state_dict.items():
-            current_compile_state = k.split(".")[0]
+        for k, v in old_state_dict.items():
+            k_prefix = k.split(".")[0]
 
-            if current_compile_state == self.compile_state and not self.compile_mode:
-                name = k[len(self.compile_state) + 1:]
-            elif current_compile_state != self.compile_state and self.compile_mode:
+            if k_prefix == compile_keyword and not self.compile_mode:
+                name = k[len(compile_keyword) + 1:]
+            elif k_prefix != compile_keyword and self.compile_mode:
                 raise ValueError("The model is not compiled, but the weight is compiled.")
             else:
                 name = k
@@ -454,9 +454,9 @@ class Darknet(nn.Module):
     def forward(
             self,
             x: Tensor,
-            augment: bool = False
+            img_augment: bool = False
     ) -> list[Any] | tuple[Tensor, Tensor] | tuple[Tensor, Any] | tuple[Tensor, None]:
-        if not augment:
+        if not img_augment:
             return self.forward_once(x)
         else:
             img_size = x.shape[-2:]  # height, width
@@ -522,24 +522,24 @@ class _YOLOLayer(nn.Module):
             self,
             anchors: list,
             num_classes: int,
-            img_size: tuple,
+            image_size: tuple,
             yolo_index: int,
             layers: list,
             stride: int,
             onnx_export: bool = False,
     ) -> None:
-        r"""
+        """
 
         Args:
             anchors (list): List of anchors.
             num_classes (int): Number of classes.
-            img_size (tuple): Image size.
+            image_size (tuple): Image size.
             yolo_index (int): Yolo layer index.
             layers (list): List of layers.
             stride (int): Stride.
             onnx_export (bool, optional): Whether to export to onnx. Default: ``False``.
-        """
 
+        """
         super(_YOLOLayer, self).__init__()
         self.anchors = torch.Tensor(anchors)
         self.index = yolo_index  # index of this layer in layers
@@ -557,7 +557,7 @@ class _YOLOLayer(nn.Module):
 
         if onnx_export:
             self.training = False
-            self.create_grids((img_size[1] // stride, img_size[0] // stride))  # number x, y grid points
+            self.create_grids((image_size[1] // stride, image_size[0] // stride))  # number x, y grid points
 
     def create_grids(self, ng=(13, 13), device="cpu"):
         self.nx, self.ny = ng  # x and y grid size

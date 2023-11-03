@@ -26,6 +26,8 @@ SINGLE_CLASSES: False
 GRAY: False
 # Export ONNX models
 ONNX_EXPORT: False
+# Set to True if the label is rectangular
+RECT_LABEL: False
 
 # Model definition
 MODEL:
@@ -37,10 +39,10 @@ MODEL:
     CONFIG_PATH: "./model_configs/voc/yolov3_tiny.cfg"
     COMPILED: False
 
-DATASET_CONFIG_NAME: "./data/voc.data"
+DATASET_CONFIG_PATH: "./data/voc.data"
 
 # Image augmentation
-IMAGE_AUGMENT_DICT:
+AUGMENT_DICT:
   HSV_H: 0.0138  # image HSV-Hue augmentation (fraction)
   HSV_S: 0.678  # image HSV-Saturation augmentation (fraction)
   HSV_V: 0.36  # image HSV-Value augmentation (fraction)
@@ -56,11 +58,11 @@ TRAIN:
   RECT_LABEL: False
 
   # Multi scale training
-  IMAGE_SIZE_MIN: 320
-  IMAGE_SIZE_MAX: 640
+  IMG_SIZE_MIN: 320
+  IMG_SIZE_MAX: 640
   GRID_SIZE: 32
 
-  IMAGE_AUGMENT: True  # image augmentation
+  AUGMENT: False  # image augmentation
 
   # Model file address, used for pre-training and recovery training
   CHECKPOINT:
@@ -107,9 +109,9 @@ TEST:
   # Set to True if the label is rectangular
   RECT_LABEL: False
 
-  IMAGE_SIZE: 416
+  IMG_SIZE: 416
 
-  IMAGE_AUGMENT: False  # image augmentation
+  AUGMENT: False  # image augmentation
 
   # test hyperparameters
   HYP:

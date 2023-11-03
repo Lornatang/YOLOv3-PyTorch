@@ -131,7 +131,7 @@ def main(seed: int):
                                names,
                                iouv,
                                niou,
-                               config["TEST"],
+                               config,
                                device)
         writer.add_scalar("Test/Precision", p, epoch + 1)
         writer.add_scalar("Test/Recall", r, epoch + 1)
@@ -165,28 +165,29 @@ def build_dataset_and_model(
         device: torch.device,
 ) -> [nn.Module, nn.Module, DataLoader, DataLoader, list]:
     # Load dataset
-    dataset_dict = parse_dataset_config(config["DATASET_CONFIG_NAME"])
+    dataset_dict = parse_dataset_config(config["DATASET_CONFIG_PATH"])
     num_classes = 1 if config["SINGLE_CLASSES"] else int(dataset_dict["classes"])
     names = dataset_dict["names"]
     config["TRAIN"]["LOSSES"]["CLS_LOSS"]["WEIGHT"] *= num_classes / 80
 
     train_datasets = LoadImagesAndLabels(path=dataset_dict["train"],
-                                         image_size=config["TRAIN"]["IMAGE_SIZE_MAX"],
+                                         image_size=config["TRAIN"]["IMG_SIZE_MAX"],
                                          batch_size=config["TRAIN"]["HYP"]["IMGS_PER_BATCH"],
-                                         image_augment=config["TRAIN"]["IMAGE_AUGMENT"],
-                                         image_augment_dict=config["IMAGE_AUGMENT_DICT"],
+                                         image_augment=config["TRAIN"]["AUGMENT"],
+                                         image_augment_dict=config["AUGMENT_DICT"],
                                          rect_label=config["TRAIN"]["RECT_LABEL"],
                                          cache_images=config["CACHE_IMAGES"],
                                          single_classes=config["SINGLE_CLASSES"],
                                          gray=config["GRAY"])
     test_datasets = LoadImagesAndLabels(path=dataset_dict["test"],
-                                        image_size=config["TEST"]["IMAGE_SIZE"],
+                                        image_size=config["TEST"]["IMG_SIZE"],
                                         batch_size=config["TEST"]["HYP"]["IMGS_PER_BATCH"],
-                                        image_augment=config["TEST"]["IMAGE_AUGMENT"],
-                                        image_augment_dict=config["IMAGE_AUGMENT_DICT"],
+                                        image_augment=config["TEST"]["AUGMENT"],
+                                        image_augment_dict=config["AUGMENT_DICT"],
                                         rect_label=config["TEST"]["RECT_LABEL"],
                                         cache_images=config["CACHE_IMAGES"],
                                         single_classes=config["SINGLE_CLASSES"],
+                                        pad=0.5,
                                         gray=config["GRAY"])
     # generate dataset iterator
     train_dataloader = DataLoader(train_datasets,
@@ -210,14 +211,14 @@ def build_dataset_and_model(
     yolo_model = Darknet(model_config_path=config["MODEL"]["YOLO"]["CONFIG_PATH"],
                          img_size=(416, 416),
                          gray=config["GRAY"],
+                         compile_mode=False,
                          onnx_export=config["ONNX_EXPORT"])
     yolo_model = yolo_model.to(device)
 
     yolo_model.num_classes = num_classes
-    yolo_model.image_augment_dict = config["IMAGE_AUGMENT_DICT"]
+    yolo_model.image_augment_dict = config["AUGMENT_DICT"]
     yolo_model.gr = 1.0
-    yolo_model.class_weights = labels_to_class_weights(train_datasets.labels,
-                                                       1 if config["SINGLE_CLASSES"] else num_classes)
+    yolo_model.class_weights = labels_to_class_weights(train_datasets.labels, 1 if config["SINGLE_CLASSES"] else num_classes)
 
     if config["MODEL"]["EMA"]["ENABLE"]:
         # Generate an exponential average models based on the generator to stabilize models training
@@ -328,7 +329,7 @@ def train(
         if total_batch_index < 1:
             if os.path.exists(train_batch_name):
                 os.remove(train_batch_name)
-            plot_images(images, targets, paths, train_batch_name, max_size=config["TRAIN"]["IMAGE_SIZE_MAX"])
+            plot_images(images, targets, paths, train_batch_name, max_size=config["TRAIN"]["IMG_SIZE_MAX"])
 
         # Burn-in
         if total_batch_index <= num_burn:
@@ -345,8 +346,8 @@ def train(
                     x["momentum"] = np.interp(total_batch_index, xi, [0.9, config["TRAIN"]["HYP"]["MOMENTUM"]])
 
         # Multi-Scale
-        image_size = random.randrange(config["TRAIN"]["IMAGE_SIZE_MIN"] // config["TRAIN"]["GRID_SIZE"],
-                                      config["TRAIN"]["IMAGE_SIZE_MAX"] // config["TRAIN"]["GRID_SIZE"] + 1) * config["TRAIN"]["GRID_SIZE"]
+        image_size = random.randrange(config["TRAIN"]["IMG_SIZE_MIN"] // config["TRAIN"]["GRID_SIZE"],
+                                      config["TRAIN"]["IMG_SIZE_MAX"] // config["TRAIN"]["GRID_SIZE"] + 1) * config["TRAIN"]["GRID_SIZE"]
         scale_factor = image_size / max(images.shape[2:])  # scale factor
         if scale_factor != 1:
             # new shape (stretched to 32-multiple)

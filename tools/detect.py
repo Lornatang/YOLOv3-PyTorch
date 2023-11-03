@@ -78,7 +78,7 @@ def main(args):
            detect_result_dir,
            args.conf_threshold,
            args.iou_threshold,
-           args.image_augment,
+           args.augment,
            args.filter_classes,
            args.agnostic_nms,
            device)
@@ -265,8 +265,8 @@ if __name__ == "__main__":
                         help="Input source. Default: ``./data/examples/dog.jpg``.")
     parser.add_argument("--names_file_path", type=str, default="./data/voc.names",
                         help="Types of objects detected. Default: ``./data/voc.names``.")
-    parser.add_argument("--model_config_path", type=str, default="./model_configs/yolov3_tiny.cfg",
-                        help="models config path. Default: ``./model_configs/yolov3_tiny.cfg``.")
+    parser.add_argument("--model_config_path", type=str, default="./model_configs/voc/yolov3_tiny.cfg",
+                        help="models config path. Default: ``./model_configs/voc/yolov3_tiny.cfg``.")
     parser.add_argument("--image_size", type=int or tuple, default=416,
                         help="Image size. Default: 416.")
     parser.add_argument("--gray", type=bool, default=False,
@@ -286,7 +286,7 @@ if __name__ == "__main__":
                         help="Object confidence threshold. Default: 0.25.")
     parser.add_argument("--iou_threshold", type=float, default=0.45,
                         help="IOU threshold for NMS. Default: 0.45.")
-    parser.add_argument("--image_augment", action="store_true",
+    parser.add_argument("--augment", action="store_true",
                         help="Image augmented inference")
     parser.add_argument("--filter_classes", nargs="+", type=int,
                         help="Filter by class")

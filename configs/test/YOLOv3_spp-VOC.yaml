@@ -36,10 +36,10 @@ MODEL:
     WEIGHTS_PATH: "./results/pretrained_models/YOLOv3_spp-VOC-20200420.pth.tar"
     COMPILED: False
 
-DATASET_CONFIG_NAME: "./data/voc.data"
+DATASET_CONFIG_PATH: "./data/voc.data"
 
 # Image augmentation
-IMAGE_AUGMENT_DICT:
+AUGMENT_DICT:
   HSV_H: 0.0138  # image HSV-Hue augmentation (fraction)
   HSV_S: 0.678  # image HSV-Saturation augmentation (fraction)
   HSV_V: 0.36  # image HSV-Value augmentation (fraction)
@@ -48,22 +48,26 @@ IMAGE_AUGMENT_DICT:
   SCALE: 0.0  # image scale (+/- gain)
   SHEAR: 0  # image shear (+/- gain)
 
-IMAGE_SIZE: 416
+TEST:
+  # Set to True if the label is rectangular
+  RECT_LABEL: False
 
-IMAGE_AUGMENT: False  # image augmentation
+  IMG_SIZE: 416
 
-# test hyperparameters
-HYP:
-  IMGS_PER_BATCH: 16
-  SHUFFLE: False
-  NUM_WORKERS: 4
-  PIN_MEMORY: True
-  DROP_LAST: False
-  PERSISTENT_WORKERS: True
+  AUGMENT: False  # image augmentation
 
-CONF_THRESHOLD: 0.01
-IOU_THRESHOLD: 0.5
-SAVE_JSON: False
-GT_JSON_PATH: "./data/coco/annotations/instances_val*.json"
-SAVE_JSON_PATH: "results.csv"
-verbose: False
+  # test hyperparameters
+  HYP:
+    IMGS_PER_BATCH: 16
+    SHUFFLE: False
+    NUM_WORKERS: 4
+    PIN_MEMORY: True
+    DROP_LAST: False
+    PERSISTENT_WORKERS: True
+
+  CONF_THRESHOLD: 0.001
+  IOU_THRESHOLD: 0.5
+  SAVE_JSON: False
+  GT_JSON_PATH: "./data/coco/annotations/instances_val*.json"
+  SAVE_JSON_PATH: "results.csv"
+  verbose: False
