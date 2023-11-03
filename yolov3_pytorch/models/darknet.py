@@ -454,9 +454,9 @@ class Darknet(nn.Module):
     def forward(
             self,
             x: Tensor,
-            img_augment: bool = False
+            augment: bool = False
     ) -> list[Any] | tuple[Tensor, Tensor] | tuple[Tensor, Any] | tuple[Tensor, None]:
-        if not img_augment:
+        if not augment:
             return self.forward_once(x)
         else:
             img_size = x.shape[-2:]  # height, width
