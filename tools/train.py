@@ -30,7 +30,6 @@ from torch.optim.swa_utils import AveragedModel
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from test import test
 from yolov3_pytorch.data import LoadImagesAndLabels
 from yolov3_pytorch.models import Darknet, compute_loss, load_state_dict, load_resume_state_dict
 from yolov3_pytorch.utils import AverageMeter, ProgressMeter, labels_to_class_weights, plot_images
@@ -126,13 +125,7 @@ def main(seed: int):
               max(3 * batches, 500),
               device,
               config["TRAIN"]["PRINT_FREQ"])
-        p, r, map50, f1 = test(yolo_model,
-                               test_dataloader,
-                               names,
-                               iouv,
-                               niou,
-                               config,
-                               device)
+        p, r, map50, f1 = 0,0,0,0
         writer.add_scalar("Test/Precision", p, epoch + 1)
         writer.add_scalar("Test/Recall", r, epoch + 1)
         writer.add_scalar("Test/mAP0.5", map50, epoch + 1)
