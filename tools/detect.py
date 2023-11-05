@@ -272,8 +272,8 @@ if __name__ == "__main__":
     parser.add_argument("--gray", type=bool, default=False,
                         help="Whether to use gray image. Default: ``False``.")
     parser.add_argument("--model_weights_path", type=str,
-                        default="./results/pretrained_models/YOLOv3_tiny-VOC-20200402.pth.tar",
-                        help="Model file weight path. Default: ``./results/pretrained_models/YOLOv3_tiny-VOC-20200402.pth.tar``.")
+                        default="./results/pretrained_models/YOLOv3_tiny-VOC-20200420.pth.tar",
+                        help="Model file weight path. Default: ``./results/pretrained_models/YOLOv3_tiny-VOC-20200420.pth.tar``.")
     parser.add_argument("--device", type=str, default="cpu",
                         help="Device. Default: ``cpu``.")
     parser.add_argument("--half", action="store_true", help="Half precision FP16 inference.")

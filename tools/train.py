@@ -208,15 +208,15 @@ def build_dataset_and_model(
                                  collate_fn=test_datasets.collate_fn)
 
     # Create models
-    yolo_model = Darknet(model_config_path=config["MODEL"]["YOLO"]["CONFIG_PATH"],
-                         img_size=(416, 416),
-                         gray=config["GRAY"],
-                         compile_mode=False,
-                         onnx_export=config["ONNX_EXPORT"])
+    yolo_model = Darknet(config["MODEL"]["YOLO"]["CONFIG_PATH"],
+                         (config["TEST"]["IMG_SIZE"], config["TEST"]["IMG_SIZE"]),
+                         config["GRAY"],
+                         False,
+                         config["ONNX_EXPORT"])
     yolo_model = yolo_model.to(device)
 
     yolo_model.num_classes = num_classes
-    yolo_model.image_augment_dict = config["AUGMENT_DICT"]
+    yolo_model.augment_dict = config["AUGMENT_DICT"]
     yolo_model.gr = 1.0
     yolo_model.class_weights = labels_to_class_weights(train_datasets.labels, 1 if config["SINGLE_CLASSES"] else num_classes)
 
