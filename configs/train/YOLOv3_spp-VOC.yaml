@@ -69,7 +69,7 @@ TRAIN:
 
   # training hyperparameters
   HYP:
-    IMGS_PER_BATCH: 16
+    IMGS_PER_BATCH: 8
     SHUFFLE: True
     NUM_WORKERS: 4
     PIN_MEMORY: True
