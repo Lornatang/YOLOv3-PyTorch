@@ -58,7 +58,7 @@ class Darknet(nn.Module):
         self.yolo_layers = self.get_yolo_layers()
 
         # Darknet parameters
-        self.version = np.array([0, 2, 5], dtype=np.int32)  # (int32) version info: major, minor, revision
+        self.version = np.array([0, 1, 5], dtype=np.int32)  # (int32) version info: major, minor, revision
         self.seen = 0
         self.header_info = np.array([0, 0, 0, self.seen, 0], dtype=np.int32)
 
@@ -253,7 +253,7 @@ class Darknet(nn.Module):
                 layers = module["from"] if "from" in module else []
                 modules = YOLOLayer(anchors=module["anchors"][module["mask"]],  # anchor list
                                     num_classes=module["classes"],  # number of classes
-                                    image_size=img_size,  # (416, 416)
+                                    img_size=img_size,  # (416, 416)
                                     yolo_index=yolo_index,  # 0, 1, 2...
                                     layers=layers,  # output layers
                                     stride=stride[yolo_index])
@@ -291,7 +291,7 @@ class Darknet(nn.Module):
         return module_list, routs_binary
 
     def get_yolo_layers(self):
-        return [i for i, m in enumerate(self.module_list) if m.__class__.__name__ == "_YOLOLayer"]
+        return [i for i, m in enumerate(self.module_list) if m.__class__.__name__ == "YOLOLayer"]
 
     def fuse(self):
         # Fuse Conv2d + BatchNorm2d layers throughout models
@@ -455,9 +455,9 @@ class Darknet(nn.Module):
     def forward(
             self,
             x: Tensor,
-            img_augment: bool = False
+            image_augment: bool = False
     ) -> list[Any] | tuple[Tensor, Tensor] | tuple[Tensor, Any] | tuple[Tensor, None]:
-        if not img_augment:
+        if not image_augment:
             return self.forward_once(x)
         else:
             img_size = x.shape[-2:]  # height, width
@@ -490,11 +490,11 @@ class Darknet(nn.Module):
 
         for i, module in enumerate(self.module_list):
             name = module.__class__.__name__
-            if name == "_WeightedFeatureFusion":
+            if name == "WeightedFeatureFusion":
                 x = module(x, out)
-            elif name == "_FeatureConcat":
+            elif name == "FeatureConcat":
                 x = module(out)
-            elif name == "_YOLOLayer":
+            elif name == "YOLOLayer":
                 yolo_out.append(module(x))
             else:
                 x = module(x)

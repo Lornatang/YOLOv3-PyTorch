@@ -216,7 +216,7 @@ def build_dataset_and_model(
     yolo_model = yolo_model.to(device)
 
     yolo_model.num_classes = num_classes
-    yolo_model.augment_dict = config["AUGMENT_DICT"]
+    yolo_model.image_augment_dict = config["AUGMENT_DICT"]
     yolo_model.gr = 1.0
     yolo_model.class_weights = labels_to_class_weights(train_datasets.labels, 1 if config["SINGLE_CLASSES"] else num_classes)
 

@@ -40,6 +40,7 @@ with open("./configs/test/YOLOv3_tiny-VOC.yaml", "r") as f:
     config = yaml.full_load(f)
 
 
+
 def main(seed: int):
     # Fixed random number seed
     random.seed(seed)
@@ -76,49 +77,38 @@ def build_dataset(config: Any) -> [nn.Module, int, list]:
     names = dataset_dict["names"]
 
     test_datasets = LoadImagesAndLabels(path=dataset_dict["test"],
-                                        image_size=config["TEST"]["IMG_SIZE"],
-                                        batch_size=config["TEST"]["HYP"]["IMGS_PER_BATCH"],
-                                        image_augment=config["TEST"]["AUGMENT"],
-                                        image_augment_dict=config["AUGMENT_DICT"],
-                                        rect_label=config["TEST"]["RECT_LABEL"],
+                                        image_size=config["IMAGE_SIZE"],
+                                        batch_size=config["HYP"]["IMGS_PER_BATCH"],
+                                        image_augment=config["IMAGE_AUGMENT"],
+                                        image_augment_dict=config["IMAGE_AUGMENT_DICT"],
+                                        rect_label=config["RECT_LABEL"],
                                         cache_images=config["CACHE_IMAGES"],
                                         single_classes=config["SINGLE_CLASSES"],
                                         pad=0.5,
                                         gray=config["GRAY"])
     # generate dataset iterator
     test_dataloader = DataLoader(test_datasets,
-                                 batch_size=config["TEST"]["HYP"]["IMGS_PER_BATCH"],
-                                 shuffle=config["TEST"]["HYP"]["SHUFFLE"],
-                                 num_workers=config["TEST"]["HYP"]["NUM_WORKERS"],
-                                 pin_memory=config["TEST"]["HYP"]["PIN_MEMORY"],
-                                 drop_last=config["TEST"]["HYP"]["DROP_LAST"],
-                                 persistent_workers=config["TEST"]["HYP"]["PERSISTENT_WORKERS"],
+                                 batch_size=config["HYP"]["IMGS_PER_BATCH"],
+                                 shuffle=config["HYP"]["SHUFFLE"],
+                                 num_workers=config["HYP"]["NUM_WORKERS"],
+                                 pin_memory=config["HYP"]["PIN_MEMORY"],
+                                 drop_last=config["HYP"]["DROP_LAST"],
+                                 persistent_workers=config["HYP"]["PERSISTENT_WORKERS"],
                                  collate_fn=test_datasets.collate_fn)
 
     return test_dataloader, num_classes, names
 
 
 def build_model(config: Any, num_classes: int, device: torch.device) -> nn.Module:
-    # Create models
-    yolo_model = Darknet(config["MODEL"]["YOLO"]["CONFIG_PATH"],
-                         (config["TEST"]["IMG_SIZE"], config["TEST"]["IMG_SIZE"]),
-                         config["GRAY"],
-                         False,
-                         config["ONNX_EXPORT"])
+    # Create model
+    yolo_model = Darknet(model_config_path=config["MODEL"]["YOLO"]["CONFIG_PATH"],
+                         img_size=(config["img_size"], config["img_size"]),
+                         gray=config["GRAY"],
+                         onnx_export=config["ONNX_EXPORT"])
     yolo_model = yolo_model.to(device)
 
     yolo_model.num_classes = num_classes
 
-    # Load the pre-trained models weights and fine-tune the models
-    model_weights_path = config["MODEL"]["YOLO"]["WEIGHTS_PATH"]
-    if model_weights_path.endswith(".pth.tar"):
-        state_dict = torch.load(model_weights_path, map_location=device)["state_dict"]
-        yolo_model = load_state_dict(yolo_model, state_dict)
-    elif model_weights_path.endswith(".weights"):
-        yolo_model.load_darknet_weights(model_weights_path)
-    else:
-        raise ValueError(f"'{model_weights_path}' is not supported.")
-    print(f"Loaded `{model_weights_path}` pretrained models weights successfully.")
 
     return yolo_model
 
@@ -134,7 +124,7 @@ def test(
 ):
     seen = 0
 
-    # Put the models in eval mode
+    # Put the model in eval mode
     yolo_model.eval()
 
     # if test coco91 dataset
@@ -153,11 +143,12 @@ def test(
 
         # Inference
         with torch.no_grad():
-            # Run models
-            output, _ = yolo_model(images, img_augment=config["TEST"]["AUGMENT"])  # inference and training outputs
+            # Run model
+            output, train_out = yolo_model(images,
+                                           image_augment=False)  # inference and training outputs
 
             # Run NMS
-            output = non_max_suppression(output, config["TEST"]["CONF_THRESHOLD"], config["TEST"]["IOU_THRESHOLD"])
+            output = non_max_suppression(output, config["CONF_THRESHOLD"], config["IOU_THRESHOLD"])
 
         # Statistics per image
         for si, pred in enumerate(output):
@@ -178,7 +169,7 @@ def test(
             clip_coords(pred, (height, width))
 
             # Append to pycocotools JSON dictionary
-            if config["TEST"]["SAVE_JSON"]:
+            if config["SAVE_JSON"]:
                 # [{"image_id": 42, "category_id": 18, "bbox": [258.15, 41.29, 348.26, 243.78], "score": 0.236}, ...
                 image_id = int(Path(paths[si]).stem.split("_")[-1])
                 box = pred[:, :4].clone()  # xyxy
@@ -238,19 +229,19 @@ def test(
     print(pf % ("all", seen, nt.sum(), mp, mr, map50, mf1))
 
     # Print results per class
-    if config["TEST"]["verbose"] and yolo_model.num_classes > 1 and len(stats):
+    if config["verbose"] and yolo_model.num_classes > 1 and len(stats):
         for i, c in enumerate(ap_class):
             print(pf % (names[c], seen, nt[c], p[i], r[i], ap[i], f1[i]))
 
     # Save JSON
-    if config["TEST"]["SAVE_JSON"] and map50 and len(jdict):
+    if config["SAVE_JSON"] and map50 and len(jdict):
         print("\nCOCO mAP with pycocotools...")
         imgIds = [int(Path(x).stem.split("_")[-1]) for x in test_dataloader.dataset.image_files]
-        with open(config["TEST"]["SAVE_JSON_PATH"], "w") as file:
+        with open(config["SAVE_JSON_PATH"], "w") as file:
             json.dump(jdict, file)
 
-        cocoGt = COCO(glob.glob(config["TEST"]["GT_JSON_PATH"])[0])
-        cocoDt = cocoGt.loadRes(config["TEST"]["SAVE_JSON_PATH"])  # initialize COCO pred api
+        cocoGt = COCO(glob.glob(config["GT_JSON_PATH"])[0])
+        cocoDt = cocoGt.loadRes(config["SAVE_JSON_PATH"])  # initialize COCO pred api
 
         cocoEval = COCOeval(cocoGt, cocoDt, "bbox")
         cocoEval.params.imgIds = imgIds  # [:32]  # only evaluate these images
@@ -263,3 +254,4 @@ def test(
 
 if __name__ == "__main__":
     main(config["SEED"])
+
