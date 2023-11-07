@@ -17,7 +17,6 @@ from scipy.cluster.vq import kmeans
 from torch import Tensor
 from tqdm import tqdm
 
-from yolov3_pytorch.data.datasets import LoadImagesAndLabels
 
 
 def wh_iou(wh1: Tensor, wh2: Tensor) -> Tensor:
@@ -69,6 +68,8 @@ def kmean_anchors(
 
     # Get label wh
     wh = []
+    from yolov3_pytorch.data.datasets import LoadImagesAndLabels
+
     dataset = LoadImagesAndLabels(path, image_augment=True, rect_label=True)
     nr = 1 if image_size[0] == image_size[1] else 10  # number augmentation repetitions
     for s, l in zip(dataset.shapes, dataset.labels):
