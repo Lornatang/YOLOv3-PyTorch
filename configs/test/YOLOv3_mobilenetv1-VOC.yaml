@@ -32,7 +32,7 @@ RECT_LABEL: False
 # Model definition
 MODEL:
   YOLO:
-    CONFIG_PATH: "./model_configs/VOC/yolov3_mobilenetv1.cfg"
+    CONFIG_PATH: "./model_configs/voc/yolov3_mobilenetv1.cfg"
     WEIGHTS_PATH: "./results/pretrained_models/YOLOv3_MobileNetV1-VOC-20231107.pth.tar"
     COMPILED: False
 
