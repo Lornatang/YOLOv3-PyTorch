@@ -5,6 +5,7 @@ build/*
 data/voc
 data/coco
 dist/*
+samples/*
 results/*
 yolov3_pytorch.egg-info/*
 
