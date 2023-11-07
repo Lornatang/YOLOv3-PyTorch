@@ -1,0 +1,4 @@
+classes=80
+train=./data/coco2017/train.txt
+test=./data/coco2017/test.txt
+names=./data/coco.names

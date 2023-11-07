@@ -1,4 +1,4 @@
 classes=80
-train=./data/COCO2014/train.txt
-test=./data/COCO2014/test.txt
+train=./data/coco2014/train.txt
+test=./data/coco2014/test.txt
 names=./data/coco.names

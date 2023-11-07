@@ -1,4 +1,4 @@
 classes=20
-train=./data/voc/train.txt
-test=./data/voc/test.txt
+train=./data/voc0712/train.txt
+test=./data/voc0712/test.txt
 names=./data/voc.names
