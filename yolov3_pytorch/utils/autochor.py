@@ -37,10 +37,10 @@ def wh_iou(wh1: Tensor, wh2: Tensor) -> Tensor:
 
 
 def kmean_anchors(
-        path: str = "./data/voc/train.txt",
+        path: str = "./data/voc0712/train.txt",
         num_anchor: int = 9,
-        image_size: tuple = (416, 416),
-        iou_threshold: float = 0.25,
+        image_size: tuple = (640, 640),
+        iou_thresh: float = 0.25,
         gen: int = 1000):
     """Compute kmean anchors for dataset
 
@@ -48,7 +48,7 @@ def kmean_anchors(
         path (str): path to dataset
         num_anchor (int): number of anchors
         image_size (tuple): image size
-        iou_threshold (float): iou threshold
+        iou_thresh (float): iou threshold
         gen (int): number of generation
 
     Returns:
@@ -64,7 +64,7 @@ def kmean_anchors(
     def fitness(k):  # mutation fitness
         iou = wh_iou(wh, torch.Tensor(k))  # iou
         max_iou = iou.max(1)[0]
-        return (max_iou * (max_iou > iou_threshold).float()).mean()  # product
+        return (max_iou * (max_iou > iou_thresh).float()).mean()  # product
 
     # Get label wh
     wh = []

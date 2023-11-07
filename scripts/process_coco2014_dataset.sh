@@ -20,6 +20,8 @@ find val2014/ -name "*.jpg" -exec cp -r {} ./images/valid/ \;
 python3 coco2yolo.py --json_path annotations/instances_train2014.json --save_path ./labels/train
 python3 coco2yolo.py --json_path annotations/instances_val2014.json --save_path ./labels/valid
 
+cat val.txt > test.txt
+
 rm ./labels/train/classes.txt
 rm ./labels/valid/classes.txt
 
@@ -29,3 +31,9 @@ rm *.zip
 rm *.json
 rm -rf train2014
 rm -rf val2014
+
+mkdir ../data/coco2014
+mv ./images ../data/coco2014/images
+mv ./labels ../data/coco2014/labels
+# shellcheck disable=SC2035
+mv *.txt ../data/coco2014/

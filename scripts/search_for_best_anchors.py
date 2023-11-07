@@ -30,8 +30,8 @@ def get_opts() -> argparse.Namespace:
     parser.add_argument(
         "--path",
         type=str,
-        default="./data/voc/train.txt",
-        help="path to dataset. Default: ``./data/voc/train.txt``",
+        default="./data/voc0712/train.txt",
+        help="path to dataset. Default: ``./data/voc0712/train.txt``",
     )
     parser.add_argument(
         "--num-anchor",
@@ -42,8 +42,8 @@ def get_opts() -> argparse.Namespace:
     parser.add_argument(
         "--img-size",
         type=int,
-        default=416,
-        help="image size. Default: 416",
+        default=640,
+        help="image size. Default: 640",
     )
     parser.add_argument(
         "--iou-thresh",

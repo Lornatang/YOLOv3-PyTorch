@@ -12,7 +12,7 @@
 # limitations under the License.
 # ==============================================================================
 # experiment name
-EXP_NAME: YOLOv3_tiny-VOC
+EXP_NAME: YOLOv3_tiny-VOC0712
 # random number seed
 SEED: 0
 # run device models
@@ -32,7 +32,7 @@ RECT_LABEL: False
 # Model definition
 MODEL:
   YOLO:
-    CONFIG_PATH: "./model_configs/voc/yolov3_tiny.cfg"
+    CONFIG_PATH: "./model_configs/voc0712/yolov3_tiny.cfg"
     WEIGHTS_PATH: "./results/pretrained_models/YOLOv3_tiny-VOC-20200420.pth.tar"
     COMPILED: False
 

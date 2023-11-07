@@ -56,3 +56,15 @@ if __name__ == '__main__':
             box = convert((img_width, img_height), ann["bbox"])
             f_txt.write("%s %s %s %s %s\n" % (id_map[ann["category_id"]], box[0], box[1], box[2], box[3]))
         f_txt.close()
+
+        # write train.txt and val.txt
+        train_dir = "./images/train"
+        val_dir = "./images/valid"
+        train_txt = "./train.txt"
+        val_txt = "./val.txt"
+        for file in os.listdir(train_dir):
+            with open(train_txt, "a") as f:
+                f.write(f"./images/train/{file}\n")
+        for file in os.listdir(val_dir):
+            with open(val_txt, "a") as f:
+                f.write(f"./images/valid/{file}\n")

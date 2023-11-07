@@ -12,7 +12,7 @@
 # limitations under the License.
 # ==============================================================================
 # experiment name
-EXP_NAME: YOLOv3-VOC
+EXP_NAME: YOLOv3-VOC0712
 # random number seed
 SEED: 0
 # run device models
@@ -32,7 +32,7 @@ RECT_LABEL: False
 # Model definition
 MODEL:
   YOLO:
-    CONFIG_PATH: "./model_configs/voc/yolov3.cfg"
+    CONFIG_PATH: "./model_configs/VOC0712/yolov3.cfg"
     WEIGHTS_PATH: "./results/pretrained_models/YOLOv3-VOC-20200420.pth.tar"
     COMPILED: False
 
@@ -54,11 +54,11 @@ TEST:
 
   IMG_SIZE: 416
 
-  AUGMENT: False  # image augmentation
+  AUGMENT: True  # image augmentation
 
   # test hyperparameters
   HYP:
-    IMGS_PER_BATCH: 16
+    IMGS_PER_BATCH: 8
     SHUFFLE: False
     NUM_WORKERS: 4
     PIN_MEMORY: True
