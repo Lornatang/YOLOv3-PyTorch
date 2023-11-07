@@ -19,7 +19,7 @@
 ## Step3: Preprocess the train dataset
 
 ```bash
-bash process_voc_datasets.sh
+bash process_voc0712_dataset.sh
 ```
 
 ## Step4: Check that the final dataset directory schema is completely correct

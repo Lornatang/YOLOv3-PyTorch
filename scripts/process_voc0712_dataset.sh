@@ -14,7 +14,7 @@ mkdir -p ./images/test
 mkdir -p ./labels/train
 mkdir -p ./labels/test
 
-python3 voc_label.py
+python3 voc2yolo.py
 
 # Delete residual files in the process of making datasets
 rm -rf ./2007_test.txt

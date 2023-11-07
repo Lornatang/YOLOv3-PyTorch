@@ -15,6 +15,8 @@ yolov3_pytorch.egg-info/*
 *.pth.tar
 *.weights
 *.tar
+*.tar.gz
+*.zip
 *.jpg
 *.jpeg
 *.png

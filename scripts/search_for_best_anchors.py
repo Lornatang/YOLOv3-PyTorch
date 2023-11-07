@@ -21,7 +21,7 @@ def main(opts):
         opts.path,
         opts.num_anchor,
         (opts.img_size, opts.img_size),
-        opts.iou_threshold,
+        opts.iou_thresh,
     )
 
 
@@ -46,7 +46,7 @@ def get_opts() -> argparse.Namespace:
         help="image size. Default: 416",
     )
     parser.add_argument(
-        "--iou-threshold",
+        "--iou-thresh",
         type=float,
         default=0.25,
         help="iou threshold. Default: 0.25",
