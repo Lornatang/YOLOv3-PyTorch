@@ -36,7 +36,7 @@ MODEL:
     DECAY: 0.999
     COMPILED: False
   YOLO:
-    CONFIG_PATH: "./model_configs/voc0712/yolov3_tiny.cfg"
+    CONFIG_PATH: "./model_configs/voc/yolov3_tiny.cfg"
     COMPILED: False
 
 DATASET_CONFIG_PATH: "./data/voc.data"
