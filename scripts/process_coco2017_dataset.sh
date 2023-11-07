@@ -17,20 +17,12 @@ mkdir -p ./labels/valid
 find train2017/ -name "*.jpg" -exec cp -r {} ./images/train/ \; 
 find val2017/ -name "*.jpg" -exec cp -r {} ./images/valid/ \; 
 
-python3 coco2yolo.py --json_path annotations/instances_train2017.json --save_path ./labels/train
-python3 coco2yolo.py --json_path annotations/instances_val2017.json --save_path ./labels/valid
+python3 python3 coco2yolo.py --dataset-dir . --trainimg-dirname train2017 --valimg-dirname val2017 --trainjson-filename annotations/instances_train2017.json --valjson-filename annotations/instances_val2017.json
 
 cat val.txt > test.txt
 
-rm ./labels/train/classes.txt
-rm ./labels/valid/classes.txt
-
-# shellcheck disable=SC2035
-rm *.zip
-# shellcheck disable=SC2035
-rm *.json
-rm -rf train2017
-rm -rf val2017
+find train/labels/ -name "*.txt" -exec mv {} ./labels/train/ \;
+find val/labels/ -name "*.txt" -exec mv {} ./labels/valid/ \;
 
 mkdir ../data/coco2017
 mv ./images ../data/coco2017/images
