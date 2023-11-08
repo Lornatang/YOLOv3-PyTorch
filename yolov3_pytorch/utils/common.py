@@ -26,8 +26,8 @@ except ImportError:
     accimage = None
 
 __all__ = [
-    "clip_coords", "coco80_to_coco91_class", "is_pil_img", "labels_to_class_weights", "parse_dataset_config", "scale_coords", "xywh2xyxy",
-    "xyxy2xywh",
+    "clip_coords", "coco80_to_coco91_class", "is_pil_img", "labels_to_class_weights", "load_class_names_from_file", "parse_dataset_config",
+    "scale_coords", "xywh2xyxy", "xyxy2xywh",
 ]
 
 
@@ -95,6 +95,26 @@ def labels_to_class_weights(labels: Tensor, num_classes: int = 80) -> Tensor:
     weights = torch.from_numpy(weights)
 
     return weights
+
+
+def load_class_names_from_file(path: Union[str, Path]) -> list:
+    r"""Loads class name from a file
+
+    Args:
+        path (str or Path): path to the file containing the class names
+
+    Returns:
+        list: A list containing the class names
+    """
+
+    # Open the file and read all lines
+    with open(path, "r") as class_names_file:
+        lines = class_names_file.readlines()
+
+    # Remove leading and trailing whitespace from the lines
+    lines = [line.strip() for line in lines]
+
+    return lines
 
 
 def parse_dataset_config(config_path: Union[str, Path]) -> dict:

@@ -195,7 +195,6 @@ class Trainer:
                 raise FileExistsError(f"File '{pretrained_model_weights_path}' not exists")
         elif resume_model_weights_path != "":
             if os.path.exists(resume_model_weights_path):
-                state_dict = torch.load(resume_model_weights_path, map_location=self.device)["state_dict"]
                 self.model, self.ema_model, self.start_epoch, self.best_map50, self.optimizer = load_resume_state_dict(self.model,
                                                                                                                        resume_model_weights_path,
                                                                                                                        self.ema_model,
