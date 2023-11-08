@@ -52,6 +52,7 @@ def main(args):
     with open(args.names_file_path, "r") as f:
         names = f.read().split('\n')
     names = list(filter(None, names))
+    print(names)
     colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
 
     # Build models
@@ -273,7 +274,7 @@ if __name__ == "__main__":
                         help="Whether to use gray image. Default: ``False``.")
     parser.add_argument("--model_weights_path", type=str,
                         default="./results/pretrained_models/YOLOv3_tiny-VOC-20200420.pth.tar",
-                        help="Model file weight path. Default: ``./results/pretrained_models/YOLOv3_tiny-VOC-20200420.pth.tar``.")
+                        help="Model file weight path. Default: ``./results/pretrained_models/YOLOv3_Tiny-VOC0712-20231107.pth.tar``.")
     parser.add_argument("--device", type=str, default="cpu",
                         help="Device. Default: ``cpu``.")
     parser.add_argument("--half", action="store_true", help="Half precision FP16 inference.")

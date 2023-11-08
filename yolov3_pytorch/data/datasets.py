@@ -380,7 +380,7 @@ class LoadDatasets(Dataset):
         self.img_size = img_size
         self.augment = augment
         self.augment_dict = augment_dict
-        self.image_weights = img_weights
+        self.img_weights = img_weights
         self.rect_label = False if img_weights else rect_label
         self.mosaic = self.augment and not self.rect_label  # load 4 images at a time into a mosaic (only during training)
         self.gray = gray
@@ -627,7 +627,7 @@ class LoadDatasets(Dataset):
 
     def __getitem__(self, index: int):
         """Returns the image and label at the specified index."""
-        if self.image_weights:
+        if self.img_weights:
             index = self.indices[index]
 
         if self.mosaic:

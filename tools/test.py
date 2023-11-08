@@ -49,7 +49,7 @@ from yolov3_pytorch.utils.metrics import ap_per_class
 from yolov3_pytorch.utils.nms import non_max_suppression
 
 # Read YAML configuration file
-with open("./configs/test/YOLOv3_tiny-VOC.yaml", "r") as f:
+with open("./configs/test/YOLOv3_Tiny-VOC.yaml", "r") as f:
     config = yaml.full_load(f)
 
 

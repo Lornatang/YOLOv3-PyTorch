@@ -191,7 +191,7 @@ def compute_loss(
             lbox += (1.0 - giou).mean()  # giou loss
 
             # Obj
-            target_obj[b, a, gj, gi] = (1.0 - model.gr) + model.gr * giou.detach().clamp(0).type(target_obj.dtype)  # giou ratio
+            target_obj[b, a, gj, gi] = (1.0 - model.giou_ratio) + model.giou_ratio * giou.detach().clamp(0).type(target_obj.dtype)  # giou ratio
 
             # Class
             if model.num_classes > 1:  # cls loss (only if multiple classes)

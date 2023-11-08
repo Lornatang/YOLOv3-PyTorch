@@ -88,7 +88,7 @@ Modify the `train_config.py` file.
 - line 58: `upscale_factor` change to `./data/voc.data`.
 
 ```bash
-python3 train.py
+python3 trainer.py
 ```
 
 ### Resume train yolov3_tiny_voc model
@@ -100,7 +100,7 @@ Modify the `train_config.py` file.
 - line 74: `resume_model_weights_path` change to `f"./samples/YOLOv3_tiny-VOC0712/epoch_xxx.pth.tar"`.
 
 ```bash
-python3 train.py
+python3 trainer.py
 ```
 
 ## Result

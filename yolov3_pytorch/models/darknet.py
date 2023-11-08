@@ -61,6 +61,9 @@ class Darknet(nn.Module):
         self.module_list, self.routs = self.create_module_list()
         self.yolo_layers = self.get_yolo_layers()
 
+        # Obj losses
+        self.giou_ratio = 1.0
+
         # Darknet parameters
         self.version = np.array([0, 1, 5], dtype=np.int32)  # (int32) version info: major, minor, revision
         self.seen = 0
@@ -459,9 +462,9 @@ class Darknet(nn.Module):
     def forward(
             self,
             x: Tensor,
-            image_augment: bool = False
+            augment: bool = False
     ) -> list[Any] | tuple[Tensor, Tensor] | tuple[Tensor, Any] | tuple[Tensor, None]:
-        if not image_augment:
+        if not augment:
             return self.forward_once(x)
         else:
             img_size = x.shape[-2:]  # height, width

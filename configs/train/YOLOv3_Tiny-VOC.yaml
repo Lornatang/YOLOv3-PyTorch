@@ -12,57 +12,56 @@
 # limitations under the License.
 # ==============================================================================
 # experiment name
-EXP_NAME: YOLOv3_tiny-VOC0712
+EXP_NAME: YOLOv3_Tiny-VOC0712
 # random number seed
 SEED: 0
 # run device models
 DEVICE_ID: 0
 
-# Set to True for faster training/testing
-CACHE_IMAGES: False
-# Set to True if there is only 1 detection classes
-SINGLE_CLASSES: False
-# If use grayscale image training/testing
-GRAY: False
-# Export ONNX models
-ONNX_EXPORT: False
-# Set to True if the label is rectangular
-RECT_LABEL: False
+# Image augmentation
+AUGMENT:
+  ENABLE_TRAIN: False  # for train
+  ENABLE_TEST: False  # for test
+  HYP:
+    HSV_H: 0.0138  # image HSV-Hue augmentation (fraction)
+    HSV_S: 0.678  # image HSV-Saturation augmentation (fraction)
+    HSV_V: 0.36  # image HSV-Value augmentation (fraction)
+    DEGREES: 0  # image rotation (+/- deg)
+    TRANSLATE: 0.0  # image translation (+/- fraction)
+    SCALE: 0.0  # image scale (+/- gain)
+    SHEAR: 0  # image shear (+/- gain)
+    USE_LR_FLIP: True  # image left-right flip up-down (probability)
+    USE_UD_FLIP: True  # image left-right flip up-down (probability)
+
+DATASET:
+  TRAIN_PATH: "./data/voc0712/train.txt"
+  TEST_PATH: "./data/voc0712/test.txt"
+  CLASS_NAMES: [ "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chai", "cow", "diningtable", "dog", "horse", "motorbike",
+                 "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor" ]
+
+  # Set to True if the label is rectangular
+  RECT_LABEL: False
+  # Set to True for faster training/testing
+  CACHE_IMAGES: False
+  # Set to True if there is only 1 detection classes
+  SINGLE_CLASSES: False
 
 # Model definition
 MODEL:
-  EMA:
-    ENABLE: True
-    DECAY: 0.999
-    COMPILED: False
-  YOLO:
-    CONFIG_PATH: "./model_configs/voc/yolov3_tiny.cfg"
-    COMPILED: False
-
-DATASET_CONFIG_PATH: "./data/voc.data"
-
-# Image augmentation
-AUGMENT_DICT:
-  HSV_H: 0.0138  # image HSV-Hue augmentation (fraction)
-  HSV_S: 0.678  # image HSV-Saturation augmentation (fraction)
-  HSV_V: 0.36  # image HSV-Value augmentation (fraction)
-  DEGREES: 0  # image rotation (+/- deg)
-  TRANSLATE: 0.0  # image translation (+/- fraction)
-  SCALE: 0.0  # image scale (+/- gain)
-  SHEAR: 0  # image shear (+/- gain)
-  USE_LR_FLIP: True  # image left-right flip up-down (probability)
-  USE_UD_FLIP: True  # image left-right flip up-down (probability)
+  CONFIG_PATH: "./model_configs/voc/yolov3_tiny.cfg"
+  GRAY: False
+  NUM_CLASSES: 20
+  COMPILED: False
 
 TRAIN:
-  # Set to True if the label is rectangular
-  RECT_LABEL: False
+  IMG_SIZE: 640
 
   # Multi scale training
-  IMG_SIZE_MIN: 320
-  IMG_SIZE_MAX: 640
-  GRID_SIZE: 32
-
-  AUGMENT: False  # image augmentation
+  MULTI_SCALE:
+    ENABLE: False
+    IMG_SIZE_MIN: 320
+    IMG_SIZE_MAX: 640
+    GRID_SIZE: 32
 
   # Model file address, used for pre-training and recovery training
   CHECKPOINT:
@@ -72,21 +71,21 @@ TRAIN:
   # training hyperparameters
   HYP:
     IMGS_PER_BATCH: 8
-    SHUFFLE: True
-    NUM_WORKERS: 4
-    PIN_MEMORY: True
-    DROP_LAST: True
-    PERSISTENT_WORKERS: True
-
     ACCUMULATE_BATCH_SIZE: 64
+    NUM_BURN: 1000
 
     EPOCHS: 200  # 50200 batches at bs 64, 16551 images = 193 epochs ~= 200 epochs
+
+  OPTIM:
+    NAME: SGD
     LR: 0.02
     MOMENTUM: 0.937
     WEIGHT_DECAY: 0.0005
-    NESTEROV: True
 
-    IOU_THRESHOLD: 0.20  # iou training threshold
+    LR_SCHEDULER:
+      NAME: LambdaLR
+
+  IOU_THRESH: 0.20  # iou training threshold
 
   # Loss function
   LOSSES:
@@ -106,21 +105,11 @@ TRAIN:
   PRINT_FREQ: 100
 
 TEST:
-  # Set to True if the label is rectangular
-  RECT_LABEL: False
-
   IMG_SIZE: 416
-
-  AUGMENT: False  # image augmentation
 
   # test hyperparameters
   HYP:
     IMGS_PER_BATCH: 16
-    SHUFFLE: False
-    NUM_WORKERS: 4
-    PIN_MEMORY: True
-    DROP_LAST: False
-    PERSISTENT_WORKERS: True
 
   CONF_THRESHOLD: 0.001
   IOU_THRESHOLD: 0.5

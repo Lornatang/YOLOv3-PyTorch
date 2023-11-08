@@ -2,8 +2,11 @@
 .vscode/
 
 build/*
-data/voc
-data/coco
+data/examples/*
+data/voc0712
+data/coco2014
+data/coco2017
+figure/*
 dist/*
 samples/*
 results/*
