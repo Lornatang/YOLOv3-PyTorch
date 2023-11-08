@@ -53,7 +53,7 @@ MODEL:
   COMPILED: False
 
 TRAIN:
-  IMG_SIZE: 640
+  IMG_SIZE: 416
 
   # Multi scale training
   MULTI_SCALE:
@@ -115,7 +115,7 @@ TEST:
     IMGS_PER_BATCH: 16
 
   CONF_THRESH: 0.01
-  IOU_THRESH: 0.3
+  IOU_THRESH: 0.5
   IOUV1: 0.5
   IOUV2: 0.95
   GT_JSON_PATH: ""  # "./data/coco2014/annotations/instances_val2014.json"
