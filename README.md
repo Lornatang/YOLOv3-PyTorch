@@ -1,7 +1,3 @@
-<div align="center">
-<img src="figure/dog.jpg" width="400px">
-</div>
-
 # YOLOv3-PyTorch
 
 ## Contents
@@ -47,15 +43,7 @@ pip3 install yolov3_pytorch -i https://pypi.org/simple
 git clone https://github.com/Lornatang/YOLOv3-PyTorch.git
 cd YOLOv3-PyTorch
 pip3 install -r requirements.txt
-python3 setup.py install
-```
-
-## Inference (e.g YOLOv3_tiny-VOC)
-
-```bash
-# Download YOLOv3_tiny-VOC model weights to `./results/pretrained_models`
-wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_tiny-VOC-20200402.pth.tar ./resutls/pretrained_models/YOLOv3_tiny-VOC-20200402.pth.tar
-python3 ./tools/detect.py
+pip3 install -e .
 ```
 
 ## All pretrained model weights
@@ -63,47 +51,35 @@ python3 ./tools/detect.py
 - [Google Driver](https://drive.google.com/drive/folders/1b5f3FSeZwIFs4bp17OWKhQeaEcMKJyma?usp=sharing)
 - [Baidu Driver](https://pan.baidu.com/s/1GvepU_8APWChG_03yUVQ_w?pwd=7e0g)
 
+## Inference (e.g YOLOv3_Tiny-VOC0712)
 
-## How Test and Train
-
-Both training and testing only need to modify the `train_config.py` or `test_config.py` file.
-
-### Test yolov3_tiny_voc model
-
-Modify the `test_config.py` file.
-
-- line 18: `model_arch_name` change to `yolov3_tiny_voc`.
-- line 34: `test_dataset_config_path` change to `./data/voc.data`.
-- line 38: `model_weights_path` change to `./results/pretrained_models/YOLOv3_tiny-COCO.weights`.
-
-```bash
-python3 test.py
+```shell
+# Download YOLOv3_Tiny-VOC0712 model weights to `./results/pretrained_models`
+wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar ./resutls/pretrained_models/YOLOv3_Tiny-VOC0712-20231107.pth.tar
+python3 ./tools/inference.py ./data/examples/dog.jpg
+# Result will be saved to `./results/predict/YOLOv3_Tiny-VOC0712/dog.jpg`
 ```
 
-### Train yolov3_tiny_voc model
+<div align="center">
+<img src="figure/dog.jpg" width="768">
+</div>
 
-Modify the `train_config.py` file.
 
-- line 18: `model_arch_name` change to `yolov3_tiny_voc`.
-- line 58: `upscale_factor` change to `./data/voc.data`.
+## Test
 
-```bash
-python3 trainer.py
+### VOC0712
+
+```shell
+# Download dataset to `./data`
+cd ./scripts
+bash ./process_voc0712_dataset.sh
+cd ..
+# Download pretrained model weights to `./results/pretrained_models`
+wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar ./resutls/pretrained_models/YOLOv3_Tiny-VOC0712-20231107.pth.tar
+python3 ./tools/test.py ./configs/YOLOv3_Tiny-VOC0712.yaml
 ```
 
-### Resume train yolov3_tiny_voc model
-
-Modify the `train_config.py` file.
-
-- line 18: `model_arch_name` change to `yolov3_tiny_voc`.
-- line 58: `upscale_factor` change to `./data/voc.data`.
-- line 74: `resume_model_weights_path` change to `f"./samples/YOLOv3_tiny-VOC0712/epoch_xxx.pth.tar"`.
-
-```bash
-python3 trainer.py
-```
-
-## Result
+### Results
 
 Source of original paper results: [https://arxiv.org/pdf/1804.02767v1.pdf](https://arxiv.org/pdf/1804.02767v1.pdf)
 
@@ -122,25 +98,45 @@ In the following table, the mAP value in `()` indicates the result of the projec
 |      alexnet_voc      | VOC07+12 trainval |  VOC07 test  | 416  | -(**56.4**) |
 |       vgg16_voc       | VOC07+12 trainval |  VOC07 test  | 416  | -(**74.5**) |
 
-```bash
-# Download `YOLOv3_tiny-VOC0712-d24f2c25.pth.tar` weights to `./results/pretrained_models`
-# More detail see `README.md<Download weights>`
-python3 ./detect.py
+## Train
+
+### VOC0712
+
+```shell
+# Download dataset to `./data`
+cd ./scripts
+bash ./process_voc0712_dataset.sh
+cd ..
+# Download pretrained model weights to `./results/pretrained_models`
+wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar ./resutls/pretrained_models/YOLOv3_Tiny-VOC0712-20231107.pth.tar
+python3 ./tools/train.py ./configs/YOLOv3_Tiny-VOC0712.yaml
 ```
 
-Output1:
+### COCO2014 & COCO2017
 
-<span align="center"><img width="768" height="576" src="figure/dog.jpg"/></span>
+```shell
+# COCO2014
+# Download dataset to `./data`
+cd ./scripts
+bash ./process_coco2014_dataset.sh
+cd ..
+# Download pretrained model weights to `./results/pretrained_models`
+wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-COCO2014-20231107.pth.tar ./resutls/pretrained_models/YOLOv3_Tiny-COCO2014-20231107.pth.tar
+python3 ./tools/train.py ./configs/YOLOv3_Tiny-COCO2014.yaml
 
-Output2:
-
-<span align="center"><img width="640" height="424" src="figure/person.jpg"/></span>
-
-```text
-Loaded `` pretrained model weights successfully.
-image 1/2 data/examples/dog.jpg: 480x608 1 bicycle, 1 car, 1 dog, 
-image 2/2 data/examples/person.jpg: 416x608 1 dog, 1 person, 1 sheep,
+# COCO2017
+# Download dataset to `./data`
+cd ./scripts
+bash ./process_coco2017_dataset.sh
+cd ..
+# Download pretrained model weights to `./results/pretrained_models`
+wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-COCO2017-20231107.pth.tar ./resutls/pretrained_models/YOLOv3_Tiny-COCO2017-20231107.pth.tar
+python3 ./tools/train.py ./configs/YOLOv3_Tiny-COCO2017.yaml
 ```
+
+### Custom dataset
+
+Details see [CustomDataset.md](./data/README.md).
 
 ## Contributing
 
