@@ -34,7 +34,7 @@ from yolov3_pytorch.utils.common import xywh2xyxy, xyxy2xywh
 from .data_augment import adjust_hsv, letterbox, random_affine
 
 __all__ = [
-    "LoadImages", "LoadWebcam", "LoadStreams", "LoadImagesAndLabels",
+    "LoadImages", "LoadWebcam", "LoadStreams", "LoadDatasets",
 ]
 
 # Parameters
@@ -233,16 +233,16 @@ class LoadWebcam:  # for inference
 
 
 class LoadStreams:  # multiple IP or RTSP cameras
-    def __init__(self, sources="streams.txt", image_size=416, gray: bool = False) -> None:
+    def __init__(self, sources="streams.txt", img_size=416, gray: bool = False) -> None:
         """Load multiple IP or RTSP cameras.
 
         Args:
             sources (str, optional): The path to the file with the sources. Defaults: "streams.txt".
-            image_size (int, optional): The size of the images. Defaults: 416.
+            img_size (int, optional): The size of the images. Defaults: 416.
 
         """
         self.mode = "images"
-        self.image_size = image_size
+        self.img_size = img_size
         self.gray = gray
 
         if os.path.isfile(sources):
@@ -269,7 +269,7 @@ class LoadStreams:  # multiple IP or RTSP cameras
         print("")  # newline
 
         # check for common shapes
-        s = np.stack([letterbox(x, new_shape=self.image_size)[0].shape for x in self.images], 0)  # inference shapes
+        s = np.stack([letterbox(x, new_shape=self.img_size)[0].shape for x in self.images], 0)  # inference shapes
         self.rect = np.unique(s, axis=0).shape[0] == 1  # rect inference if all shapes equal
         if not self.rect:
             print("WARNING: Different stream shapes detected. For optimal performance supply similarly-shaped streams.")
@@ -300,7 +300,7 @@ class LoadStreams:  # multiple IP or RTSP cameras
             raise StopIteration
 
         # Letterbox
-        image = [letterbox(x, new_shape=self.image_size, auto=self.rect)[0] for x in raw_image]
+        image = [letterbox(x, new_shape=self.img_size, auto=self.rect)[0] for x in raw_image]
 
         # Stack
         image = np.stack(image, 0)
@@ -323,16 +323,16 @@ class LoadStreams:  # multiple IP or RTSP cameras
         return 0  # 1E12 frames = 32 streams at 30 FPS for 30 years
 
 
-class LoadImagesAndLabels(Dataset):
+class LoadDatasets(Dataset):
     def __init__(
             self,
             path: str,
-            image_size: int = 416,
+            img_size: int = 416,
             batch_size: int = 16,
-            image_augment: bool = False,
-            image_augment_dict: Any = None,
+            augment: bool = False,
+            augment_dict: Any = None,
             rect_label: bool = False,
-            image_weights: bool = False,
+            img_weights: bool = False,
             cache_images: bool = False,
             single_classes: bool = False,
             pad: float = 0.0,
@@ -342,12 +342,12 @@ class LoadImagesAndLabels(Dataset):
 
         Args:
             path (str): The path to the images.
-            image_size (int, optional): The size of the images. Defaults: 416.
+            img_size (int, optional): The size of the images. Defaults: 416.
             batch_size (int, optional): The size of the batch. Defaults: 16.
-            image_augment (bool, optional): Whether to augment the images. Defaults: ``False``.
-            image_augment_dict (Any, optional): The image augment configure. Defaults: None.
+            augment (bool, optional): Whether to augment the images. Defaults: ``False``.
+            augment_dict (Any, optional): The image augment configure. Defaults: None.
             rect_label (bool, optional): Whether to use rectangular trainning. Defaults: ``False``.
-            image_weights (bool, optional): Whether to use image weights. Defaults: ``False``.
+            img_weights (bool, optional): Whether to use image weights. Defaults: ``False``.
             cache_images (bool, optional): Whether to cache the images. Defaults: ``False``.
             single_classes (bool, optional): Whether to use single class. Defaults: ``False``.
             pad (float, optional): The padding. Defaults: 0.0.
@@ -377,12 +377,12 @@ class LoadImagesAndLabels(Dataset):
 
         self.num_images = num_images  # number of images
         self.batch_index = batch_index  # batch index of image
-        self.image_size = image_size
-        self.image_augment = image_augment
-        self.image_augment_dict = image_augment_dict
-        self.image_weights = image_weights
-        self.rect_label = False if image_weights else rect_label
-        self.mosaic = self.image_augment and not self.rect_label  # load 4 images at a time into a mosaic (only during training)
+        self.img_size = img_size
+        self.augment = augment
+        self.augment_dict = augment_dict
+        self.image_weights = img_weights
+        self.rect_label = False if img_weights else rect_label
+        self.mosaic = self.augment and not self.rect_label  # load 4 images at a time into a mosaic (only during training)
         self.gray = gray
 
         # Define labels
@@ -421,7 +421,7 @@ class LoadImagesAndLabels(Dataset):
                 elif mini > 1:
                     shapes[i] = [1, 1 / mini]
 
-            self.batch_shapes = np.ceil(np.array(shapes) * image_size / 32. + pad).astype(np.int16) * 32
+            self.batch_shapes = np.ceil(np.array(shapes) * img_size / 32. + pad).astype(np.int16) * 32
 
         # Cache labels
         self.images = [None] * num_images
@@ -548,9 +548,9 @@ class LoadImagesAndLabels(Dataset):
             image = cv2.imread(path)  # BGR
             assert image is not None, "Image Not Found " + path
             h0, w0 = image.shape[:2]  # orig hw
-            r = self.image_size / max(h0, w0)  # resize image to image_size
+            r = self.img_size / max(h0, w0)  # resize image to image_size
             if r != 1:  # always resize down, only resize up if training with augmentation
-                interp = cv2.INTER_AREA if r < 1 and not self.image_augment else cv2.INTER_LINEAR
+                interp = cv2.INTER_AREA if r < 1 and not self.augment else cv2.INTER_LINEAR
                 image = cv2.resize(image, (int(w0 * r), int(h0 * r)), interpolation=interp)
             return image, (h0, w0), image.shape[:2]  # image, hw_original, hw_resized
         else:
@@ -569,7 +569,7 @@ class LoadImagesAndLabels(Dataset):
         """
         # loads images in a mosaic
         labels4 = []
-        s = self.image_size
+        s = self.img_size
         xc, yc = [int(random.uniform(s * 0.5, s * 1.5)) for _ in range(2)]  # mosaic center x, y
         indices = [index] + [random.randint(0, len(self.labels) - 1) for _ in range(3)]  # 3 additional image indices
         for i, index in enumerate(indices):
@@ -613,10 +613,10 @@ class LoadImagesAndLabels(Dataset):
         # Augment
         image4, labels4 = random_affine(image4,
                                         labels4,
-                                        degrees=int(self.image_augment_dict["DEGREES"]),
-                                        translate=float(self.image_augment_dict["TRANSLATE"]),
-                                        scale=float(self.image_augment_dict["SCALE"]),
-                                        shear=int(self.image_augment_dict["SHEAR"]),
+                                        degrees=int(self.augment_dict["DEGREES"]),
+                                        translate=float(self.augment_dict["TRANSLATE"]),
+                                        scale=float(self.augment_dict["SCALE"]),
+                                        shear=int(self.augment_dict["SHEAR"]),
                                         border=-s // 2)  # border to remove
 
         return image4, labels4
@@ -641,8 +641,8 @@ class LoadImagesAndLabels(Dataset):
 
             # Letterbox
             shape = self.batch_shapes[
-                self.batch_index[index]] if self.rect_label else self.image_size  # final letterboxed shape
-            image, ratio, pad = letterbox(image, shape, auto=False, scaleup=self.image_augment)
+                self.batch_index[index]] if self.rect_label else self.img_size  # final letterboxed shape
+            image, ratio, pad = letterbox(image, shape, auto=False, scaleup=self.augment)
             shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
 
             # Load labels
@@ -656,20 +656,20 @@ class LoadImagesAndLabels(Dataset):
                 labels[:, 3] = ratio[0] * w * (x[:, 1] + x[:, 3] / 2) + pad[0]
                 labels[:, 4] = ratio[1] * h * (x[:, 2] + x[:, 4] / 2) + pad[1]
 
-        if self.image_augment:
+        if self.augment:
             # Augment image space
             if not self.mosaic:
                 image, labels = random_affine(image, labels,
-                                              degrees=self.image_augment_dict["DEGREES"],
-                                              translate=self.image_augment_dict["TRANSLATE"],
-                                              scale=self.image_augment_dict["SCALE"],
-                                              shear=self.image_augment_dict["SHEAR"])
+                                              degrees=self.augment_dict["DEGREES"],
+                                              translate=self.augment_dict["TRANSLATE"],
+                                              scale=self.augment_dict["SCALE"],
+                                              shear=self.augment_dict["SHEAR"])
 
             # Augment colorspace
             image = adjust_hsv(image,
-                               h_gain=self.image_augment_dict["HSV_H"],
-                               s_gain=self.image_augment_dict["HSV_S"],
-                               v_gain=self.image_augment_dict["HSV_V"])
+                               h_gain=self.augment_dict["HSV_H"],
+                               s_gain=self.augment_dict["HSV_S"],
+                               v_gain=self.augment_dict["HSV_V"])
 
         nL = len(labels)  # number of labels
         if nL:
@@ -680,15 +680,15 @@ class LoadImagesAndLabels(Dataset):
             labels[:, [2, 4]] /= image.shape[0]  # height
             labels[:, [1, 3]] /= image.shape[1]  # width
 
-        if self.image_augment:
+        if self.augment:
             # random left-right flip
-            if self.image_augment_dict["USE_LR_FLIP"] and random.random() < 0.5:
+            if self.augment_dict["USE_LR_FLIP"] and random.random() < 0.5:
                 image = np.fliplr(image)
                 if nL:
                     labels[:, 1] = 1 - labels[:, 1]
 
             # random up-down flip
-            if self.image_augment_dict["USE_UD_FLIP"] and random.random() < 0.5:
+            if self.augment_dict["USE_UD_FLIP"] and random.random() < 0.5:
                 image = np.flipud(image)
                 if nL:
                     labels[:, 2] = 1 - labels[:, 2]

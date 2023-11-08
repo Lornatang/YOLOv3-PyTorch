@@ -30,7 +30,7 @@ from torch.optim.swa_utils import AveragedModel
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from yolov3_pytorch.data import LoadImagesAndLabels
+from yolov3_pytorch.data import LoadDatasets
 from yolov3_pytorch.models import Darknet, compute_loss, load_state_dict, load_resume_state_dict
 from yolov3_pytorch.utils import AverageMeter, ProgressMeter, labels_to_class_weights, plot_images
 from yolov3_pytorch.utils.common import parse_dataset_config
@@ -163,25 +163,25 @@ def build_dataset_and_model(
     names = dataset_dict["names"]
     config["TRAIN"]["LOSSES"]["CLS_LOSS"]["WEIGHT"] *= num_classes / 80
 
-    train_datasets = LoadImagesAndLabels(path=dataset_dict["train"],
-                                         image_size=config["TRAIN"]["IMG_SIZE_MAX"],
-                                         batch_size=config["TRAIN"]["HYP"]["IMGS_PER_BATCH"],
-                                         image_augment=config["TRAIN"]["AUGMENT"],
-                                         image_augment_dict=config["AUGMENT_DICT"],
-                                         rect_label=config["TRAIN"]["RECT_LABEL"],
-                                         cache_images=config["CACHE_IMAGES"],
-                                         single_classes=config["SINGLE_CLASSES"],
-                                         gray=config["GRAY"])
-    test_datasets = LoadImagesAndLabels(path=dataset_dict["test"],
-                                        image_size=config["TEST"]["IMG_SIZE"],
-                                        batch_size=config["TEST"]["HYP"]["IMGS_PER_BATCH"],
-                                        image_augment=config["TEST"]["AUGMENT"],
-                                        image_augment_dict=config["AUGMENT_DICT"],
-                                        rect_label=config["TEST"]["RECT_LABEL"],
-                                        cache_images=config["CACHE_IMAGES"],
-                                        single_classes=config["SINGLE_CLASSES"],
-                                        pad=0.5,
-                                        gray=config["GRAY"])
+    train_datasets = LoadDatasets(path=dataset_dict["train"],
+                                  img_size=config["TRAIN"]["IMG_SIZE_MAX"],
+                                  batch_size=config["TRAIN"]["HYP"]["IMGS_PER_BATCH"],
+                                  augment=config["TRAIN"]["AUGMENT"],
+                                  augment_dict=config["AUGMENT_DICT"],
+                                  rect_label=config["TRAIN"]["RECT_LABEL"],
+                                  cache_images=config["CACHE_IMAGES"],
+                                  single_classes=config["SINGLE_CLASSES"],
+                                  gray=config["GRAY"])
+    test_datasets = LoadDatasets(path=dataset_dict["test"],
+                                 img_size=config["TEST"]["IMG_SIZE"],
+                                 batch_size=config["TEST"]["HYP"]["IMGS_PER_BATCH"],
+                                 augment=config["TEST"]["AUGMENT"],
+                                 augment_dict=config["AUGMENT_DICT"],
+                                 rect_label=config["TEST"]["RECT_LABEL"],
+                                 cache_images=config["CACHE_IMAGES"],
+                                 single_classes=config["SINGLE_CLASSES"],
+                                 pad=0.5,
+                                 gray=config["GRAY"])
     # generate dataset iterator
     train_dataloader = DataLoader(train_datasets,
                                   batch_size=config["TRAIN"]["HYP"]["IMGS_PER_BATCH"],

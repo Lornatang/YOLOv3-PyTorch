@@ -40,13 +40,13 @@ def main(args):
         detect_image = False
         save_image = False
         cudnn.benchmark = True
-        dataset = LoadStreams(args.inputs, args.image_size, args.gray)
+        dataset = LoadStreams(args.inputs, args.img_size, args.gray)
     else:
         detect_video = False
         detect_image = True
         save_image = True
         cudnn.benchmark = False
-        dataset = LoadImages(args.inputs, args.image_size, args.gray)
+        dataset = LoadImages(args.inputs, args.img_size, args.gray)
 
     # Load class names
     with open(args.names_file_path, "r") as f:
@@ -57,7 +57,7 @@ def main(args):
     # Build models
     device = torch.device(args.device)
     yolo_model = build_model(args.model_config_path,
-                             args.image_size,
+                             args.img_size,
                              args.gray,
                              args.model_weights_path,
                              device,

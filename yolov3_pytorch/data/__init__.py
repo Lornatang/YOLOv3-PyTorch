@@ -16,5 +16,5 @@ from .datasets import *
 
 __all__ = [
     "adjust_hsv", "cutout", "letterbox", "mixup", "random_affine",
-    "LoadImages", "LoadWebcam", "LoadStreams", "LoadImagesAndLabels",
+    "LoadImages", "LoadWebcam", "LoadStreams", "LoadDatasets",
 ]

@@ -41,7 +41,7 @@ from torch.utils.data import DataLoader
 from torchvision.ops import boxes
 from tqdm import tqdm
 
-from yolov3_pytorch.data.datasets import LoadImagesAndLabels
+from yolov3_pytorch.data.datasets import LoadDatasets
 from yolov3_pytorch.models.darknet import Darknet
 from yolov3_pytorch.models.utils import load_state_dict
 from yolov3_pytorch.utils.common import clip_coords, coco80_to_coco91_class, parse_dataset_config, scale_coords, xywh2xyxy, xyxy2xywh
@@ -88,16 +88,16 @@ def build_dataset(config: Any) -> [nn.Module, int, list]:
     num_classes = 1 if config["SINGLE_CLASSES"] else int(dataset_dict["classes"])
     names = dataset_dict["names"]
 
-    test_datasets = LoadImagesAndLabels(path=dataset_dict["test"],
-                                        image_size=config["TEST"]["IMG_SIZE"],
-                                        batch_size=config["TEST"]["HYP"]["IMGS_PER_BATCH"],
-                                        image_augment=config["TEST"]["AUGMENT"],
-                                        image_augment_dict=config["AUGMENT_DICT"],
-                                        rect_label=config["TEST"]["RECT_LABEL"],
-                                        cache_images=config["CACHE_IMAGES"],
-                                        single_classes=config["SINGLE_CLASSES"],
-                                        pad=0.5,
-                                        gray=config["GRAY"])
+    test_datasets = LoadDatasets(path=dataset_dict["test"],
+                                 img_size=config["TEST"]["IMG_SIZE"],
+                                 batch_size=config["TEST"]["HYP"]["IMGS_PER_BATCH"],
+                                 augment=config["TEST"]["AUGMENT"],
+                                 augment_dict=config["AUGMENT_DICT"],
+                                 rect_label=config["TEST"]["RECT_LABEL"],
+                                 cache_images=config["CACHE_IMAGES"],
+                                 single_classes=config["SINGLE_CLASSES"],
+                                 pad=0.5,
+                                 gray=config["GRAY"])
     # generate dataset iterator
     test_dataloader = DataLoader(test_datasets,
                                  batch_size=config["TEST"]["HYP"]["IMGS_PER_BATCH"],
