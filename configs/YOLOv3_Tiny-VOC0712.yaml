@@ -29,8 +29,8 @@ AUGMENT:
     TRANSLATE: 0.0  # image translation (+/- fraction)
     SCALE: 0.0  # image scale (+/- gain)
     SHEAR: 0  # image shear (+/- gain)
-    USE_LR_FLIP: True  # image left-right flip up-down (probability)
-    USE_UD_FLIP: True  # image left-right flip up-down (probability)
+    USE_LR_FLIP: True  # image left-right flip (probability)
+    USE_UD_FLIP: False  # image up-down flip (probability)
 
 DATASET:
   TRAIN_PATH: "./data/voc0712/train.txt"
