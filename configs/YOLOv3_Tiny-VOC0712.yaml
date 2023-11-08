@@ -53,13 +53,13 @@ MODEL:
   COMPILED: False
 
 TRAIN:
-  IMG_SIZE: 416
+  IMG_SIZE: 512
 
   # Multi scale training
   MULTI_SCALE:
     ENABLE: False
     IMG_SIZE_MIN: 320
-    IMG_SIZE_MAX: 640
+    IMG_SIZE_MAX: 512
     GRID_SIZE: 32
 
   # Model file address, used for pre-training and recovery training
@@ -104,7 +104,7 @@ TRAIN:
   PRINT_FREQ: 100
 
 TEST:
-  IMG_SIZE: 416
+  IMG_SIZE: 512
 
   AUGMENT: False
 
