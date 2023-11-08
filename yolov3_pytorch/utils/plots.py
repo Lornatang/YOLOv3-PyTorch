@@ -23,6 +23,10 @@ from torch import Tensor
 
 from .common import xywh2xyxy
 
+__all__ = [
+    "plot_one_box", "plot_images",
+]
+
 
 def plot_one_box(
         xyxy: tuple,

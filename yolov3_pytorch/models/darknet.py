@@ -26,6 +26,10 @@ from torchvision.ops.misc import SqueezeExcitation
 from .module import MixConv2d, InvertedResidual, WeightedFeatureFusion, FeatureConcat, YOLOLayer, fuse_conv_and_bn, make_divisible, scale_img
 
 
+__all__ = [
+    "Darknet"
+]
+
 class Darknet(nn.Module):
     def __init__(
             self,

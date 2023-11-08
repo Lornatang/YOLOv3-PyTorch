@@ -19,6 +19,10 @@ from torch import Tensor
 
 from .common import xywh2xyxy
 
+__all__ = [
+    "non_max_suppression",
+]
+
 
 def non_max_suppression(prediction: Tensor,
                         conf_threshold: float = 0.1,

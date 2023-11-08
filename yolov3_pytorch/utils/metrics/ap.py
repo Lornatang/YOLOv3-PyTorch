@@ -13,6 +13,10 @@
 # ==============================================================================
 import numpy as np
 
+__all__ = [
+    "compute_ap", "ap_per_class",
+]
+
 
 def compute_ap(recall: np.ndarray, precision: np.ndarray) -> float:
     """Compute the average precision, given the recall and precision curves.

@@ -21,6 +21,10 @@ import cv2
 import numpy as np
 from typing import Any
 
+__all__ = [
+    "adjust_hsv", "cutout", "letterbox", "mixup", "random_affine",
+]
+
 
 def adjust_hsv(img: np.ndarray, h_gain: float = 0.5, s_gain: float = 0.5, v_gain: float = 0.5) -> np.ndarray:
     r"""Augment HSV channels of an image

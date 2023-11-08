@@ -16,6 +16,9 @@ Print the mean, total value, or average according to different attributes
 """
 from enum import Enum
 
+__all__ = [
+    "Summary",
+]
 
 class Summary(Enum):
     NONE = 0

@@ -14,26 +14,13 @@
 import numpy as np
 import torch
 from scipy.cluster.vq import kmeans
-from torch import Tensor
 from tqdm import tqdm
 
+from .metrics.iou import wh_iou
 
-
-def wh_iou(wh1: Tensor, wh2: Tensor) -> Tensor:
-    """Returns the IoU of two set of boxes, wh1 is 1st set of bboxes, wh2 is 2nd set of bboxes
-
-    Args:
-        wh1 (Tensor): tensor of bounding boxes, Shape: [nb_target, 2]
-        wh2 (Tensor): tensor of bounding boxes, Shape: [nb_bboxes, 2]
-
-    Returns:
-        Tensor: IoU, Shape: [nb_target, nb_bboxes]
-
-    """
-    wh1 = wh1[:, None]  # [N,1,2]
-    wh2 = wh2[None]  # [1,M,2]
-    inter = torch.min(wh1, wh2).prod(2)  # [N,M]
-    return inter / (wh1.prod(2) + wh2.prod(2) - inter)  # iou = inter / (area1 + area2 - inter)
+__all__ = [
+    "kmean_anchors",
+]
 
 
 def kmean_anchors(

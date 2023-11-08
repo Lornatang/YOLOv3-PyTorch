@@ -15,6 +15,10 @@
 Progress bar printing mode
 """
 
+__all__ = [
+    "ProgressMeter",
+]
+
 
 class ProgressMeter(object):
     def __init__(self, num_batches, meters, prefix=""):

@@ -80,7 +80,7 @@ TRAIN:
 
     ACCUMULATE_BATCH_SIZE: 64
 
-    EPOCHS: 300
+    EPOCHS: 200  # 50200 batches at bs 64, 16551 images = 193 epochs ~= 200 epochs
     LR: 0.02
     MOMENTUM: 0.937
     WEIGHT_DECAY: 0.0005

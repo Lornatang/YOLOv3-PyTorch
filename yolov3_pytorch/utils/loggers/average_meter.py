@@ -19,6 +19,9 @@ import torch.distributed as dist
 
 from .summary import Summary
 
+__all__ = [
+    "AverageMeter",
+]
 
 class AverageMeter(object):
     def __init__(self, name, fmt=":f", summary_type=Summary.AVERAGE):
