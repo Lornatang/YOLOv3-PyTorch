@@ -30,11 +30,17 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from yolov3_pytorch.data.datasets import LoadDatasets
+from yolov3_pytorch.engine.evaler import Evaler
 from yolov3_pytorch.models.darknet import Darknet
 from yolov3_pytorch.models.losses import compute_loss
+from yolov3_pytorch.models.utils import load_state_dict, load_resume_state_dict
 from yolov3_pytorch.utils.common import labels_to_class_weights
 from yolov3_pytorch.utils.loggers import AverageMeter, ProgressMeter
 from yolov3_pytorch.utils.plots import plot_images
+
+__all__ = [
+    "Trainer",
+]
 
 
 class Trainer:
@@ -56,14 +62,13 @@ class Trainer:
 
         self.start_epoch = 0
         self.best_map50 = 0.0
+        self.evaler = Evaler(self.config, self.device)
 
         self.train_datasets, self.test_datasets, self.train_dataloader, self.test_dataloader = self.load_datasets()
         self.train_batches, self.test_batches = len(self.train_dataloader), len(self.test_dataloader)
         self.model, self.ema_model = self.build_model()
         self.optimizer = self.define_optimizer()
         self.scheduler = self.define_scheduler()
-
-        writer = SummaryWriter(os.path.join("./samples", "logs", config["EXP_NAME"]))
 
     def load_datasets(self) -> tuple:
         r"""Load training and test datasets from a configuration file, such as yaml
@@ -79,7 +84,7 @@ class Trainer:
         train_datasets = LoadDatasets(self.config["DATASET"]["TRAIN_PATH"],
                                       self.config["TRAIN"]["IMG_SIZE"],
                                       self.config["TRAIN"]["HYP"]["IMGS_PER_BATCH"],
-                                      self.config["AUGMENT"]["ENABLE_TRAIN"],
+                                      self.config["AUGMENT"]["ENABLE"],
                                       self.config["AUGMENT"]["HYP"],
                                       self.config["DATASET"]["RECT_LABEL"],
                                       self.config["DATASET"]["CACHE_IMAGES"],
@@ -89,7 +94,7 @@ class Trainer:
         test_datasets = LoadDatasets(self.config["DATASET"]["TEST_PATH"],
                                      self.config["TEST"]["IMG_SIZE"],
                                      self.config["TEST"]["HYP"]["IMGS_PER_BATCH"],
-                                     self.config["AUGMENT"]["ENABLE_TEST"],
+                                     False,
                                      self.config["AUGMENT"]["HYP"],
                                      self.config["DATASET"]["RECT_LABEL"],
                                      self.config["DATASET"]["CACHE_IMAGES"],
@@ -116,7 +121,7 @@ class Trainer:
         return train_datasets, test_datasets, train_dataloader, test_dataloader
 
     def build_model(self) -> tuple:
-        # Create models
+        # Create model
         model = Darknet(self.config["MODEL"]["CONFIG_PATH"],
                         self.config["TRAIN"]["IMG_SIZE"],
                         self.config["MODEL"]["GRAY"],
@@ -131,7 +136,7 @@ class Trainer:
         ema_avg_fn = lambda averaged_model_parameter, model_parameter, num_averaged: 0.001 * averaged_model_parameter + 0.999 * model_parameter
         ema_model = AveragedModel(model, self.device, ema_avg_fn)
 
-        # 编译模型
+        # Compile model
         if self.config["MODEL"]["COMPILED"]:
             model = torch.compile(model)
             ema_model = torch.compile(ema_model)
@@ -176,8 +181,32 @@ class Trainer:
 
         return scheduler
 
-    def train_on_epoch(self, epoch):
+    def load_checkpoint(self) -> None:
+        # Load weights
+        pretrained_model_weights_path = self.config["TRAIN"]["CHECKPOINT"]["PRETRAINED_MODEL_WEIGHTS_PATH"]
+        resume_model_weights_path = self.config["TRAIN"]["CHECKPOINT"]["RESUME_MODEL_WEIGHTS_PATH"]
 
+        if pretrained_model_weights_path != "":
+            if os.path.exists(pretrained_model_weights_path):
+                state_dict = torch.load(pretrained_model_weights_path, map_location=self.device)["state_dict"]
+                self.model = load_state_dict(self.model, state_dict)
+                print(f"Load pretrained model weights from '{pretrained_model_weights_path}'")
+            else:
+                raise FileExistsError(f"File '{pretrained_model_weights_path}' not exists")
+        elif resume_model_weights_path != "":
+            if os.path.exists(resume_model_weights_path):
+                state_dict = torch.load(resume_model_weights_path, map_location=self.device)["state_dict"]
+                self.model, self.ema_model, self.start_epoch, self.best_map50, self.optimizer = load_resume_state_dict(self.model,
+                                                                                                                       resume_model_weights_path,
+                                                                                                                       self.ema_model,
+                                                                                                                       self.optimizer)
+                print(f"Load resume model weights from '{resume_model_weights_path}'")
+            else:
+                raise FileExistsError(f"File '{resume_model_weights_path}' not exists")
+        else:
+            print("No pretrained model weights or resume model weights. Train from scratch")
+
+    def train_on_epoch(self, epoch):
         # The information printed by the progress bar
         batch_time = AverageMeter("Time", ":6.3f")
         data_time = AverageMeter("Data", ":6.3f")
@@ -289,11 +318,23 @@ class Trainer:
                 progress.display(batch_idx + 1)
 
     def train(self):
+        self.load_checkpoint()
+
         for epoch in range(self.start_epoch, self.config["TRAIN"]["HYP"]["EPOCHS"]):
             self.train_on_epoch(epoch)
-            # TODO: Add test function
-            # p, r, map50, f1 = self.test_on_epoch(epoch)
-            p, r, map50, f1 = 0, 0, 0, 0
+            p, r, map50, f1 = self.evaler.validate_on_epoch(
+                self.model,
+                self.test_dataloader,
+                self.config["DATASET"]["CLASS_NAMES"],
+                self.config["TEST"]["AUGMENT"],
+                self.config["TEST"]["CONF_THRESH"],
+                self.config["TEST"]["IOU_THRESH"],
+                (self.config["TEST"]["IOUV1"], self.config["TEST"]["IOUV2"]),
+                self.config["TEST"]["GT_JSON_PATH"],
+                self.config["TEST"]["PRED_JSON_PATH"],
+                False,
+                self.device,
+            )
             self.tblogger.add_scalar("Test/Precision", p, epoch)
             self.tblogger.add_scalar("Test/Recall", r, epoch)
             self.tblogger.add_scalar("Test/mAP0.5", map50, epoch)
