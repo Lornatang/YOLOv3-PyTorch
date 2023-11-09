@@ -55,7 +55,7 @@ def init(config) -> tuple:
     device = torch.device("cuda", config["DEVICE_ID"])
 
     # Create a folder to save the model and log
-    save_weights_dir = os.path.join("results", config["EXP_NAME"])
+    save_weights_dir = os.path.join("results", "train", config["EXP_NAME"])
     save_tblogger_dir = os.path.join("tb_logger", config["EXP_NAME"])
     os.makedirs(save_weights_dir, exist_ok=True)
     os.makedirs(save_tblogger_dir, exist_ok=True)

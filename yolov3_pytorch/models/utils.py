@@ -12,6 +12,7 @@
 # limitations under the License.
 # ==============================================================================
 import os
+from collections import OrderedDict
 from pathlib import Path
 from typing import Union
 
@@ -20,6 +21,7 @@ import torch
 from torch import nn, optim
 
 from .darknet import Darknet
+import warnings
 
 __all__ = [
     "convert_model_state_dict", "load_state_dict", "load_resume_state_dict", "load_darknet_weights", "save_darknet_weights",
@@ -75,15 +77,40 @@ def load_state_dict(
     Returns:
         model: PyTorch model with weights
     """
-    if state_dict is None:
-        raise ValueError(f"state_dict is None")
 
-    # Traverse the model parameters and load the parameters in the pre-trained model into the current model
-    new_state_dict = {k: v for k, v in state_dict.items() if k in state_dict.keys() and v.size() == state_dict[k].size()}
+    # When the PyTorch version is less than 2.0, the model compilation is not supported.
+    if int(torch.__version__[0]) < 2 and model.compile_mode:
+        warnings.warn("PyTorch version is less than 2.0, does not support model compilation.")
+        model.compile_mode = False
 
-    # update model parameters
-    state_dict.update(new_state_dict)
-    model.load_state_dict(state_dict)
+    # compile keyword
+    compile_keyword = ""
+    if model.compile_mode:
+        compile_keyword = "_orig_mod"
+
+    # Create new OrderedDict that does not contain the module prefix
+    model_state_dict = model.state_dict()
+    new_state_dict = OrderedDict()
+
+    # Remove the module prefix and update the model weight
+    for k, v in state_dict.items():
+        k_prefix = k.split(".")[0]
+
+        if k_prefix == compile_keyword and not model.compile_mode:
+            name = k[len(compile_keyword) + 1:]
+        elif k_prefix != compile_keyword and model.compile_mode:
+            raise ValueError("The model is not compiled, but the weight is compiled.")
+        else:
+            name = k
+        new_state_dict[name] = v
+    state_dict = new_state_dict
+
+    # Filter out unnecessary parameters
+    new_state_dict = {k: v for k, v in state_dict.items() if k in model_state_dict.keys() and v.size() == model_state_dict[k].size()}
+
+    # Update model parameters
+    model_state_dict.update(new_state_dict)
+    model.load_state_dict(model_state_dict)
 
     return model
 
