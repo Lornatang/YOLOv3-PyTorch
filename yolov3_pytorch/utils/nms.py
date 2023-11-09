@@ -11,6 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import time
+
 import torch
 import torchvision.ops
 from torch import Tensor
@@ -35,20 +37,25 @@ def non_max_suppression(prediction: Tensor,
         nx6 (x1, y1, x2, y2, conf, cls)
     """
 
-    # Box constraints
-    min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
+    # Settings
+    # merge for best mAP
+    merge = True
+    # (pixels) minimum and maximum box width and height
+    min_wh, max_wh = 2, 4096
+    # seconds to quit after
+    timeout = 3.0
 
-    method = "merge"
-    nc = prediction[0].shape[1] - 5  # number of classes
-    multi_label &= nc > 1  # multiple labels per box
-    output = [None] * len(prediction)
+    start_time = time.time()
 
-    for xi, x in enumerate(prediction):  # image index, image inference
-        # Apply conf constraint
-        x = x[x[:, 4] > conf_thresh]
-
-        # Apply width-height constraint
-        x = x[((x[:, 2:4] > min_wh) & (x[:, 2:4] < max_wh)).all(1)]
+    # number of classes
+    num_classes = prediction[0].shape[1] - 5
+    # multiple labels per box
+    multi_label &= num_classes > 1
+    output = [None] * prediction.shape[0]
+    for img_idx, x in enumerate(prediction):
+        # Apply constraints
+        x = x[x[:, 4] > conf_thresh]  # confidence
+        x = x[((x[:, 2:4] > min_wh) & (x[:, 2:4] < max_wh)).all(1)]  # width-height
 
         # If none remain process next image
         if not x.shape[0]:
@@ -66,35 +73,34 @@ def non_max_suppression(prediction: Tensor,
             x = torch.cat((box[i], x[i, j + 5].unsqueeze(1), j.float().unsqueeze(1)), 1)
         else:  # best class only
             conf, j = x[:, 5:].max(1)
-            x = torch.cat((box, conf.unsqueeze(1), j.float().unsqueeze(1)), 1)
+            x = torch.cat((box, conf.unsqueeze(1), j.float().unsqueeze(1)), 1)[conf > conf_thresh]
 
         # Filter by class
         if filter_classes:
             x = x[(j.view(-1, 1) == torch.tensor(filter_classes, device=j.device)).any(1)]
 
-        # Apply finite constraint
-        if not torch.isfinite(x).all():
-            x = x[torch.isfinite(x).all(1)]
-
         # If none remain process next image
-        n = x.shape[0]  # number of boxes
-        if not n:
+        # number of boxes
+        num_boxes = x.shape[0]
+        if not num_boxes:
             continue
 
         # Batched NMS
-        c = x[:, 5] * 0 if agnostic else x[:, 5]  # classes
-        boxes, scores = x[:, :4].clone() + c.view(-1, 1) * max_wh, x[:, 4]  # boxes (offset by class), scores
-        if method == "merge":  # Merge NMS (boxes merged using weighted mean)
-            i = torchvision.ops.boxes.nms(boxes, scores, iou_thresh)
-            if n < 3E3:  # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
-                weights = (box_iou(boxes[i], boxes) > iou_thresh) * scores[None]  # box weights
-                x[i, :4] = torch.mm(weights / weights.sum(1, keepdim=True), x[:, :4]).float()  # merged boxes
+        classes = x[:, 5] * 0 if agnostic else x[:, 5]
+        boxes, scores = x[:, :4].clone() + classes.view(-1, 1) * max_wh, x[:, 4]  # boxes (offset by class), scores
+        i = torchvision.ops.boxes.nms(boxes, scores, iou_thresh)
+        # Merge NMS (boxes merged using weighted mean)
+        if merge and (1 < num_boxes < 3E3):
+            try:  # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
+                iou = box_iou(boxes[i], boxes) > iou_thresh  # iou matrix
+                weights = iou * scores[None]  # box weights
+                x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # merged boxes
+            except:
+                print(x, i, x.shape, i.shape)
+                pass
 
-        elif method == "vision":
-            i = torchvision.ops.boxes.nms(boxes, scores, iou_thresh)
-        elif method == "fast":  # FastNMS from https://github.com/dbolya/yolact
-            iou = box_iou(boxes, boxes).triu_(diagonal=1)  # upper triangular iou matrix
-            i = iou.max(0)[0] < iou_thresh
+        output[img_idx] = x[i]
+        if (time.time() - start_time) > timeout:
+            break
 
-        output[xi] = x[i]
     return output
