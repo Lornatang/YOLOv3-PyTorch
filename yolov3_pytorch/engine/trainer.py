@@ -16,7 +16,6 @@ import os
 import random
 import shutil
 import time
-from copy import deepcopy
 from pathlib import Path
 from typing import Dict
 
@@ -47,21 +46,19 @@ class Trainer:
     def __init__(
             self,
             config: Dict,
-            save_weights_dir: str | Path,
-            save_logs_dir: str | Path,
-            tblogger: SummaryWriter,
             scaler: amp.GradScaler,
             device: torch.device,
+            save_weights_dir: str | Path,
+            tblogger: SummaryWriter,
     ) -> None:
         self.config = config
-        self.save_weights_dir = save_weights_dir
-        self.save_logs_dir = save_logs_dir
-        self.tblogger = tblogger
         self.scaler = scaler
         self.device = device
+        self.save_weights_dir = save_weights_dir
+        self.tblogger = tblogger
 
         self.start_epoch = 0
-        self.best_map50 = 0.0
+        self.best_mean_ap = 0.0
         self.evaler = Evaler(self.config, self.device)
 
         self.train_datasets, self.test_datasets, self.train_dataloader, self.test_dataloader = self.load_datasets()
@@ -191,24 +188,37 @@ class Trainer:
         pretrained_model_weights_path = self.config["TRAIN"]["CHECKPOINT"]["PRETRAINED_MODEL_WEIGHTS_PATH"]
         resume_model_weights_path = self.config["TRAIN"]["CHECKPOINT"]["RESUME_MODEL_WEIGHTS_PATH"]
 
-        if pretrained_model_weights_path != "":
-            if os.path.exists(pretrained_model_weights_path):
-                state_dict = torch.load(pretrained_model_weights_path, map_location=self.device)["state_dict"]
-                self.model = load_state_dict(self.model, state_dict)
-                print(f"Load pretrained model weights from '{pretrained_model_weights_path}'")
-            else:
-                raise FileExistsError(f"File '{pretrained_model_weights_path}' not exists")
-        elif resume_model_weights_path != "":
-            if os.path.exists(resume_model_weights_path):
-                self.model, self.ema_model, self.start_epoch, self.best_map50, self.optimizer = load_resume_state_dict(self.model,
-                                                                                                                       resume_model_weights_path,
-                                                                                                                       self.ema_model,
-                                                                                                                       self.optimizer)
-                print(f"Load resume model weights from '{resume_model_weights_path}'")
-            else:
-                raise FileExistsError(f"File '{resume_model_weights_path}' not exists")
+        if pretrained_model_weights_path != "" and os.path.exists(pretrained_model_weights_path):
+            print(f"Load pretrained model weights from '{pretrained_model_weights_path}'")
+            state_dict = torch.load(pretrained_model_weights_path, map_location=self.device)["state_dict"]
+            self.model = load_state_dict(self.model, state_dict)
+        elif resume_model_weights_path != "" and os.path.exists(resume_model_weights_path):
+            print(f"Load resume model weights from '{resume_model_weights_path}'")
+            self.start_epoch, self.best_mean_ap, self.model, self.ema_model, self.optimizer, self.scheduler = load_resume_state_dict(self.model,
+                                                                                                                                     self.ema_model,
+                                                                                                                                     resume_model_weights_path)
         else:
-            print("No pretrained model weights or resume model weights. Train from scratch")
+            print("No pretrained or resume model weights. Train from scratch")
+
+    def save_checkpoint(self, epoch: int, mean_ap: float) -> None:
+        # Automatically save models weights
+        is_best = mean_ap > self.best_mean_ap
+        is_last = (epoch + 1) == self.config["TRAIN"]["HYP"]["EPOCHS"]
+        self.best_mean_ap = max(mean_ap, self.best_mean_ap)
+        weights_path = os.path.join(self.save_weights_dir, f"epoch_{epoch}.pth.tar")
+        torch.save({"epoch": epoch + 1,
+                    "best_mean_ap": self.best_mean_ap,
+                    "state_dict": self.model.state_dict(),
+                    "ema_state_dict": self.ema_model.state_dict(),
+                    "optimizer": self.optimizer,
+                    "scheduler": self.scheduler if self.scheduler is not None else None},
+                   weights_path)
+        if is_best:
+            best_weights_path = os.path.join(self.save_weights_dir, "best.pth.tar")
+            shutil.copyfile(weights_path, best_weights_path)
+        if is_last:
+            last_weights_path = os.path.join(self.save_weights_dir, "last.pth.tar")
+            shutil.copyfile(weights_path, last_weights_path)
 
     def train_on_epoch(self, epoch):
         # The information printed by the progress bar
@@ -327,9 +337,11 @@ class Trainer:
         for epoch in range(self.start_epoch, self.config["TRAIN"]["HYP"]["EPOCHS"]):
             self.train_on_epoch(epoch)
 
+            # Update learning rate scheduler
             if self.scheduler is not None:
                 self.scheduler.step()
-            p, r, map50, f1 = self.evaler.validate_on_epoch(
+
+            mean_p, mean_r, mean_ap, mean_f1 = self.evaler.validate_on_epoch(
                 self.model,
                 self.test_dataloader,
                 self.config["DATASET"]["CLASS_NAMES"],
@@ -342,21 +354,11 @@ class Trainer:
                 False,
                 self.device,
             )
-            self.tblogger.add_scalar("Test/Precision", p, epoch)
-            self.tblogger.add_scalar("Test/Recall", r, epoch)
-            self.tblogger.add_scalar("Test/mAP0.5", map50, epoch)
-            self.tblogger.add_scalar("Test/F1", f1, epoch)
+            self.tblogger.add_scalar("Test/Precision", mean_p, epoch)
+            self.tblogger.add_scalar("Test/Recall", mean_r, epoch)
+            self.tblogger.add_scalar("Test/mAP", mean_ap, epoch)
+            self.tblogger.add_scalar("Test/F1", mean_f1, epoch)
             print("\n")
 
-            # Automatically save models weights
-            is_last = (epoch + 1) == self.config["TRAIN"]["HYP"]["EPOCHS"]
-            weights_path = os.path.join(self.save_weights_dir, f"epoch_{epoch}.pth.tar")
-            torch.save({"epoch": epoch,
-                        "best_map50": 0.0,
-                        "state_dict": deepcopy(self.model.state_dict()),
-                        "ema_state_dict": deepcopy(self.ema_model.state_dict()),
-                        "optimizer": self.optimizer.state_dict()},
-                       weights_path)
-
-            if is_last:
-                shutil.copyfile(weights_path, os.path.join(self.save_weights_dir, "last.pth.tar"))
+            # Save weights
+            self.save_checkpoint(epoch, mean_ap)

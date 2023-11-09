@@ -17,15 +17,16 @@ All training scripts are scheduled by this script
 """
 import argparse
 import os
-import yaml
-import torch
-import numpy as np
 import random
+
+import numpy as np
+import torch
+import yaml
 from torch.backends import cudnn
 from torch.cuda import amp
+from torch.utils.tensorboard import SummaryWriter
 
 from yolov3_pytorch.engine.trainer import Trainer
-from torch.utils.tensorboard import SummaryWriter
 
 
 def get_opts() -> argparse.Namespace:
@@ -54,14 +55,15 @@ def init(config) -> tuple:
     device = torch.device("cuda", config["DEVICE_ID"])
 
     # Create a folder to save the model and log
-    save_weights_dir = os.path.join("samples", config["EXP_NAME"])
-    save_logs_dir = os.path.join("samples", "logs", config["EXP_NAME"])
+    save_weights_dir = os.path.join("results", config["EXP_NAME"])
+    save_tblogger_dir = os.path.join("tb_logger", config["EXP_NAME"])
     os.makedirs(save_weights_dir, exist_ok=True)
-    os.makedirs(save_logs_dir, exist_ok=True)
+    os.makedirs(save_tblogger_dir, exist_ok=True)
 
-    tblogger = SummaryWriter(save_logs_dir)
+    # Use tensorboard to record the training process
+    tblogger = SummaryWriter(save_tblogger_dir)
 
-    return save_weights_dir, save_logs_dir, tblogger, scaler, device
+    return scaler, device, save_weights_dir, tblogger
 
 
 def main() -> None:
@@ -71,9 +73,9 @@ def main() -> None:
     with open(opts.config_path, "r") as f:
         config = yaml.full_load(f)
 
-    save_weights_dir, save_logs_dir, tblogger, scaler, device = init(config)
+    scaler, device, save_weights_dir, tblogger = init(config)
 
-    app = Trainer(config, save_weights_dir, save_logs_dir, tblogger, scaler, device)
+    app = Trainer(config, scaler, device, save_weights_dir, tblogger)
     app.train()
 
 

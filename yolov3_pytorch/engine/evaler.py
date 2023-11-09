@@ -150,7 +150,7 @@ class Evaler:
 
         # Format print information
         s = ("%20s" + "%10s" * 6) % ("Class", "Images", "Targets", "P", "R", "mAP@0.5", "F1")
-        p, r, f1, mp, mr, map50, mf1 = 0., 0., 0., 0., 0., 0., 0.
+        p, r, f1, mean_p, mean_r, mean_ap, mean_f1 = 0., 0., 0., 0., 0., 0., 0.
         jdict, stats, ap, ap_class = [], [], [], []
 
         for batch_index, (imgs, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
@@ -169,12 +169,12 @@ class Evaler:
             # Statistics per image
             for si, pred in enumerate(output):
                 labels = targets[targets[:, 0] == si, 1:]
-                nl = len(labels)
-                target_classes = labels[:, 0].tolist() if nl else []  # target class
+                num_labels = len(labels)
+                target_classes = labels[:, 0].tolist() if num_labels else []  # target class
                 seen += 1
 
                 if pred is None:
-                    if nl:
+                    if num_labels:
                         stats.append((torch.zeros(0, niou, dtype=torch.bool),
                                       torch.Tensor(),
                                       torch.Tensor(),
@@ -199,7 +199,7 @@ class Evaler:
 
                 # Assign all predictions as incorrect
                 correct = torch.zeros(pred.shape[0], niou, dtype=torch.bool, device=device)
-                if nl:
+                if num_labels:
                     detected = []  # target indices
                     target_classes_tensor = labels[:, 0]
 
@@ -222,7 +222,7 @@ class Evaler:
                                 if d not in detected:
                                     detected.append(d)
                                     correct[pi[j]] = ious[j] > iouv
-                                    if len(detected) == nl:  # all targets already located in image
+                                    if len(detected) == num_labels:  # all targets already located in image
                                         break
 
                 # Append statistics (correct, conf, pcls, target_classes)
@@ -234,22 +234,22 @@ class Evaler:
             p, r, ap, f1, ap_class = ap_per_class(*stats)
             if niou > 1:
                 p, r, ap, f1 = p[:, 0], r[:, 0], ap.mean(1), ap[:, 0]  # [P, R, AP@0.5:0.95, AP@0.5]
-            mp, mr, map50, mf1 = p.mean(), r.mean(), ap.mean(), f1.mean()
-            nt = np.bincount(stats[3].astype(np.int64), minlength=model.num_classes)  # number of targets per class
+            mean_p, mean_r, mean_ap, mean_f1 = p.mean(), r.mean(), ap.mean(), f1.mean()
+            num_targets = np.bincount(stats[3].astype(np.int64), minlength=model.num_classes)  # number of targets per class
         else:
-            nt = torch.zeros(1)
+            num_targets = torch.zeros(1)
 
         # Print results
         pf = "%20s" + "%10d" + "%10d" + "%10.3g" * 4  # print format
-        print(pf % ("all", seen, nt.sum(), mp, mr, map50, mf1))
+        print(pf % ("all", seen, num_targets.sum(), mean_p, mean_r, mean_ap, mean_f1))
 
         # Print results per class
         if verbose and model.num_classes > 1 and len(stats):
             for i, c in enumerate(ap_class):
-                print(pf % (class_names[c], seen, nt[c], p[i], r[i], ap[i], f1[i]))
+                print(pf % (class_names[c], seen, num_targets[c], p[i], r[i], ap[i], f1[i]))
 
         # Save JSON
-        if pred_json_path != "" and map50 and len(jdict):
+        if pred_json_path != "" and mean_ap and len(jdict):
             print("\nCOCO mAP with pycocotools...")
             imgIds = [int(Path(x).stem.split("_")[-1]) for x in dataloader.dataset.image_files]
             with open(pred_json_path, "w") as file:
@@ -264,4 +264,4 @@ class Evaler:
             cocoEval.accumulate()
             cocoEval.summarize()
 
-        return mp, mr, map50, mf1
+        return mean_p, mean_r, mean_ap, mean_f1

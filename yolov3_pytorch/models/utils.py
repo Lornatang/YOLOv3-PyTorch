@@ -39,25 +39,25 @@ def convert_model_state_dict(model_config_path: Union[str, Path], model_weights_
     # Load weights and save
     # if PyTorch format
     if model_weights_path.endswith(".pth.tar"):
-        model.load_state_dict(torch.load(model_weights_path, map_location="cpu")["state_dict"])
+        state_dict = torch.load(model_weights_path, map_location="cpu")["state_dict"]
+        model = load_state_dict(model, state_dict)
         target = model_weights_path[:-8] + ".weights"
         model.save_darknet_weights(target)
-        print(f"Success: converted {model_weights_path} to {target}")
     # Darknet format
     elif model_weights_path.endswith(".weights"):
         model.load_darknet_weights(model_weights_path)
 
         chkpt = {"epoch": 0,
-                 "best_map50": None,
+                 "best_mean_ap": 0.0,
                  "state_dict": model.state_dict(),
-                 "ema_state_dict": model.state_dict(),
+                 "ema_state_dict": None,
                  "optimizer": None}
 
         target = model_weights_path[:-8] + ".pth.tar"
         torch.save(chkpt, target)
-        print(f"Success: converted {model_weights_path} to {target}")
     else:
         raise ValueError(f"Model weight file '{model_weights_path}' not supported. Only support '.pth.tar' and '.weights'")
+    print(f"Success: converted '{model_weights_path}' to '{target}'")
 
 
 def load_state_dict(
@@ -77,8 +77,7 @@ def load_state_dict(
         raise ValueError(f"state_dict is None")
 
     # Traverse the model parameters and load the parameters in the pre-trained model into the current model
-    new_state_dict = {k: v for k, v in state_dict.items() if
-                      k in state_dict.keys() and v.size() == state_dict[k].size()}
+    new_state_dict = {k: v for k, v in state_dict.items() if k in state_dict.keys() and v.size() == state_dict[k].size()}
 
     # update model parameters
     state_dict.update(new_state_dict)
@@ -89,46 +88,38 @@ def load_state_dict(
 
 def load_resume_state_dict(
         model: nn.Module,
+        ema_model: nn.Module,
         model_weights_path: str | Path,
-        ema_model: nn.Module or None,
-        optimizer: optim.Optimizer,
-) -> tuple[nn.Module, nn.Module, int, float, optim.Optimizer]:
+) -> tuple[int, float, nn.Module, nn.Module, optim.Optimizer, optim.lr_scheduler]:
     """Load the PyTorch model weights from the model weight address
 
     Args:
         model (nn.Module): PyTorch model
         model_weights_path: PyTorch model path
         ema_model (nn.Module): EMA model
-        optimizer (optim.Optimizer): Optimizer
 
     Returns:
+        start_epoch (int): Start epoch
+        best_mean_ap (float): Best mean ap
         model: PyTorch model with weights
         model_weights_path: PyTorch model path
         ema_model (nn.Module): EMA model
-        start_epoch (int): Start epoch
-        best_map50 (float): Best map50
         optimizer (optim.Optimizer): Optimizer
+        scheduler (optim.lr_scheduler): Scheduler
     """
 
-    model_weights_path = model_weights_path if isinstance(model_weights_path, str) else str(model_weights_path)
-
     if not os.path.exists(model_weights_path):
-        raise FileNotFoundError(f"Model weight file not found '{model_weights_path}'")
+        raise FileNotFoundError(f"Model weights file not found '{model_weights_path}'")
 
     if model_weights_path.endswith(".weights"):
         raise ValueError(f"You loaded darknet model weights '{model_weights_path}', must be converted to PyTorch model weights")
 
     checkpoint = torch.load(model_weights_path, map_location=lambda storage, loc: storage)
-    start_epoch = checkpoint["epoch"] if checkpoint["epoch"] else 0
-    best_map50 = checkpoint["best_map50"] if checkpoint["best_map50"] else 0.0
-
+    start_epoch = checkpoint["epoch"]
+    best_mean_ap = checkpoint["best_mean_ap"]
     model = load_state_dict(model, checkpoint["state_dict"])
-    if checkpoint["ema_state_dict"] is not None:
-        ema_model = load_state_dict(ema_model, checkpoint["ema_state_dict"])
+    ema_model = load_state_dict(ema_model, checkpoint["ema_state_dict"])
+    optimizer = checkpoint["optimizer"]
+    scheduler = checkpoint["scheduler"]
 
-    optimizer_state_dict = checkpoint["optimizer"]
-    if optimizer_state_dict is None:
-        raise ValueError(f"Model weight file '{model_weights_path}' not have 'optimizer'")
-    optimizer.load_state_dict(checkpoint["optimizer"])
-
-    return model, ema_model, start_epoch, best_map50, optimizer
+    return start_epoch, best_mean_ap, model, ema_model, optimizer, scheduler
