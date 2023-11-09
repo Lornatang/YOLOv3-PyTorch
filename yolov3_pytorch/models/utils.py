@@ -47,7 +47,6 @@ def convert_model_state_dict(model_config_path: Union[str, Path], model_weights_
 
         target = model_weights_path[:-8] + ".weights"
         save_darknet_weights(model, target)
-        model.save_darknet_weights(target)
     # Darknet format
     elif model_weights_path.endswith(".weights"):
         model = load_darknet_weights(model, model_weights_path)
