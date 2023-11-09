@@ -76,9 +76,8 @@ TRAIN:
     EPOCHS: 200  # 50200 batches at bs 64, 16551 images = 193 epochs ~= 200 epochs
 
   OPTIM:
-    NAME: "SGD"
-    LR: 0.02
-    MOMENTUM: 0.937
+    NAME: "Adam"
+    LR: 0.0001
     WEIGHT_DECAY: 0.0005
 
     LR_SCHEDULER:

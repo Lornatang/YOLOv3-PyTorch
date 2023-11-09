@@ -153,14 +153,18 @@ class Trainer:
             else:
                 optim_group += [v]  # all else
 
-        if self.config["TRAIN"]["OPTIM"]["NAME"] == "SGD":
+        if self.config["TRAIN"]["OPTIM"]["NAME"] == "Adam":
+            optimizer = optim.Adam(optim_group,
+                                   self.config["TRAIN"]["OPTIM"]["LR"],
+                                   weight_decay=self.config["TRAIN"]["OPTIM"]["WEIGHT_DECAY"])
+        elif self.config["TRAIN"]["OPTIM"]["NAME"] == "SGD":
             optimizer = optim.SGD(optim_group,
                                   self.config["TRAIN"]["OPTIM"]["LR"],
                                   self.config["TRAIN"]["OPTIM"]["MOMENTUM"])
             optimizer.add_param_group({"params": weight_decay, "weight_decay": self.config["TRAIN"]["OPTIM"]["WEIGHT_DECAY"]})
             optimizer.add_param_group({"params": biases})
         else:
-            raise NotImplementedError("Only Support 'SGD' optimizer")
+            raise NotImplementedError("Only Support ['SGD', 'Adam'] optimizer")
         del optim_group, weight_decay, biases
 
         return optimizer
@@ -177,7 +181,8 @@ class Trainer:
             scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=lf)
             scheduler.last_epoch = self.start_epoch - 1
         else:
-            raise NotImplementedError("Only support 'LambdaLR' scheduler")
+            print("No learning rate scheduler")
+            scheduler = None
 
         return scheduler
 
@@ -242,7 +247,7 @@ class Trainer:
                 plot_images(imgs, targets, paths, visual_anno_path, max_size=self.config["TRAIN"]["IMG_SIZE"])
 
             # Burn-in
-            if total_batch_idx <= self.config["TRAIN"]["HYP"]["NUM_BURN"]:
+            if total_batch_idx <= self.config["TRAIN"]["HYP"]["NUM_BURN"] and self.config["TRAIN"]["OPTIM"]["NAME"] == "SGD":
                 xi = [0, self.config["TRAIN"]["HYP"]["NUM_BURN"]]
                 self.model.giou_ratio = np.interp(total_batch_idx, xi, [0.0, 1.0])  # giou loss ratio (obj_loss = 1.0 or giou)
                 for j, x in enumerate(self.optimizer.param_groups):
@@ -321,6 +326,9 @@ class Trainer:
 
         for epoch in range(self.start_epoch, self.config["TRAIN"]["HYP"]["EPOCHS"]):
             self.train_on_epoch(epoch)
+
+            if self.scheduler is not None:
+                self.scheduler.step()
             p, r, map50, f1 = self.evaler.validate_on_epoch(
                 self.model,
                 self.test_dataloader,
