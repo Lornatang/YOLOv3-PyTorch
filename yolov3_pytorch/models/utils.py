@@ -50,8 +50,7 @@ def convert_model_state_dict(model_config_path: Union[str, Path], model_weights_
         chkpt = {"epoch": 0,
                  "best_mean_ap": 0.0,
                  "state_dict": model.state_dict(),
-                 "ema_state_dict": None,
-                 "optimizer": None}
+                 "ema_state_dict": None}
 
         target = model_weights_path[:-8] + ".pth.tar"
         torch.save(chkpt, target)
@@ -90,7 +89,7 @@ def load_resume_state_dict(
         model: nn.Module,
         ema_model: nn.Module,
         model_weights_path: str | Path,
-) -> tuple[int, float, nn.Module, nn.Module, optim.Optimizer, optim.lr_scheduler]:
+) -> tuple[int, float, nn.Module, nn.Module, optim.Optimizer]:
     """Load the PyTorch model weights from the model weight address
 
     Args:
@@ -105,7 +104,6 @@ def load_resume_state_dict(
         model_weights_path: PyTorch model path
         ema_model (nn.Module): EMA model
         optimizer (optim.Optimizer): Optimizer
-        scheduler (optim.lr_scheduler): Scheduler
     """
 
     if not os.path.exists(model_weights_path):
@@ -120,6 +118,5 @@ def load_resume_state_dict(
     model = load_state_dict(model, checkpoint["state_dict"])
     ema_model = load_state_dict(ema_model, checkpoint["ema_state_dict"])
     optimizer = checkpoint["optimizer"]
-    scheduler = checkpoint["scheduler"]
 
-    return start_epoch, best_mean_ap, model, ema_model, optimizer, scheduler
+    return start_epoch, best_mean_ap, model, ema_model, optimizer

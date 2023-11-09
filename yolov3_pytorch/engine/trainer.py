@@ -65,7 +65,6 @@ class Trainer:
         self.train_batches, self.test_batches = len(self.train_dataloader), len(self.test_dataloader)
         self.model, self.ema_model = self.build_model()
         self.optimizer = self.define_optimizer()
-        self.scheduler = self.define_scheduler()
 
     def load_datasets(self) -> tuple:
         r"""Load training and test datasets from a configuration file, such as yaml
@@ -210,8 +209,7 @@ class Trainer:
                     "best_mean_ap": self.best_mean_ap,
                     "state_dict": self.model.state_dict(),
                     "ema_state_dict": self.ema_model.state_dict(),
-                    "optimizer": self.optimizer,
-                    "scheduler": self.scheduler if self.scheduler is not None else None},
+                    "optimizer": self.optimizer},
                    weights_path)
         if is_best:
             best_weights_path = os.path.join(self.save_weights_dir, "best.pth.tar")
@@ -337,10 +335,6 @@ class Trainer:
         for epoch in range(self.start_epoch, self.config["TRAIN"]["HYP"]["EPOCHS"]):
             self.train_on_epoch(epoch)
 
-            # Update learning rate scheduler
-            if self.scheduler is not None:
-                self.scheduler.step()
-
             mean_p, mean_r, mean_ap, mean_f1 = self.evaler.validate_on_epoch(
                 self.model,
                 self.test_dataloader,
@@ -354,6 +348,7 @@ class Trainer:
                 False,
                 self.device,
             )
+
             self.tblogger.add_scalar("Test/Precision", mean_p, epoch)
             self.tblogger.add_scalar("Test/Recall", mean_r, epoch)
             self.tblogger.add_scalar("Test/mAP", mean_ap, epoch)
