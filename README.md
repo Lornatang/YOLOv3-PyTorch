@@ -64,7 +64,6 @@ python3 ./tools/inference.py ./data/examples/dog.jpg
 <img src="figure/dog.jpg" width="768">
 </div>
 
-
 ## Test
 
 ### VOC0712
@@ -81,15 +80,15 @@ python3 ./tools/test.py ./configs/YOLOv3_Tiny-VOC0712.yaml
 
 ### Results
 
-Source of original paper results: [https://arxiv.org/pdf/1804.02767v1.pdf](https://arxiv.org/pdf/1804.02767v1.pdf)
+#### COCO
 
-In the following table, the mAP value in `()` indicates the result of the project, and `-` indicates no test.
+#### VOC
 
 |                                                                Model                                                                | Size | mAP<sup>val<br/>0.5:0.95 | 
 |:-----------------------------------------------------------------------------------------------------------------------------------:|:----:|:------------------------:|
 | [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           58.8           |
-| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
-| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
+|   [**YOLOv3-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar)    | 416  |           N/A            |
+| [**YOLOv3_SPP-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar)  | 416  |           N/A            |
 | [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
 | [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
 | [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
