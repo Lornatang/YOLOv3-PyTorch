@@ -12,11 +12,7 @@
 # limitations under the License.
 # ==============================================================================
 import math
-import os
-import warnings
-from collections import OrderedDict
-from pathlib import Path
-from typing import Any, List, Dict, Union
+from typing import Any, List, Dict
 
 import numpy as np
 import torch
@@ -25,10 +21,10 @@ from torchvision.ops.misc import SqueezeExcitation
 
 from .module import MixConv2d, InvertedResidual, WeightedFeatureFusion, FeatureConcat, YOLOLayer, fuse_conv_and_bn, make_divisible, scale_img
 
-
 __all__ = [
     "Darknet"
 ]
+
 
 class Darknet(nn.Module):
     def __init__(
@@ -315,149 +311,6 @@ class Darknet(nn.Module):
                         break
             fused_lists.append(layer)
         self.module_list = fused_lists
-
-    def load_torch_weights(self, weights_path: Union[str, Path]) -> None:
-        r"""Copies parameters and buffers from :attr:`state_dict` into
-        this module and its descendants. If :attr:`strict` is ``True``, then
-        the keys of :attr:`state_dict` must exactly match the keys returned
-        by this module's :meth:`~torch.nn.Module.state_dict` function.
-
-        Args:
-            weights_path (str or Path): Path to the weights file.
-        """
-
-        # When the PyTorch version is less than 2.0, the model compilation is not supported.
-        if int(torch.__version__[0]) < 2 and self.compile_mode:
-            warnings.warn("PyTorch version is less than 2.0, does not support model compilation.")
-            self.compile_mode = False
-
-        # compile keyword
-        compile_keyword = ""
-        if self.compile_mode:
-            compile_keyword = "_orig_mod"
-
-        # Load the state dict from the weights file
-        old_state_dict = torch.load(weights_path, map_location=torch.device("cpu"))["state_dict"]
-
-        # Create new OrderedDict that does not contain the module prefix
-        model_state_dict = self.module_list.state_dict()
-        new_state_dict = OrderedDict()
-
-        # Remove the module prefix and update the model weight
-        for k, v in old_state_dict.items():
-            k_prefix = k.split(".")[0]
-
-            if k_prefix == compile_keyword and not self.compile_mode:
-                name = k[len(compile_keyword) + 1:]
-            elif k_prefix != compile_keyword and self.compile_mode:
-                raise ValueError("The model is not compiled, but the weight is compiled.")
-            else:
-                name = k
-            new_state_dict[name] = v
-        state_dict = new_state_dict
-
-        # Filter out unnecessary parameters
-        new_state_dict = {k: v for k, v in state_dict.items() if
-                          k in model_state_dict.keys() and v.size() == model_state_dict[k].size()}
-
-        # Update model parameters
-        model_state_dict.update(new_state_dict)
-        self.module_list.load_state_dict(model_state_dict)
-
-    def load_darknet_weights(self, weights_path: Union[str, Path]) -> None:
-        r"""Parses and loads the weights stored in 'weights_path'
-        
-        Args:
-            weights_path (Union[str, Path]): Path to the weights file.
-        """
-
-        # Open the weights file
-        with open(weights_path, "rb") as f:
-            # First five are header values
-            header = np.fromfile(f, dtype=np.int32, count=5)
-            self.header_info = header  # Needed to write header when saving weights
-            self.seen = header[3]  # number of imgs seen during training
-            weights = np.fromfile(f, dtype=np.float32)  # The rest are weights
-
-        # Establish cutoff for loading backbone weights
-        cutoff = None
-        # If the weights file has a cutoff, we can find out about it by looking at the filename
-        # examples: darknet53.conv.74 -> cutoff is 74
-        filename = os.path.basename(weights_path)
-        if ".conv." in filename:
-            try:
-                cutoff = int(filename.split(".")[-1])  # use last part of filename
-            except ValueError:
-                pass
-
-        ptr = 0
-        for i, (module_define, module) in enumerate(zip(self.module_defines, self.module_list)):
-            if i == cutoff:
-                break
-            if module_define["type"] == "convolutional":
-                conv_layer = module[0]
-                if module_define["batch_normalize"]:
-                    # Load BN bias, weights, running mean and running variance
-                    bn_layer = module[1]
-                    num_b = bn_layer.bias.numel()  # Number of biases
-                    # Bias
-                    bn_b = torch.from_numpy(weights[ptr: ptr + num_b]).view_as(bn_layer.bias)
-                    bn_layer.bias.data.copy_(bn_b)
-                    ptr += num_b
-                    # Weight
-                    bn_w = torch.from_numpy(weights[ptr: ptr + num_b]).view_as(bn_layer.weight)
-                    bn_layer.weight.data.copy_(bn_w)
-                    ptr += num_b
-                    # Running Mean
-                    bn_rm = torch.from_numpy(weights[ptr: ptr + num_b]).view_as(bn_layer.running_mean)
-                    bn_layer.running_mean.data.copy_(bn_rm)
-                    ptr += num_b
-                    # Running Var
-                    bn_rv = torch.from_numpy(weights[ptr: ptr + num_b]).view_as(bn_layer.running_var)
-                    bn_layer.running_var.data.copy_(bn_rv)
-                    ptr += num_b
-                else:
-                    # Load conv. bias
-                    num_b = conv_layer.bias.numel()
-                    conv_b = torch.from_numpy(weights[ptr: ptr + num_b]).view_as(conv_layer.bias)
-                    conv_layer.bias.data.copy_(conv_b)
-                    ptr += num_b
-                # Load conv. weights
-                num_w = conv_layer.weight.numel()
-                conv_w = torch.from_numpy(weights[ptr: ptr + num_w]).view_as(conv_layer.weight)
-                conv_layer.weight.data.copy_(conv_w)
-                ptr += num_w
-
-    def save_darknet_weights(self, weights_path: Union[str, Path], cutoff: int = -1) -> None:
-        r"""Saves the models in darknet format.
-        
-        Args:
-            weights_path: path of the new weights file
-            cutoff: save layers between 0 and cutoff (cutoff = -1 -> all are saved) Default: -1
-        """
-
-        fp = open(weights_path, "wb")
-        self.header_info[3] = self.seen
-        self.header_info.tofile(fp)
-
-        # Iterate through layers
-        for i, (module_define, module) in enumerate(zip(self.module_defines[:cutoff], self.module_list[:cutoff])):
-            if module_define["type"] == "convolutional":
-                conv_layer = module[0]
-                # If batch norm, load bn first
-                if module_define["batch_normalize"]:
-                    bn_layer = module[1]
-                    bn_layer.bias.data.cpu().numpy().tofile(fp)
-                    bn_layer.weight.data.cpu().numpy().tofile(fp)
-                    bn_layer.running_mean.data.cpu().numpy().tofile(fp)
-                    bn_layer.running_var.data.cpu().numpy().tofile(fp)
-                # Load conv bias
-                else:
-                    conv_layer.bias.data.cpu().numpy().tofile(fp)
-                # Load conv weights
-                conv_layer.weight.data.cpu().numpy().tofile(fp)
-
-        fp.close()
 
     def forward(
             self,

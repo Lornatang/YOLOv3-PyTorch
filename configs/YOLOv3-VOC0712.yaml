@@ -12,7 +12,7 @@
 # limitations under the License.
 # ==============================================================================
 # experiment name
-EXP_NAME: YOLOv3_Tiny-VOC0712
+EXP_NAME: YOLOv3-VOC0712
 # random number seed
 SEED: 0
 # run device models
@@ -47,7 +47,7 @@ DATASET:
 
 # Model definition
 MODEL:
-  CONFIG_PATH: "./model_configs/voc/yolov3_tiny.cfg"
+  CONFIG_PATH: "./model_configs/voc/yolov3.cfg"
   GRAY: False
   NUM_CLASSES: 20
   COMPILED: False
@@ -108,7 +108,7 @@ TEST:
 
   AUGMENT: False
 
-  WEIGHTS_PATH: "./results/pretrained_models/YOLOv3_Tiny-VOC0712-20231107.pth.tar"
+  WEIGHTS_PATH: "./results/pretrained_models/YOLOv3-VOC0712-20231107.pth.tar"
 
   # test hyperparameters
   HYP:

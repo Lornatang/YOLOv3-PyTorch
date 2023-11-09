@@ -65,6 +65,7 @@ class Trainer:
         self.train_batches, self.test_batches = len(self.train_dataloader), len(self.test_dataloader)
         self.model, self.ema_model = self.build_model()
         self.optimizer = self.define_optimizer()
+        self.scheduler = self.define_scheduler()
 
     def load_datasets(self) -> tuple:
         r"""Load training and test datasets from a configuration file, such as yaml
@@ -170,9 +171,10 @@ class Trainer:
 
         Returns:
             torch.optim.lr_scheduler: learning rate scheduler
-
         """
-        if self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["NAME"] == "LambdaLR":
+
+        # Only use SGD optimizer
+        if self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["NAME"] == "LambdaLR" and self.config["TRAIN"]["OPTIM"]["NAME"] == "SGD":
             lf = lambda x: (((1 + math.cos(x * math.pi / self.config["TRAIN"]["HYP"]["EPOCHS"])) / 2) ** 1.0) * 0.95 + 0.05  # cosine
             scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=lf)
             scheduler.last_epoch = self.start_epoch - 1
@@ -193,9 +195,9 @@ class Trainer:
             self.model = load_state_dict(self.model, state_dict)
         elif resume_model_weights_path != "" and os.path.exists(resume_model_weights_path):
             print(f"Load resume model weights from '{resume_model_weights_path}'")
-            self.start_epoch, self.best_mean_ap, self.model, self.ema_model, self.optimizer, self.scheduler = load_resume_state_dict(self.model,
-                                                                                                                                     self.ema_model,
-                                                                                                                                     resume_model_weights_path)
+            self.start_epoch, self.best_mean_ap, self.model, self.ema_model, self.optimizer = load_resume_state_dict(self.model,
+                                                                                                                     self.ema_model,
+                                                                                                                     resume_model_weights_path)
         else:
             print("No pretrained or resume model weights. Train from scratch")
 
@@ -334,6 +336,10 @@ class Trainer:
 
         for epoch in range(self.start_epoch, self.config["TRAIN"]["HYP"]["EPOCHS"]):
             self.train_on_epoch(epoch)
+
+            # Update learning rate scheduler
+            if self.scheduler is not None:
+                self.scheduler.step()
 
             mean_p, mean_r, mean_ap, mean_f1 = self.evaler.validate_on_epoch(
                 self.model,
