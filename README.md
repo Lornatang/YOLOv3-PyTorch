@@ -85,18 +85,18 @@ Source of original paper results: [https://arxiv.org/pdf/1804.02767v1.pdf](https
 
 In the following table, the mAP value in `()` indicates the result of the project, and `-` indicates no test.
 
-|         Model         |   Train dataset   | Test dataset | Size |     mAP     | 
-|:---------------------:|:-----------------:|:------------:|:----:|:-----------:|
-|  yolov3_tiny_prn_voc  | VOC07+12 trainval |  VOC07 test  | 416  | -(**56.4**) |
-|    yolov3_tiny_voc    | VOC07+12 trainval |  VOC07 test  | 416  | -(**58.8**) |
-|      yolov3_voc       | VOC07+12 trainval |  VOC07 test  | 416  | -(**79.0**) |
-|    yolov3_spp_voc     | VOC07+12 trainval |  VOC07 test  | 416  | -(**75.3**) |
-|    mobilenetv1_voc    | VOC07+12 trainval |  VOC07 test  | 416  | -(**66.0**) |
-|    mobilenetv2_voc    | VOC07+12 trainval |  VOC07 test  | 416  | -(**69.3**) |
-| mobilenetv3_small_voc | VOC07+12 trainval |  VOC07 test  | 416  | -(**53.8**) |
-| mobilenetv3_large_voc | VOC07+12 trainval |  VOC07 test  | 416  | -(**71.1**) |
-|      alexnet_voc      | VOC07+12 trainval |  VOC07 test  | 416  | -(**56.4**) |
-|       vgg16_voc       | VOC07+12 trainval |  VOC07 test  | 416  | -(**74.5**) |
+|                                                                Model                                                                | Size | mAP<sup>val<br/>0.5:0.95 | 
+|:-----------------------------------------------------------------------------------------------------------------------------------:|:----:|:------------------------:|
+| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           58.8           |
+| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
+| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
+| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
+| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
+| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
+| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
+| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
+| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
+| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
 
 ## Train
 
