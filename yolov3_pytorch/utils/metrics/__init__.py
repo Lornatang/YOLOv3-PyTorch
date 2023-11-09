@@ -16,5 +16,5 @@ from .iou import *
 
 __all__ = [
     "compute_ap", "ap_per_class",
-    "bbox_iou", "wh_iou",
+    "box_iou", "bbox_iou", "wh_iou",
 ]

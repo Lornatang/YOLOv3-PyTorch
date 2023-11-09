@@ -13,12 +13,42 @@
 # ==============================================================================
 import math
 
+import numpy as np
 import torch
 from torch import Tensor
 
 __all__ = [
-    "bbox_iou", "wh_iou",
+    "box_iou", "bbox_iou", "wh_iou",
 ]
+
+
+def box_iou(box1: Tensor or np.ndarray, box2: Tensor or np.ndarray) -> Tensor or np.ndarray:
+    r"""Return intersection-over-union (Jaccard index) of boxes.
+    Both sets of boxes are expected to be in (x1, y1, x2, y2) format.
+
+    Args:
+        box1 (Tensor[N, 4])
+        box2 (Tensor[M, 4])
+
+    Returns:
+        iou (Tensor[N, M]): the NxM matrix containing the pairwise
+            IoU values for every element in boxes1 and boxes2
+    """
+
+    def box_area(box):
+        # box = 4xn
+        return (box[2] - box[0]) * (box[3] - box[1])
+
+    area1 = box_area(box1.t())
+    area2 = box_area(box2.t())
+
+    # inter(N,M) = (rb(N,M,2) - lt(N,M,2)).clamp(0).prod(2)
+    inter = (torch.min(box1[:, None, 2:], box2[:, 2:]) - torch.max(box1[:, None, :2], box2[:, :2])).clamp(0).prod(2)
+    # iou = inter / (area1 + area2 - inter)
+    iou = inter / (area1[:, None] + area2 - inter)
+
+    return iou
+
 
 def bbox_iou(box1, box2, x1y1x2y2=True, g_iou=False, d_iou=False, c_iou=False):
     # Returns the IoU of box1 to box2. box1 is 4, box2 is nx4

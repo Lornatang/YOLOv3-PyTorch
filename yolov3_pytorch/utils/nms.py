@@ -11,13 +11,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-import time
-
 import torch
 import torchvision.ops
 from torch import Tensor
 
 from .common import xywh2xyxy
+from .metrics.iou import box_iou
 
 __all__ = [
     "non_max_suppression",
@@ -25,38 +24,31 @@ __all__ = [
 
 
 def non_max_suppression(prediction: Tensor,
-                        conf_threshold: float = 0.1,
-                        iou_threshold: float = 0.6,
+                        conf_thresh: float = 0.1,
+                        iou_thresh: float = 0.6,
                         multi_label: bool = True,
                         filter_classes: list = None,
                         agnostic: bool = False):
     """
-    Performs Non-Maximum Suppression (NMS) on inference results
-    Args:
-        prediction (Tensor): models output
-        conf_threshold (float): confidence threshold
-        iou_threshold (float): IoU threshold for NMS
-        multi_label (bool): allow multiple labels per box
-        filter_classes (list): filter by class: --class 0, or --class 0 2 3
-        agnostic (bool): class-agnostic NMS
-
-    Returns:
-        list: Returns detections with shape:
-
+    Performs  Non-Maximum Suppression on inference results
+    Returns detections with shape:
+        nx6 (x1, y1, x2, y2, conf, cls)
     """
-    # Settings
-    merge = True  # merge for best mAP
-    min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
-    time_limit = 10.0  # seconds to quit after
 
-    t = time.time()
+    # Box constraints
+    min_wh, max_wh = 2, 4096  # (pixels) minimum and maximum box width and height
+
+    method = "merge"
     nc = prediction[0].shape[1] - 5  # number of classes
     multi_label &= nc > 1  # multiple labels per box
-    output = [None] * prediction.shape[0]
+    output = [None] * len(prediction)
+
     for xi, x in enumerate(prediction):  # image index, image inference
-        # Apply constraints
-        x = x[x[:, 4] > conf_threshold]  # confidence
-        x = x[((x[:, 2:4] > min_wh) & (x[:, 2:4] < max_wh)).all(1)]  # width-height
+        # Apply conf constraint
+        x = x[x[:, 4] > conf_thresh]
+
+        # Apply width-height constraint
+        x = x[((x[:, 2:4] > min_wh) & (x[:, 2:4] < max_wh)).all(1)]
 
         # If none remain process next image
         if not x.shape[0]:
@@ -70,15 +62,19 @@ def non_max_suppression(prediction: Tensor,
 
         # Detections matrix nx6 (xyxy, conf, cls)
         if multi_label:
-            i, j = (x[:, 5:] > conf_threshold).nonzero().t()
+            i, j = (x[:, 5:] > conf_thresh).nonzero().t()
             x = torch.cat((box[i], x[i, j + 5].unsqueeze(1), j.float().unsqueeze(1)), 1)
         else:  # best class only
             conf, j = x[:, 5:].max(1)
-            x = torch.cat((box, conf.unsqueeze(1), j.float().unsqueeze(1)), 1)[conf > conf_threshold]
+            x = torch.cat((box, conf.unsqueeze(1), j.float().unsqueeze(1)), 1)
 
         # Filter by class
         if filter_classes:
             x = x[(j.view(-1, 1) == torch.tensor(filter_classes, device=j.device)).any(1)]
+
+        # Apply finite constraint
+        if not torch.isfinite(x).all():
+            x = x[torch.isfinite(x).all(1)]
 
         # If none remain process next image
         n = x.shape[0]  # number of boxes
@@ -88,17 +84,17 @@ def non_max_suppression(prediction: Tensor,
         # Batched NMS
         c = x[:, 5] * 0 if agnostic else x[:, 5]  # classes
         boxes, scores = x[:, :4].clone() + c.view(-1, 1) * max_wh, x[:, 4]  # boxes (offset by class), scores
-        i = torchvision.ops.boxes.nms(boxes, scores, iou_threshold)
-        if merge and (1 < n < 3E3):  # Merge NMS (boxes merged using weighted mean)
-            try:  # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
-                iou = boxes.box_iou(boxes[i], boxes) > iou_threshold  # iou matrix
-                weights = iou * scores[None]  # box weights
-                x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # merged boxes
-            except:
-                pass
+        if method == "merge":  # Merge NMS (boxes merged using weighted mean)
+            i = torchvision.ops.boxes.nms(boxes, scores, iou_thresh)
+            if n < 3E3:  # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
+                weights = (box_iou(boxes[i], boxes) > iou_thresh) * scores[None]  # box weights
+                x[i, :4] = torch.mm(weights / weights.sum(1, keepdim=True), x[:, :4]).float()  # merged boxes
+
+        elif method == "vision":
+            i = torchvision.ops.boxes.nms(boxes, scores, iou_thresh)
+        elif method == "fast":  # FastNMS from https://github.com/dbolya/yolact
+            iou = box_iou(boxes, boxes).triu_(diagonal=1)  # upper triangular iou matrix
+            i = iou.max(0)[0] < iou_thresh
 
         output[xi] = x[i]
-        if (time.time() - t) > time_limit:
-            break  # time limit exceeded
-
     return output
