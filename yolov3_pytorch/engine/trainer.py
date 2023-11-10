@@ -157,7 +157,8 @@ class Trainer:
         elif self.config["TRAIN"]["OPTIM"]["NAME"] == "SGD":
             optimizer = optim.SGD(optim_group,
                                   self.config["TRAIN"]["OPTIM"]["LR"],
-                                  self.config["TRAIN"]["OPTIM"]["MOMENTUM"])
+                                  self.config["TRAIN"]["OPTIM"]["MOMENTUM"],
+                                  weight_decay=self.config["TRAIN"]["OPTIM"]["WEIGHT_DECAY"])
             optimizer.add_param_group({"params": weight_decay, "weight_decay": self.config["TRAIN"]["OPTIM"]["WEIGHT_DECAY"]})
             optimizer.add_param_group({"params": biases})
         else:
