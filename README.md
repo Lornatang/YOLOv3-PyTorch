@@ -84,18 +84,19 @@ python3 ./tools/test.py ./configs/YOLOv3_Tiny-VOC0712.yaml
 
 #### VOC
 
-|                                                                Model                                                                | Size | mAP<sup>val<br/>0.5:0.95 | 
-|:-----------------------------------------------------------------------------------------------------------------------------------:|:----:|:------------------------:|
-| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           58.8           |
-|   [**YOLOv3-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar)    | 416  |           82.9           |
-| [**YOLOv3_SPP-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar)  | 416  |           N/A            |
-| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
-| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
-| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
-| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
-| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
-| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
-| [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar) | 416  |           N/A            |
+|                                                                    Model                                                                    | Size | mAP<sup>val<br/>0.5:0.95 | 
+|:-------------------------------------------------------------------------------------------------------------------------------------------:|:----:|:------------------------:|
+|     [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar)     | 416  |           58.8           |
+| [**YOLOv3_Tiny_PRN-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny_PRN-VOC0712-20231107.pth.tar) | 416  |           47.9           |
+|          [**YOLOv3-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3-VOC0712-20231107.pth.tar)          | 416  |           82.9           |
+|      [**YOLOv3_SPP-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_SPP-VOC0712-20231107.pth.tar)      | 416  |           83.2           |
+|     [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar)     | 416  |           N/A            |
+|     [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar)     | 416  |           N/A            |
+|     [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar)     | 416  |           N/A            |
+|     [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar)     | 416  |           N/A            |
+|     [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar)     | 416  |           N/A            |
+|     [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar)     | 416  |           N/A            |
+|     [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar)     | 416  |           N/A            |
 
 ## Train
 
