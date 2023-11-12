@@ -108,7 +108,7 @@ TEST:
 
   AUGMENT: False
 
-  WEIGHTS_PATH: "./results/pretrained_models/YOLOv3_MobileNetV3_small-VOC0712-20231107.pth.tar"
+  WEIGHTS_PATH: "./results/pretrained_models/YOLOv3_MobileNetV3_Small-VOC0712-20231107.pth.tar"
 
   # test hyperparameters
   HYP:
