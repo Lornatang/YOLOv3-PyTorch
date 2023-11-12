@@ -153,6 +153,7 @@ class Trainer:
         if self.config["TRAIN"]["OPTIM"]["NAME"] == "Adam":
             optimizer = optim.Adam(optim_group,
                                    self.config["TRAIN"]["OPTIM"]["LR"],
+                                   (self.config["TRAIN"]["OPTIM"]["BETA1"], self.config["TRAIN"]["OPTIM"]["BETA2"]),
                                    weight_decay=self.config["TRAIN"]["OPTIM"]["WEIGHT_DECAY"])
         elif self.config["TRAIN"]["OPTIM"]["NAME"] == "SGD":
             optimizer = optim.SGD(optim_group,
@@ -260,14 +261,10 @@ class Trainer:
             # Burn-in
             if total_batch_idx <= self.config["TRAIN"]["HYP"]["NUM_BURN"] and self.config["TRAIN"]["OPTIM"]["NAME"] == "SGD":
                 xi = [0, self.config["TRAIN"]["HYP"]["NUM_BURN"]]
-                self.model.giou_ratio = np.interp(total_batch_idx, xi, [0.0, 1.0])  # giou loss ratio (obj_loss = 1.0 or giou)
                 for j, x in enumerate(self.optimizer.param_groups):
                     # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
                     lr_decay = lambda lr: (((1 + math.cos(lr * math.pi / self.config["TRAIN"]["HYP"]["EPOCHS"])) / 2) ** 1.0) * 0.95 + 0.05
                     x["lr"] = np.interp(total_batch_idx, xi, [0.1 if j == 2 else 0.0, x["initial_lr"] * lr_decay(epoch)])
-                    x["weight_decay"] = np.interp(total_batch_idx,
-                                                  xi,
-                                                  [0.0, self.config["TRAIN"]["OPTIM"]["WEIGHT_DECAY"] if j == 1 else 0.0])
                     if "momentum" in x:
                         x["momentum"] = np.interp(total_batch_idx, xi, [0.9, self.config["TRAIN"]["OPTIM"]["MOMENTUM"]])
 
