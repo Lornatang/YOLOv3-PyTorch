@@ -80,7 +80,14 @@ python3 ./tools/test.py ./configs/YOLOv3_Tiny-VOC0712.yaml
 
 ### Results
 
-#### COCO
+#### COCO2014
+
+|                                                                     Model                                                                     | Size | mAP<sup>val<br/>0.5:0.95 | 
+|:---------------------------------------------------------------------------------------------------------------------------------------------:|:----:|:------------------------:|
+|     [**YOLOv3_Tiny-COCO2014**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-COCO2014-20231107.pth.tar)     | 416  |           N/A            |
+| [**YOLOv3_Tiny_PRN-COCO2014**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny_PRN-COCO2014-20231107.pth.tar) | 416  |           N/A            |
+|          [**YOLOv3-COCO2014**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3-COCO2014-20231107.pth.tar)          | 416  |           N/A            |
+|      [**YOLOv3_SPP-COCO2014**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_SPP-COCO2014-20231107.pth.tar)      | 416  |           N/A            |
 
 #### VOC
 
