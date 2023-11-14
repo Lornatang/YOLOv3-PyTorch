@@ -55,7 +55,7 @@ pip3 install -e .
 
 ```shell
 # Download YOLOv3_Tiny-VOC0712 model weights to `./results/pretrained_models`
-wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar ./resutls/pretrained_models/YOLOv3_Tiny-VOC0712-20231107.pth.tar
+wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar -O ./resutls/pretrained_models/YOLOv3_Tiny-VOC0712-20231107.pth.tar
 python3 ./tools/inference.py ./data/examples/dog.jpg
 # Result will be saved to `./results/predict/YOLOv3_Tiny-VOC0712/dog.jpg`
 ```
@@ -74,7 +74,7 @@ cd ./scripts
 bash ./process_voc0712_dataset.sh
 cd ..
 # Download pretrained model weights to `./results/pretrained_models`
-wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar ./resutls/pretrained_models/YOLOv3_Tiny-VOC0712-20231107.pth.tar
+wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar -O ./resutls/pretrained_models/YOLOv3_Tiny-VOC0712-20231107.pth.tar
 python3 ./tools/test.py ./configs/YOLOv3_Tiny-VOC0712.yaml
 ```
 
@@ -113,7 +113,7 @@ cd ./scripts
 bash ./process_voc0712_dataset.sh
 cd ..
 # Download pretrained model weights to `./results/pretrained_models`
-wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar ./resutls/pretrained_models/YOLOv3_Tiny-VOC0712-20231107.pth.tar
+wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar -O ./resutls/pretrained_models/YOLOv3_Tiny-VOC0712-20231107.pth.tar
 python3 ./tools/train.py ./configs/YOLOv3_Tiny-VOC0712.yaml
 ```
 
@@ -126,7 +126,7 @@ cd ./scripts
 bash ./process_coco2014_dataset.sh
 cd ..
 # Download pretrained model weights to `./results/pretrained_models`
-wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-COCO2014-20231107.pth.tar ./resutls/pretrained_models/YOLOv3_Tiny-COCO2014-20231107.pth.tar
+wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-COCO2014-20231107.pth.tar -O ./resutls/pretrained_models/YOLOv3_Tiny-COCO2014-20231107.pth.tar
 python3 ./tools/train.py ./configs/YOLOv3_Tiny-COCO2014.yaml
 
 # COCO2017
@@ -135,7 +135,7 @@ cd ./scripts
 bash ./process_coco2017_dataset.sh
 cd ..
 # Download pretrained model weights to `./results/pretrained_models`
-wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-COCO2017-20231107.pth.tar ./resutls/pretrained_models/YOLOv3_Tiny-COCO2017-20231107.pth.tar
+wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-COCO2017-20231107.pth.tar -O ./resutls/pretrained_models/YOLOv3_Tiny-COCO2017-20231107.pth.tar
 python3 ./tools/train.py ./configs/YOLOv3_Tiny-COCO2017.yaml
 ```
 
