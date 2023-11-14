@@ -80,7 +80,7 @@ TRAIN:
     ACCUMULATE_BATCH_SIZE: 64
     NUM_BURN: 1000
 
-    EPOCHS: 200  # 50200 batches at bs 64, 16551 images = 193 epochs ~= 200 epochs
+    EPOCHS: 300  # 500200 batches at bs 64, 117263 images = 273 epochs ~= 200 epochs
 
   OPTIM:
     NAME: "SGD"
