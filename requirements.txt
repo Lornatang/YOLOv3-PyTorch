@@ -7,4 +7,6 @@ setuptools>=59.6.0
 opencv-python>=4.8.0.76
 Pillow>=9.0.1
 torchvision>=0.16.0+cu118
+matplotlib>=3.7.2
 scipy>=1.11.2
+thop>=0.1.1.post2207130030
