@@ -54,7 +54,7 @@ DATASET:
 
 # Model definition
 MODEL:
-  CONFIG_PATH: "./model_configs/coco/yolov3_tiny.cfg"
+  CONFIG_PATH: "./model_configs/coco/yolov3.cfg"
   GRAY: False
   NUM_CLASSES: 80
   COMPILED: False

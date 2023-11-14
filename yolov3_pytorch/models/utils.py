@@ -12,19 +12,20 @@
 # limitations under the License.
 # ==============================================================================
 import os
+import warnings
 from collections import OrderedDict
 from pathlib import Path
 from typing import Union
 
 import numpy as np
+import thop
 import torch
-from torch import nn, optim
+from torch import nn, optim, Tensor
 
 from .darknet import Darknet
-import warnings
 
 __all__ = [
-    "convert_model_state_dict", "load_state_dict", "load_resume_state_dict", "load_darknet_weights", "save_darknet_weights",
+    "convert_model_state_dict", "load_state_dict", "load_resume_state_dict", "load_darknet_weights", "save_darknet_weights", "profile"
 ]
 
 
@@ -250,3 +251,40 @@ def save_darknet_weights(model: nn.Module, weights_path: Union[str, Path], cutof
             conv_layer.weight.data.cpu().numpy().tofile(fp)
 
     fp.close()
+
+
+def profile(model: nn.Module, inputs: Tensor, device: str | torch.device = "cpu", verbose:bool=False) -> tuple[float, float, float]:
+    """Profile model
+
+    Args:
+        model (nn.Module): PyTorch model
+        inputs (Tensor): Inputs
+        device (str or torch.device, optional): Device. Default: ``cpu``
+        verbose (bool, optional): Verbose. Default: ``False``
+
+    Returns:
+        flops (float): FLOPs
+        memory (float): Memory
+        params (float): Params
+    """
+
+    if not isinstance(device, torch.device):
+        device = torch.device(device)
+
+    model.eval()
+    model.to(device)
+
+    inputs = torch.Tensor(inputs).to(device)
+
+    flops = thop.profile(model, inputs=(inputs,), verbose=False)[0] / 1E9 * 2  # GFLOPs
+    memory = torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0  # (GB)
+    parameters = sum(x.numel() for x in model.parameters()) if isinstance(model, nn.Module) / 1E6 else 0
+
+    torch.cuda.empty_cache()
+
+    if verbose:
+        print(f"FLOPs: {flops:.3f} GFLOPs\n"
+              f"Memory: {memory:.3f} GB\n"
+              f"Params: {parameters:.3f} M")
+
+    return flops, memory, parameters

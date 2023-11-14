@@ -82,26 +82,26 @@ python3 ./tools/test.py ./configs/YOLOv3_Tiny-VOC0712.yaml
 
 #### COCO2014
 
-|                                                                     Model                                                                     | Size | mAP<sup>val<br/>0.5:0.95 | 
-|:---------------------------------------------------------------------------------------------------------------------------------------------:|:----:|:------------------------:|
-|     [**YOLOv3_Tiny-COCO2014**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-COCO2014-20231107.pth.tar)     | 416  |           N/A            |
-| [**YOLOv3_Tiny_PRN-COCO2014**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny_PRN-COCO2014-20231107.pth.tar) | 416  |           N/A            |
-|          [**YOLOv3-COCO2014**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3-COCO2014-20231107.pth.tar)          | 416  |           N/A            |
-|      [**YOLOv3_SPP-COCO2014**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_SPP-COCO2014-20231107.pth.tar)      | 416  |           N/A            |
+|                                                                     Model                                                                     | Size | mAP<sup>val<br/>0.5:0.95 | FLOPs(G) | Parameters(M) | Memory(MB) |
+|:---------------------------------------------------------------------------------------------------------------------------------------------:|:----:|:------------------------:|:--------:|:-------------:|:----------:|
+|     [**YOLOv3_Tiny-COCO2014**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-COCO2014-20231107.pth.tar)     | 416  |           18.7           |   5.6    |     0.71      |    8.9     |
+| [**YOLOv3_Tiny_PRN-COCO2014**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny_PRN-COCO2014-20231107.pth.tar) | 416  |           11.1           |   3.5    |     0.66      |    4.9     |
+|          [**YOLOv3-COCO2014**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3-COCO2014-20231107.pth.tar)          | 416  |           66.7           |   66.2   |     0.88      |    61.9    |
+|      [**YOLOv3_SPP-COCO2014**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_SPP-COCO2014-20231107.pth.tar)      | 416  |           66.7           |   66.5   |     0.88      |    63.0    |
 
 #### VOC
 
-|                                                                             Model                                                                             | Size | mAP<sup>val<br/>0.5:0.95 | 
-|:-------------------------------------------------------------------------------------------------------------------------------------------------------------:|:----:|:------------------------:|
-|              [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar)              | 416  |           58.8           |
-|          [**YOLOv3_Tiny_PRN-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny_PRN-VOC0712-20231107.pth.tar)          | 416  |           47.9           |
-|                   [**YOLOv3-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3-VOC0712-20231107.pth.tar)                   | 416  |           82.9           |
-|               [**YOLOv3_SPP-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_SPP-VOC0712-20231107.pth.tar)               | 416  |           83.2           |
-|       [**YOLOv3_MobileNetV1-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_MobileNetV1-VOC0712-20231107.pth.tar)       | 416  |           65.6           |
-|       [**YOLOv3_MobileNetV2-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_MobileNetV2-VOC0712-20231107.pth.tar)       | 416  |           68.2           |
-| [**YOLOv3_MobileNetV3_Large-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_MobileNetV3_Large-VOC0712-20231107.pth.tar) | 416  |           70.1           |
-| [**YOLOv3_MobileNetV3_Small-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_MobileNetV3_Small-VOC0712-20231107.pth.tar) | 416  |           53.7           |
-|             [**YOLOv3_VGG16-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_VGG16-VOC0712-20231107.pth.tar)             | 416  |           74.1           |
+|                                                                             Model                                                                             | Size | mAP<sup>val<br/>0.5:0.95 | FLOPs(B) | Memory(MB) | Parameters(M) |
+|:-------------------------------------------------------------------------------------------------------------------------------------------------------------:|:----:|:------------------------:|:--------:|:----------:|:-------------:|
+|              [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar)              | 416  |           58.8           |   5.5    |    0.27    |      8.7      |
+|          [**YOLOv3_Tiny_PRN-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny_PRN-VOC0712-20231107.pth.tar)          | 416  |           47.9           |   3.5    |    0.27    |      4.9      |
+|                   [**YOLOv3-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3-VOC0712-20231107.pth.tar)                   | 416  |           82.9           |   65.7   |    0.61    |     61.6      |
+|               [**YOLOv3_SPP-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_SPP-VOC0712-20231107.pth.tar)               | 416  |           83.2           |   66.1   |    0.88    |     62.7      |
+|       [**YOLOv3_MobileNetV1-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_MobileNetV1-VOC0712-20231107.pth.tar)       | 416  |           65.6           |   6.6    |    0.69    |      6.2      |
+|       [**YOLOv3_MobileNetV2-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_MobileNetV2-VOC0712-20231107.pth.tar)       | 416  |           68.2           |   3.5    |    0.49    |      4.3      |
+| [**YOLOv3_MobileNetV3_Large-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_MobileNetV3_Large-VOC0712-20231107.pth.tar) | 416  |           70.1           |   2.8    |    0.50    |      4.7      |
+| [**YOLOv3_MobileNetV3_Small-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_MobileNetV3_Small-VOC0712-20231107.pth.tar) | 416  |           53.7           |   1.5    |    0.48    |      2.8      |
+|             [**YOLOv3_VGG16-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_VGG16-VOC0712-20231107.pth.tar)             | 416  |           74.1           |  122.8   |    0.74    |     35.5      |
 
 ## Train
 
