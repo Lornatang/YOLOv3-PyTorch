@@ -26,7 +26,7 @@ from tqdm import tqdm
 
 from yolov3_pytorch.data.datasets import LoadDatasets
 from yolov3_pytorch.models.darknet import Darknet
-from yolov3_pytorch.models.utils import load_state_dict
+from yolov3_pytorch.models.utils import load_state_dict, load_darknet_weights
 from yolov3_pytorch.utils.common import clip_coords, coco80_to_coco91_class, scale_coords, xywh2xyxy, xyxy2xywh
 from yolov3_pytorch.utils.metrics import ap_per_class
 from yolov3_pytorch.utils.nms import non_max_suppression
@@ -99,7 +99,7 @@ class Evaler:
             state_dict = torch.load(model_weights_path, map_location=self.device)["state_dict"]
             model = load_state_dict(model, state_dict)
         elif model_weights_path.endswith(".weights"):
-            model.load_darknet_weights(model_weights_path)
+            model = load_darknet_weights(model, model_weights_path)
         else:
             raise ValueError(f"'{model_weights_path}' is not supported.")
         print(f"Loaded `{model_weights_path}` models weights successfully.")
