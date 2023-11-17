@@ -84,7 +84,7 @@ TRAIN:
 
   OPTIM:
     NAME: "SGD"
-    LR: 0.001  # SGD 0.001, Adam 0.0001
+    LR: 0.01  # SGD 0.01, Adam 0.001
     MOMENTUM: 0.9
     WEIGHT_DECAY: 0.0005
 
