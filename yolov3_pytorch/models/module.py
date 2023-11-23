@@ -12,7 +12,7 @@
 # limitations under the License.
 # ==============================================================================
 import math
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 import torch
@@ -236,11 +236,11 @@ class YOLOLayer(nn.Module):
             self.training = False
             self.create_grids((img_size[1] // stride, img_size[0] // stride))  # number x, y grid points
 
-    def create_grids(self, ng=(13, 13), device="cpu"):
+    def create_grids(self, ng: tuple = (13, 13), device: str = "cpu"):
         self.nx, self.ny = ng  # x and y grid size
-        self.ng = torch.tensor(ng, dtype=torch.float)
+        self.ng = torch.tensor(ng, dtype=torch.float, device=device)
 
-        # build xy offsets
+        # Build xy offsets
         if not self.training:
             yv, xv = torch.meshgrid([torch.arange(self.ny, device=device),
                                      torch.arange(self.nx, device=device)],
@@ -252,24 +252,27 @@ class YOLOLayer(nn.Module):
             self.anchor_wh = self.anchor_wh.to(device)
 
     def forward(self, p):
+        # Check if exporting to ONNX
         if self.onnx_export:
             bs = 1  # batch size
         else:
+            # Get the shape of the input tensor
             bs, _, ny, nx = p.shape  # bs, 255, 13, 13
+
+            # Create grids if the shape has changed
             if (self.nx, self.ny) != (nx, ny):
                 self.create_grids((nx, ny), p.device)
 
-        # p.view(bs, 255, 13, 13) -- > (bs, 3, 13, 13, 85)  # (bs, anchors, grid, grid, classes + xywh)
+        # Reshape and permute the tensor
         p = p.view(bs, self.na, self.num_classes_output, self.ny, self.nx)
         p = p.permute(0, 1, 3, 4, 2).contiguous()  # prediction
 
         if self.training:
             return p
-
         elif self.onnx_export:
             # Avoid broadcasting for ANE operations
             m = self.na * self.nx * self.ny
-            ng = 1. / self.ng.repeat(m, 1)
+            ng = 1. / self.ng.repeat(m, 1)  # Pre-calculate ng outside the loop
             grid = self.grid.repeat(1, self.na, 1, 1, 1).view(m, 2)
             anchor_wh = self.anchor_wh.repeat(1, 1, self.nx, self.ny, 1).view(m, 2) * ng
 
@@ -279,7 +282,6 @@ class YOLOLayer(nn.Module):
             p_cls = torch.sigmoid(p[:, 4:5]) if self.num_classes == 1 else \
                 torch.sigmoid(p[:, 5:self.num_classes_output]) * torch.sigmoid(p[:, 4:5])  # conf
             return p_cls, xy * ng, wh
-
         else:  # inference
             io = p.clone()  # inference output
             io[..., :2] = torch.sigmoid(io[..., :2]) + self.grid  # xy
@@ -290,7 +292,7 @@ class YOLOLayer(nn.Module):
 
 
 def make_divisible(v: float, divisor: int, min_value: Optional[int] = None) -> int:
-    """Divisor to the number of channels.
+    r"""Divisor to the number of channels.
 
     Args:
         v (float): input value
@@ -314,7 +316,7 @@ def make_divisible(v: float, divisor: int, min_value: Optional[int] = None) -> i
 
 
 def fuse_conv_and_bn(conv: nn.Conv2d, bn: nn.BatchNorm2d) -> nn.Module:
-    """Fuse convolution and batchnorm layers.
+    r"""Fuse convolution and batchnorm layers.
 
     Args:
         conv (nn.Conv2d): convolution layer
@@ -322,10 +324,9 @@ def fuse_conv_and_bn(conv: nn.Conv2d, bn: nn.BatchNorm2d) -> nn.Module:
 
     Returns:
         fused_conv_bn (nn.Module): fused convolution layer
-
     """
     with torch.no_grad():
-        # init
+        # Initialize fused_conv_bn with the same parameters as conv
         fused_conv_bn = nn.Conv2d(conv.in_channels,
                                   conv.out_channels,
                                   kernel_size=conv.kernel_size,
@@ -333,12 +334,13 @@ def fuse_conv_and_bn(conv: nn.Conv2d, bn: nn.BatchNorm2d) -> nn.Module:
                                   padding=conv.padding,
                                   bias=True)
 
-        # prepare filters
-        w_conv = conv.weight.clone().view(conv.out_channels, -1)
+        # Fuse the convolution and batchnorm weights
+        # Reshape the weight tensors for matrix multiplication
+        w_conv = conv.weight.view(conv.out_channels, -1)
         w_bn = torch.diag(bn.weight.div(torch.sqrt(bn.eps + bn.running_var)))
         fused_conv_bn.weight.copy_(torch.mm(w_bn, w_conv).view(fused_conv_bn.weight.size()))
 
-        # prepare spatial bias
+        # Fuse the convolution and batchnorm biases
         if conv.bias is not None:
             b_conv = conv.bias
         else:
@@ -346,29 +348,30 @@ def fuse_conv_and_bn(conv: nn.Conv2d, bn: nn.BatchNorm2d) -> nn.Module:
         b_bn = bn.bias - bn.weight.mul(bn.running_mean).div(torch.sqrt(bn.running_var + bn.eps))
         fused_conv_bn.bias.copy_(torch.mm(w_bn, b_conv.reshape(-1, 1)).reshape(-1) + b_bn)
 
-        return fused_conv_bn
+    return fused_conv_bn
 
 
 def scale_img(img: Tensor, ratio: float = 1.0, same_shape: bool = True) -> Tensor:
-    """Scales an img by a ratio. If same_shape is True, the img is padded with zeros to maintain the same shape.
+    r"""Scales an image tensor by a ratio. If same_shape is True, the image is padded with zeros to maintain the same shape.
 
     Args:
-        img (Tensor): img to be scaled
-        ratio (float): ratio to scale img by
-        same_shape (bool): whether to pad img with zeros to maintain same shape
+        img (Tensor): Image tensor to be scaled
+        ratio (float): Ratio to scale the image by
+        same_shape (bool): Whether to pad the image with zeros to maintain the same shape
 
     Returns:
-        img (Tensor): scaled img
-
+        Tensor: Scaled image tensor
     """
-    # scales img(bs,3,y,x) by ratio
-    h, w = img.shape[2:]
-    s = (int(h * ratio), int(w * ratio))  # new size
-    img = F_torch.interpolate(img, size=s, mode="bilinear", align_corners=False)  # resize
-    if not same_shape:  # pad/crop img
-        gs = 64  # (pixels) grid size
-        h, w = [math.ceil(x * ratio / gs) * gs for x in (h, w)]
+    # Scale the image
+    height, width = img.shape[2:]
+    new_size: Tuple[int, int] = (int(height * ratio), int(width * ratio))
+    img = F_torch.interpolate(img, size=new_size, mode="bilinear", align_corners=False)
 
-    img = F_torch.pad(img, [0, w - s[1], 0, h - s[0]], value=0.447)
+    if not same_shape:
+        # Pad or crop the image
+        grid_size = 64  # (pixels) grid size
+        height, width = [math.ceil(x * ratio / grid_size) * grid_size for x in (height, width)]
+
+    img = F_torch.pad(img, [0, width - new_size[1], 0, height - new_size[0]], value=0.447)
 
     return img

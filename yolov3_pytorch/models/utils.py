@@ -123,7 +123,7 @@ def load_resume_state_dict(
     return start_epoch, best_mean_ap, model, ema_model, optimizer
 
 
-def load_darknet_weights(model: nn.Module, weights_path: Union[str, Path]) -> Darknet:
+def load_darknet_weights(model: nn.Module, weights_path: Union[str, Path]) -> nn.Module:
     r"""Parses and loads the weights stored in 'weights_path'
 
     Args:
