@@ -14,14 +14,22 @@
 """
 Computes and stores the average and current value
 """
+from enum import Enum
+
 import torch
 import torch.distributed as dist
 
-from .summary import Summary
-
 __all__ = [
-    "AverageMeter",
+    "Summary", "AverageMeter",
 ]
+
+
+class Summary(Enum):
+    NONE = 0
+    AVERAGE = 1
+    SUM = 2
+    COUNT = 3
+
 
 class AverageMeter(object):
     def __init__(self, name, fmt=":f", summary_type=Summary.AVERAGE):

@@ -11,10 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from .ap import *
-from .iou import *
+from .ap import ap_per_class, compute_ap
+from .iou import box_iou, bbox_iou, wh_iou
 
 __all__ = [
-    "compute_ap", "ap_per_class",
-    "box_iou", "bbox_iou", "wh_iou",
+    "compute_ap", "ap_per_class", "box_iou", "bbox_iou", "wh_iou",
 ]

@@ -1,5 +1,4 @@
 numpy==1.26.2
-torch==2.1.0+cu118
 PyYAML==5.4.1
 orjson==3.9.5
 tqdm==4.66.1
@@ -7,7 +6,6 @@ setuptools==65.5.1
 opencv-python==4.8.0.76
 scikit-image==0.20.0
 Pillow==10.0.1
-torchvision==0.16.0+cu118
 matplotlib==3.7.2
 scipy==1.11.2
 thop==0.1.1.post2207130030

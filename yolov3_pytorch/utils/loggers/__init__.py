@@ -11,12 +11,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from .average_meter import *
-from .progress_meter import *
-from .summary import *
+from .average_meter import Summary, AverageMeter
+from .progress_meter import ProgressMeter
 
 __all__ = [
-    "AverageMeter",
-    "ProgressMeter",
-    "Summary",
+    "Summary", "AverageMeter", "ProgressMeter",
 ]

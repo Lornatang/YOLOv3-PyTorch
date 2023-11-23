@@ -28,8 +28,9 @@ def kmean_anchors(
         num_anchor: int = 9,
         image_size: tuple = (640, 640),
         iou_thresh: float = 0.25,
-        gen: int = 1000):
-    """Compute kmean anchors for dataset
+        gen: int = 1000,
+) -> np.ndarray:
+    r"""Compute kmean anchors for dataset
 
     Args:
         path (str): path to dataset
@@ -55,8 +56,7 @@ def kmean_anchors(
 
     # Get label wh
     wh = []
-    from yolov3_pytorch.data.base import BaseDatasets
-
+    from yolov3_pytorch.data import BaseDatasets
     dataset = BaseDatasets(path, augment=True, rect_label=True)
     nr = 1 if image_size[0] == image_size[1] else 10  # number augmentation repetitions
     for s, l in zip(dataset.shapes, dataset.labels):
@@ -75,15 +75,16 @@ def kmean_anchors(
 
     # Evolve
     f, sh, mp, s = fitness(k), k.shape, 0.9, 0.1  # fitness, generations, mutation prob, sigma
+
     for _ in tqdm(range(gen), desc="Evolving anchors"):
         v = np.ones(sh)
-        while (v == 1).all():  # mutate until a change occurs (prevent duplicates)
+        while np.all(v == 1):  # mutate until a change occurs (prevent duplicates)
             v = ((np.random.random(sh) < mp) * np.random.random() * np.random.randn(*sh) * s + 1).clip(0.3, 3.0)
-        kg = (k.copy() * v).clip(min=2.0)
+        kg = (k * v).clip(min=2.0)
         fg = fitness(kg)
         if fg > f:
             f, k = fg, kg.copy()
             print_results(k)
-    k = print_results(k)
 
+    print_results(k)
     return k
