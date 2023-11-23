@@ -186,7 +186,7 @@ def letterbox(
     dh /= 2
 
     if shape[::-1] != new_unpad:  # resize
-        img = np.resize(img, new_unpad)
+        img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
     top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
     left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
     img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border

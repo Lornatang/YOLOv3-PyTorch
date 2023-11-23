@@ -25,12 +25,14 @@ __all__ = [
 ]
 
 
-def non_max_suppression(prediction: Tensor,
-                        conf_thresh: float = 0.1,
-                        iou_thresh: float = 0.6,
-                        multi_label: bool = True,
-                        filter_classes: list = None,
-                        agnostic: bool = False):
+def non_max_suppression(
+        prediction: Tensor,
+        conf_thresh: float = 0.1,
+        iou_thresh: float = 0.6,
+        multi_label: bool = True,
+        filter_classes: list = None,
+        agnostic: bool = False,
+) -> Tensor:
     """
     Performs  Non-Maximum Suppression on inference results
     Returns detections with shape:
@@ -52,54 +54,56 @@ def non_max_suppression(prediction: Tensor,
     # multiple labels per box
     multi_label &= num_classes > 1
     output = [None] * prediction.shape[0]
+    # Process each image in the prediction
     for img_idx, x in enumerate(prediction):
-        # Apply constraints
-        x = x[x[:, 4] > conf_thresh]  # confidence
-        x = x[((x[:, 2:4] > min_wh) & (x[:, 2:4] < max_wh)).all(1)]  # width-height
+        # Apply confidence and width-height constraints
+        x = x[x[:, 4] > conf_thresh]  # Confidence threshold
+        x = x[((x[:, 2:4] > min_wh) & (x[:, 2:4] < max_wh)).all(1)]  # Width-height constraints
 
-        # If none remain process next image
+        # If no detections remain, process next image
         if not x.shape[0]:
             continue
 
-        # Compute conf
+        # Compute confidence
         x[..., 5:] *= x[..., 4:5]  # conf = obj_conf * cls_conf
 
-        # Box (center x, center y, width, height) to (x1, y1, x2, y2)
+        # Convert box coordinates from (center x, center y, width, height) to (x1, y1, x2, y2)
         box = xywh2xyxy(x[:, :4])
 
-        # Detections matrix nx6 (xyxy, conf, cls)
+        # Apply multi-label or best class filtering
         if multi_label:
             i, j = (x[:, 5:] > conf_thresh).nonzero().t()
             x = torch.cat((box[i], x[i, j + 5].unsqueeze(1), j.float().unsqueeze(1)), 1)
-        else:  # best class only
+        else:  # Best class only
             conf, j = x[:, 5:].max(1)
             x = torch.cat((box, conf.unsqueeze(1), j.float().unsqueeze(1)), 1)[conf > conf_thresh]
 
-        # Filter by class
+        # Filter by class if specified
         if filter_classes:
             x = x[(j.view(-1, 1) == torch.tensor(filter_classes, device=j.device)).any(1)]
 
-        # If none remain process next image
-        # number of boxes
-        num_boxes = x.shape[0]
+        # If no detections remain, process next image
+        num_boxes = x.shape[0]  # Number of boxes
         if not num_boxes:
             continue
 
-        # Batched NMS
+        # Apply NMS (Non-Maximum Suppression)
         classes = x[:, 5] * 0 if agnostic else x[:, 5]
-        boxes, scores = x[:, :4].clone() + classes.view(-1, 1) * max_wh, x[:, 4]  # boxes (offset by class), scores
+        boxes, scores = x[:, :4].clone() + classes.view(-1, 1) * max_wh, x[:, 4]  # Adjusted boxes (offset by class), scores
         i = torchvision.ops.boxes.nms(boxes, scores, iou_thresh)
+
         # Merge NMS (boxes merged using weighted mean)
         if merge and (1 < num_boxes < 3E3):
-            try:  # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
-                iou = box_iou(boxes[i], boxes) > iou_thresh  # iou matrix
-                weights = iou * scores[None]  # box weights
-                x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # merged boxes
+            try:
+                iou = box_iou(boxes[i], boxes) > iou_thresh  # IoU matrix
+                weights = iou * scores[None]  # Box weights
+                x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # Merged boxes
             except:
                 print(x, i, x.shape, i.shape)
                 pass
 
-        output[img_idx] = x[i]
+        output[img_idx] = x[i]  # Store the selected detections in the output list
+
         if (time.time() - start_time) > timeout:
             break
 

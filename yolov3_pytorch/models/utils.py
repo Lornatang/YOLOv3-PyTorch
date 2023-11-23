@@ -22,71 +22,34 @@ import thop
 import torch
 from torch import nn, optim, Tensor
 
-from .darknet import Darknet
 
 __all__ = [
-    "convert_model_state_dict", "load_state_dict", "load_resume_state_dict", "load_darknet_weights", "save_darknet_weights", "profile"
+    "load_state_dict", "load_resume_state_dict", "load_darknet_weights", "save_darknet_weights", "profile"
 ]
-
-
-def convert_model_state_dict(model_config_path: Union[str, Path], model_weights_path: Union[str, Path]) -> None:
-    """
-
-    Args:
-        model_config_path (str or Path): Model configuration file path.
-        model_weights_path (str or Path): path to darknet models weights file
-    """
-
-    # Initialize models
-    model = Darknet(model_config_path)
-
-    # Load weights and save
-    # if PyTorch format
-    if model_weights_path.endswith(".pth.tar"):
-        state_dict = torch.load(model_weights_path, map_location="cpu")["state_dict"]
-        model = load_state_dict(model, state_dict)
-
-        target = model_weights_path[:-8] + ".weights"
-        save_darknet_weights(model, target)
-    # Darknet format
-    elif model_weights_path.endswith(".weights"):
-        model = load_darknet_weights(model, model_weights_path)
-
-        chkpt = {"epoch": 0,
-                 "best_mean_ap": 0.0,
-                 "state_dict": model.state_dict(),
-                 "ema_state_dict": None}
-
-        target = model_weights_path[:-8] + ".pth.tar"
-        torch.save(chkpt, target)
-    else:
-        raise ValueError(f"Model weight file '{model_weights_path}' not supported. Only support '.pth.tar' and '.weights'")
-    print(f"Success: converted '{model_weights_path}' to '{target}'")
 
 
 def load_state_dict(
         model: nn.Module,
         state_dict: dict,
+        compile_mode: bool = False,
 ) -> nn.Module:
     """Load the PyTorch model weights from the model weight address
 
     Args:
         model (nn.Module): PyTorch model
         state_dict: PyTorch model state dict
+        compile_mode (bool, optional): Compile mode. Default: ``False``
 
     Returns:
         model: PyTorch model with weights
     """
-
     # When the PyTorch version is less than 2.0, the model compilation is not supported.
-    if int(torch.__version__[0]) < 2 and model.compile_mode:
+    if int(torch.__version__[0]) < 2 and compile_mode:
         warnings.warn("PyTorch version is less than 2.0, does not support model compilation.")
-        model.compile_mode = False
+        compile_mode = False
 
     # compile keyword
-    compile_keyword = ""
-    if model.compile_mode:
-        compile_keyword = "_orig_mod"
+    compile_keyword = "_orig_mod"
 
     # Create new OrderedDict that does not contain the module prefix
     model_state_dict = model.state_dict()
@@ -96,9 +59,9 @@ def load_state_dict(
     for k, v in state_dict.items():
         k_prefix = k.split(".")[0]
 
-        if k_prefix == compile_keyword and not model.compile_mode:
+        if k_prefix == compile_keyword and not compile_mode:
             name = k[len(compile_keyword) + 1:]
-        elif k_prefix != compile_keyword and model.compile_mode:
+        elif k_prefix != compile_keyword and compile_mode:
             raise ValueError("The model is not compiled, but the weight is compiled.")
         else:
             name = k
@@ -124,29 +87,37 @@ def load_resume_state_dict(
 
     Args:
         model (nn.Module): PyTorch model
-        model_weights_path: PyTorch model path
         ema_model (nn.Module): EMA model
+        model_weights_path (str | Path): Path to the PyTorch model weights
 
     Returns:
         start_epoch (int): Start epoch
-        best_mean_ap (float): Best mean ap
-        model: PyTorch model with weights
-        model_weights_path: PyTorch model path
-        ema_model (nn.Module): EMA model
+        best_mean_ap (float): Best mean average precision
+        model (nn.Module): PyTorch model with loaded weights
+        ema_model (nn.Module): EMA model with loaded weights
         optimizer (optim.Optimizer): Optimizer
     """
 
+    # Check if the model weights file exists
     if not os.path.exists(model_weights_path):
         raise FileNotFoundError(f"Model weights file not found '{model_weights_path}'")
 
+    # Check if the model weights file has the correct format
     if model_weights_path.endswith(".weights"):
         raise ValueError(f"You loaded darknet model weights '{model_weights_path}', must be converted to PyTorch model weights")
 
+    # Load the checkpoint from the model weights file
     checkpoint = torch.load(model_weights_path, map_location=lambda storage, loc: storage)
+
+    # Extract the necessary information from the checkpoint
     start_epoch = checkpoint["epoch"]
     best_mean_ap = checkpoint["best_mean_ap"]
+
+    # Load the model weights and EMA model weights from the checkpoint
     model = load_state_dict(model, checkpoint["state_dict"])
     ema_model = load_state_dict(ema_model, checkpoint["ema_state_dict"])
+
+    # Load the optimizer state from the checkpoint
     optimizer = checkpoint["optimizer"]
 
     return start_epoch, best_mean_ap, model, ema_model, optimizer
@@ -253,14 +224,14 @@ def save_darknet_weights(model: nn.Module, weights_path: Union[str, Path], cutof
     fp.close()
 
 
-def profile(model: nn.Module, inputs: Tensor, device: str | torch.device = "cpu", verbose:bool=False) -> tuple[float, float, float]:
+def profile(model: nn.Module, inputs: Tensor, device: str | torch.device = "cpu", verbose: bool = False) -> tuple[float, float, float]:
     """Profile model
 
     Args:
         model (nn.Module): PyTorch model
         inputs (Tensor): Inputs
-        device (str or torch.device, optional): Device. Default: ``cpu``
-        verbose (bool, optional): Verbose. Default: ``False``
+        device (str or torch.device, optional): Device. Default: "cpu"
+        verbose (bool, optional): Verbose. Default: False
 
     Returns:
         flops (float): FLOPs
@@ -268,20 +239,26 @@ def profile(model: nn.Module, inputs: Tensor, device: str | torch.device = "cpu"
         params (float): Params
     """
 
+    # Ensure device is a torch.device object
     if not isinstance(device, torch.device):
         device = torch.device(device)
 
+    # Set model to evaluation mode and move to the specified device
     model.eval()
     model.to(device)
 
-    inputs = torch.Tensor(inputs).to(device)
+    # Move inputs to the specified device
+    inputs = inputs.to(device)
 
-    flops = thop.profile(model, inputs=(inputs,), verbose=False)[0] / 1E9 * 2  # GFLOPs
-    memory = torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0  # (GB)
-    parameters = sum(x.numel() for x in model.parameters()) if isinstance(model, nn.Module) / 1E6 else 0
+    # Calculate FLOPs (GFLOPs), memory (GB), and parameters (M)
+    flops = thop.profile(model, inputs=(inputs,), verbose=False)[0] / 1E9 * 2
+    memory = torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0
+    parameters = sum(x.numel() for x in model.parameters()) / 1E6 if isinstance(model, nn.Module) else 0
 
+    # Clear GPU cache
     torch.cuda.empty_cache()
 
+    # Print verbose information if requested
     if verbose:
         print(f"FLOPs: {flops:.3f} GFLOPs\n"
               f"Memory: {memory:.3f} GB\n"

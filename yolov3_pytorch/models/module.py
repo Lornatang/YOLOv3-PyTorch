@@ -12,7 +12,7 @@
 # limitations under the License.
 # ==============================================================================
 import math
-from typing import Any, Optional
+from typing import Optional
 
 import numpy as np
 import torch
@@ -26,18 +26,20 @@ __all__ = [
 
 class FeatureConcat(nn.Module):
     def __init__(self, layers: nn.ModuleList) -> None:
-        """
+        r"""Initialize FeatureConcat module.
 
         Args:
-            layers (nn.ModuleList):
-
+            layers (nn.ModuleList): List of layers to concatenate.
         """
         super(FeatureConcat, self).__init__()
-        self.layers = layers  # layer indices
-        self.multiple = len(layers) > 1  # multiple layers flag
+        self.layers = layers
+        self.multiple = len(layers) > 1
 
     def forward(self, x: Tensor) -> Tensor:
-        x = torch.cat([x[i] for i in self.layers], 1) if self.multiple else x[self.layers[0]]
+        if self.multiple:
+            x = torch.cat([x[i] for i in self.layers], dim=1)
+        else:
+            x = x[self.layers[0]]
 
         return x
 
@@ -62,7 +64,7 @@ class InvertedResidual(nn.Module):
                 nn.ReLU(inplace=True),
             )
         else:
-            self.branch1 = nn.Sequential()
+            self.branch1 = nn.Identity()
 
         self.branch2 = nn.Sequential(
             nn.Conv2d(in_channels if (self.stride > 1) else branch_features,
@@ -129,33 +131,29 @@ class MixConv2d(nn.Module):
             a -= np.roll(a, 1, axis=1)
             a *= np.array(kernel_size_tuple) ** 2
             a[0] = 1
-            ch = np.linalg.lstsq(a, b, rcond=None)[0].round().astype(int)  # solve for equal weight indices, ax = b
+            ch = np.linalg.solve(a, b).round().astype(int)  # solve for equal weight indices, ax = b
 
-        mix_conv2d = []
-        for group in range(groups):
-            mix_conv2d.append(nn.Conv2d(in_channels=in_channels,
-                                        out_channels=ch[group],
-                                        kernel_size=kernel_size_tuple[group],
-                                        stride=stride,
-                                        padding=kernel_size_tuple[group] // 2,
-                                        dilation=dilation,
-                                        bias=bias))
-        self.mix_conv2d = nn.ModuleList(*mix_conv2d)
+        mix_conv2d = [nn.Conv2d(in_channels=in_channels,
+                                out_channels=ch[group],
+                                kernel_size=kernel_size_tuple[group],
+                                stride=stride,
+                                padding=kernel_size_tuple[group] // 2,
+                                dilation=dilation,
+                                bias=bias) for group in range(groups)]
+        self.mix_conv2d = nn.ModuleList(mix_conv2d)
 
     def forward(self, x: Tensor) -> Tensor:
         x = torch.cat([m(x) for m in self.mix_conv2d], dim=1)
-
         return x
 
 
 class WeightedFeatureFusion(nn.Module):
     def __init__(self, layers: nn.ModuleList, weight: bool = False) -> None:
-        """
+        r"""Weighted Feature Fusion module.
 
         Args:
-            layers:
-            weight:
-
+            layers: List of layer indices.
+            weight: Flag to apply weights or not.
         """
         super(WeightedFeatureFusion, self).__init__()
         self.layers = layers  # layer indices
@@ -165,6 +163,15 @@ class WeightedFeatureFusion(nn.Module):
             self.w = nn.Parameter(torch.zeros(self.n), requires_grad=True)  # layer weights
 
     def forward(self, x: Tensor, outputs: Tensor) -> Tensor:
+        r"""Forward pass of the Weighted Feature Fusion module.
+
+        Args:
+            x: Input tensor.
+            outputs: List of output tensors from different layers.
+
+        Returns:
+            Tensor: Output tensor after feature fusion.
+        """
         # Weights
         if self.weight:
             w = torch.sigmoid(self.w) * (2 / self.n)  # sigmoid weights (0-1)

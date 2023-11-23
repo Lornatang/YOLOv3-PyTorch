@@ -16,7 +16,7 @@ PyTorch model weight and DarkNet interchange
 """
 import argparse
 
-from yolov3_pytorch.models.utils import convert_model_state_dict
+from yolov3_pytorch.models import convert_model_state_dict
 
 
 def get_opts() -> argparse.Namespace:

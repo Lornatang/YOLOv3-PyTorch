@@ -12,7 +12,8 @@
 # limitations under the License.
 # ==============================================================================
 import math
-from typing import Any, List, Dict
+from pathlib import Path
+from typing import Any, List, Dict, Union
 
 import numpy as np
 import torch
@@ -20,9 +21,10 @@ from torch import nn, Tensor
 from torchvision.ops.misc import SqueezeExcitation
 
 from .module import MixConv2d, InvertedResidual, WeightedFeatureFusion, FeatureConcat, YOLOLayer, fuse_conv_and_bn, make_divisible, scale_img
+from .utils import load_darknet_weights, save_darknet_weights, load_state_dict
 
 __all__ = [
-    "Darknet"
+    "Darknet", "convert_model_state_dict",
 ]
 
 
@@ -376,3 +378,38 @@ class Darknet(nn.Module):
                 x[2][..., :4] /= scale_factor[1]  # scale
                 x = torch.cat(x, 1)
             return x, p
+
+
+def convert_model_state_dict(model_config_path: Union[str, Path], model_weights_path: Union[str, Path]) -> None:
+    """
+
+    Args:
+        model_config_path (str or Path): Model configuration file path.
+        model_weights_path (str or Path): path to darknet models weights file
+    """
+
+    # Initialize models
+    model = Darknet(model_config_path)
+
+    # Load weights and save
+    # if PyTorch format
+    if model_weights_path.endswith(".pth.tar"):
+        state_dict = torch.load(model_weights_path, map_location="cpu")["state_dict"]
+        model = load_state_dict(model, state_dict)
+
+        target = model_weights_path[:-8] + ".weights"
+        save_darknet_weights(model, target)
+    # Darknet format
+    elif model_weights_path.endswith(".weights"):
+        model = load_darknet_weights(model, model_weights_path)
+
+        chkpt = {"epoch": 0,
+                 "best_mean_ap": 0.0,
+                 "state_dict": model.state_dict(),
+                 "ema_state_dict": None}
+
+        target = model_weights_path[:-8] + ".pth.tar"
+        torch.save(chkpt, target)
+    else:
+        raise ValueError(f"Model weight file '{model_weights_path}' not supported. Only support '.pth.tar' and '.weights'")
+    print(f"Success: converted '{model_weights_path}' to '{target}'")
