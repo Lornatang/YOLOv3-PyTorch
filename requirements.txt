@@ -3,7 +3,7 @@ torch==2.1.0+cu118
 PyYAML==5.4.1
 orjson==3.9.5
 tqdm==4.66.1
-setuptools==59.6.0
+setuptools==65.5.1
 opencv-python==4.8.0.76
 scikit-image==0.20.0
 Pillow==9.0.1
