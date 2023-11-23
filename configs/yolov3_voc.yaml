@@ -35,7 +35,7 @@ AUGMENT:
 
 MODEL:
   CONFIG_PATH: "./model_configs/voc/yolov3.cfg"
-  IMG_SIZE: 416
+  IMG_SIZE: 512
   GRAY: False
   NUM_CLASSES: 20
   COMPILED: False
