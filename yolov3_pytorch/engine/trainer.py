@@ -28,7 +28,7 @@ from torch.optim.swa_utils import AveragedModel
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from yolov3_pytorch.data.datasets import LoadDatasets
+from yolov3_pytorch.data.base import BaseDatasets
 from yolov3_pytorch.engine.evaler import Evaler
 from yolov3_pytorch.models.darknet import Darknet
 from yolov3_pytorch.models.losses import compute_loss
@@ -78,7 +78,7 @@ class Trainer:
             self.config["MODEL"]["NUM_CLASSES"] = 1
         self.config["TRAIN"]["LOSSES"]["CLS_LOSS"]["WEIGHT"] *= self.config["MODEL"]["NUM_CLASSES"] / 80
 
-        train_datasets = LoadDatasets(self.config["DATASET"]["TRAIN_PATH"],
+        train_datasets = BaseDatasets(self.config["DATASET"]["TRAIN_PATH"],
                                       self.config["TRAIN"]["IMG_SIZE"],
                                       self.config["TRAIN"]["HYP"]["IMGS_PER_BATCH"],
                                       self.config["AUGMENT"]["ENABLE"],
@@ -88,7 +88,7 @@ class Trainer:
                                       self.config["DATASET"]["SINGLE_CLASSES"],
                                       pad=0.0,
                                       gray=self.config["MODEL"]["GRAY"])
-        test_datasets = LoadDatasets(self.config["DATASET"]["TEST_PATH"],
+        test_datasets = BaseDatasets(self.config["DATASET"]["TEST_PATH"],
                                      self.config["TEST"]["IMG_SIZE"],
                                      self.config["TEST"]["HYP"]["IMGS_PER_BATCH"],
                                      False,

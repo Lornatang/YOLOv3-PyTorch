@@ -22,12 +22,12 @@ import torch
 from torch import nn
 from torch.backends import cudnn
 
-from yolov3_pytorch.data.datasets import LoadImages, LoadStreams
 from yolov3_pytorch.models.darknet import Darknet
 from yolov3_pytorch.models.utils import load_state_dict
 from yolov3_pytorch.utils.common import load_class_names_from_file, scale_coords, xyxy2xywh
 from yolov3_pytorch.utils.nms import non_max_suppression
 from yolov3_pytorch.utils.plots import plot_one_box
+from yolov3_pytorch.data import LoadImages,LoadStreams
 
 
 class Inferencer:

@@ -16,10 +16,10 @@ Data augmentation functions
 """
 import math
 import random
+from typing import Any
 
 import cv2
 import numpy as np
-from typing import Any
 
 __all__ = [
     "adjust_hsv", "cutout", "letterbox", "mixup", "random_affine",
@@ -49,14 +49,19 @@ def adjust_hsv(img: np.ndarray, h_gain: float = 0.5, s_gain: float = 0.5, v_gain
     # Split the image into hue, saturation, and value channels
     hue, sat, val = cv2.split(cv2.cvtColor(img, cv2.COLOR_BGR2HSV))
 
+    # Store the original data type of the image
     img_dtype = img.dtype
 
+    # Create lookup tables for hue, saturation, and value channels
     x = np.arange(0, 256, dtype=np.int16)
     lut_hue = ((x * random_gains[0]) % 180).astype(img_dtype)
     lut_sat = np.clip(x * random_gains[1], 0, 255).astype(img_dtype)
     lut_val = np.clip(x * random_gains[2], 0, 255).astype(img_dtype)
 
+    # Apply the lookup tables to the hue, saturation, and value channels
     img_hsv = cv2.merge((cv2.LUT(hue, lut_hue), cv2.LUT(sat, lut_sat), cv2.LUT(val, lut_val))).astype(img_dtype)
+
+    # Convert the image back to BGR color space
     img = cv2.cvtColor(img_hsv, cv2.COLOR_HSV2BGR)
 
     return img
@@ -132,12 +137,11 @@ def cutout(img: np.ndarray, labels: np.ndarray) -> np.ndarray:
             ioa = bbox_ioa(box, labels[:, 1:5])
             # remove >60% obscured labels
             labels = labels[ioa < 0.60]
-
     return labels
 
 
 def letterbox(
-        image: np.ndarray,
+        img: np.ndarray,
         new_shape: int or tuple = (416, 416),
         color: tuple = (114, 114, 114),
         auto: bool = True,
@@ -147,7 +151,7 @@ def letterbox(
     """Resize image to a 32-pixel-multiple rectangle.
 
     Args:
-        image (ndarray): Image to resize
+        img (ndarray): Image to resize
         new_shape (int or tuple): Desired output shape of the image
         color (tuple): Color of the border
         auto (bool): Whether to choose the smaller dimension as the new shape
@@ -158,7 +162,7 @@ def letterbox(
         ndarray: Resized image
 
     """
-    shape = image.shape[:2]  # current shape [height, width]
+    shape = img.shape[:2]  # current shape [height, width]
     if isinstance(new_shape, int):
         new_shape = (new_shape, new_shape)
 
@@ -169,7 +173,7 @@ def letterbox(
 
     # Compute padding
     ratio = r, r  # width, height ratios
-    new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
+    new_unpad = (shape[1] * r), (shape[0] * r)
     dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]  # wh padding
     if auto:  # minimum rectangle
         dw, dh = np.mod(dw, 32), np.mod(dh, 32)  # wh padding
@@ -182,12 +186,11 @@ def letterbox(
     dh /= 2
 
     if shape[::-1] != new_unpad:  # resize
-        image = cv2.resize(image, new_unpad, interpolation=cv2.INTER_LINEAR)
-    top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
-    left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-    image = cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
-
-    return image, ratio, (dw, dh)
+        img = np.resize(img, new_unpad)
+    top, bottom = int(dh - 0.1), int(dh + 0.1)
+    left, right = int(dw - 0.1), int(dw + 0.1)
+    img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
+    return img, ratio, (dw, dh)
 
 
 def mixup(img1, labels, img2, labels2):
@@ -245,14 +248,12 @@ def random_affine(
         tuple: Augmented image and targets
     """
 
-    img_h = img.shape[0] + border * 2
-    img_w = img.shape[1] + border * 2
+    img_h, img_w = img.shape[0] + border * 2, img.shape[1] + border * 2
 
     # Rotation and Scale
-    rotation_matrix = np.eye(3)
     rotation_angle = random.uniform(-degrees, degrees)
     rotation_scale = random.uniform(1 - scale, 1 + scale)
-    rotation_matrix[:2] = cv2.getRotationMatrix2D(center=(img.shape[1] / 2, img.shape[0] / 2), angle=rotation_angle, scale=rotation_scale)
+    rotation_matrix = cv2.getRotationMatrix2D(center=(img.shape[1] / 2, img.shape[0] / 2), angle=rotation_angle, scale=rotation_scale)
 
     # Translation
     translation_matrix = np.eye(3)
@@ -265,8 +266,8 @@ def random_affine(
     shear_matrix[1, 0] = math.tan(random.uniform(-shear, shear) * math.pi / 180)  # y shear (deg)
 
     # Combined rotation matrix
-    affine_matrix = shear_matrix @ translation_matrix @ rotation_matrix
-    if (border != 0) or (affine_matrix != np.eye(3)).any():  # image changed
+    affine_matrix = np.matmul(np.matmul(shear_matrix, translation_matrix), rotation_matrix)
+    if (border != 0) or not np.allclose(affine_matrix, np.eye(3)):  # image changed
         img = cv2.warpAffine(img, affine_matrix[:2], dsize=(img_w, img_h), flags=cv2.INTER_LINEAR, borderValue=(114, 114, 114))
 
     # Transform label coordinates
@@ -279,19 +280,17 @@ def random_affine(
         xy = (xy @ affine_matrix.T)[:, :2].reshape(num_targets, 8)
 
         # create new boxes
-        x = xy[:, [0, 2, 4, 6]]
-        y = xy[:, [1, 3, 5, 7]]
-        xy = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, num_targets).T
+        xy = xy.reshape(num_targets, 4, 2)
+        xy_min = xy.min(axis=1)
+        xy_max = xy.max(axis=1)
+        xy = np.concatenate((xy_min[:, 0], xy_min[:, 1], xy_max[:, 0], xy_max[:, 1])).reshape(num_targets, 4)
 
         # reject warped points outside of image
-        xy[:, [0, 2]] = xy[:, [0, 2]].clip(0, img_w)
-        xy[:, [1, 3]] = xy[:, [1, 3]].clip(0, img_h)
+        xy[:, [0, 2]] = np.clip(xy[:, [0, 2]], 0, img_w)
+        xy[:, [1, 3]] = np.clip(xy[:, [1, 3]], 0, img_h)
         w = xy[:, 2] - xy[:, 0]
         h = xy[:, 3] - xy[:, 1]
-        area = w * h
-        area0 = (targets[:, 3] - targets[:, 1]) * (targets[:, 4] - targets[:, 2])
-        aspect_ratio = np.maximum(w / (h + 1e-16), h / (w + 1e-16))
-        i = (w > 4) & (h > 4) & (area / (area0 * scale + 1e-16) > 0.2) & (aspect_ratio < 10)
+        i = (w > 4) & (h > 4)
 
         targets = targets[i]
         targets[:, 1:5] = xy[i]

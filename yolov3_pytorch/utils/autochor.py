@@ -55,9 +55,9 @@ def kmean_anchors(
 
     # Get label wh
     wh = []
-    from yolov3_pytorch.data.datasets import LoadDatasets
+    from yolov3_pytorch.data.base import BaseDatasets
 
-    dataset = LoadDatasets(path, augment=True, rect_label=True)
+    dataset = BaseDatasets(path, augment=True, rect_label=True)
     nr = 1 if image_size[0] == image_size[1] else 10  # number augmentation repetitions
     for s, l in zip(dataset.shapes, dataset.labels):
         wh.append(l[:, 3:5] * (s / s.max()))  # image normalized to letterbox normalized wh

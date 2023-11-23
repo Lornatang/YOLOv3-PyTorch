@@ -24,7 +24,7 @@ from torch.utils.data import DataLoader
 from torchvision.ops import boxes
 from tqdm import tqdm
 
-from yolov3_pytorch.data.datasets import LoadDatasets
+from yolov3_pytorch.data.base import BaseDatasets
 from yolov3_pytorch.models.darknet import Darknet
 from yolov3_pytorch.models.utils import load_state_dict, load_darknet_weights
 from yolov3_pytorch.utils.common import clip_coords, coco80_to_coco91_class, scale_coords, xywh2xyxy, xyxy2xywh
@@ -56,7 +56,7 @@ class Evaler:
             self.config["MODEL"]["NUM_CLASSES"] = 1
         self.config["TRAIN"]["LOSSES"]["CLS_LOSS"]["WEIGHT"] *= self.config["MODEL"]["NUM_CLASSES"] / 80
 
-        test_datasets = LoadDatasets(self.config["DATASET"]["TEST_PATH"],
+        test_datasets = BaseDatasets(self.config["DATASET"]["TEST_PATH"],
                                      self.config["TEST"]["IMG_SIZE"],
                                      self.config["TEST"]["HYP"]["IMGS_PER_BATCH"],
                                      False,

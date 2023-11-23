@@ -24,6 +24,13 @@ cat val.txt > test.txt
 find train/labels/ -name "*.txt" -exec mv {} ./labels/train/ \;
 find val/labels/ -name "*.txt" -exec mv {} ./labels/valid/ \;
 
+# shellcheck disable=SC2035
+rm *.zip
+# shellcheck disable=SC2035
+rm *.json
+rm -rf train2017
+rm -rf val2017
+
 mkdir ../data/coco2017
 mv ./images ../data/coco2017/images
 mv ./labels ../data/coco2017/labels

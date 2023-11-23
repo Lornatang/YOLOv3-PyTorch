@@ -1,4 +1,4 @@
-# Copyright 2023 AlphaBetter Corporation. All Rights Reserved.
+# Copyright 2023 Lornatang Authors. All Rights Reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 #   you may not use this file except in compliance with the License.
 #   You may obtain a copy of the License at
@@ -11,12 +11,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from .base import BaseDatasets
-from .data_augment import adjust_hsv, cutout, letterbox, mixup, random_affine
-from .images import LoadImages
-from .stream import LoadStreams
-from .webcam import LoadWebcam
-
-__all__ = [
-    "BaseDatasets", "adjust_hsv", "cutout", "letterbox", "mixup", "random_affine", "LoadImages", "LoadStreams", "LoadWebcam"
-]
+"""
+This module contains some common functions.
+"""
+# Parameters
+IMG_FORMATS = ["bmp", "jpg", "jpeg", "png", "tif", "tiff", "dng", "webp", "mpo"]
+VID_FORMATS = ["mp4", "mov", "avi", "mkv"]
+IMG_FORMATS.extend([f.upper() for f in IMG_FORMATS])
+VID_FORMATS.extend([f.upper() for f in VID_FORMATS])

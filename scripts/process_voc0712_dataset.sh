@@ -30,9 +30,9 @@ rm -rf ./2012_val.txt
 rm -rf ./*.tar
 rm -rf ./VOCdevkit
 
-mkdir -p ../data/voc
+mkdir -p ../data/voc0712
 
-mv ./images ../data/voc
-mv ./labels ../data/voc
-mv ./train.txt ../data/voc
-mv ./test.txt ../data/voc
+mv ./images ../data/voc0712
+mv ./labels ../data/voc0712
+mv ./train.txt ../data/voc0712
+mv ./test.txt ../data/voc0712
