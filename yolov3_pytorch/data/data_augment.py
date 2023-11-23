@@ -173,7 +173,7 @@ def letterbox(
 
     # Compute padding
     ratio = r, r  # width, height ratios
-    new_unpad = (shape[1] * r), (shape[0] * r)
+    new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
     dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]  # wh padding
     if auto:  # minimum rectangle
         dw, dh = np.mod(dw, 32), np.mod(dh, 32)  # wh padding
@@ -187,8 +187,8 @@ def letterbox(
 
     if shape[::-1] != new_unpad:  # resize
         img = np.resize(img, new_unpad)
-    top, bottom = int(dh - 0.1), int(dh + 0.1)
-    left, right = int(dw - 0.1), int(dw + 0.1)
+    top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
+    left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
     img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
     return img, ratio, (dw, dh)
 

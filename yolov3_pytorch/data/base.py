@@ -26,6 +26,7 @@ import torch
 import torch.utils.data
 from PIL import ExifTags, Image
 from skimage import io
+from torch import Tensor
 from torchvision.transforms import functional as F_vision
 from tqdm import tqdm
 
@@ -240,9 +241,9 @@ class BaseDatasets(torch.utils.data.Dataset):
         if cache_imgs:  # if training
             gb = 0  # Gigabytes of cached images
             pbar = tqdm(range(len(self.img_files)), desc="Caching images")
-            self.image_hw0, self.image_hw = [None] * num_imgs, [None] * num_imgs
+            self.img_hw0, self.img_hw = [None] * num_imgs, [None] * num_imgs
             for i in pbar:  # max 10k images
-                self.imgs[i], self.image_hw0[i], self.image_hw[i] = self.load_image(i)
+                self.imgs[i], self.img_hw0[i], self.img_hw[i] = self.load_image(i)
                 gb += self.imgs[i].nbytes
                 pbar.desc = f"Caching images ({gb / 1e9:.1f}GB)"
 
@@ -306,7 +307,7 @@ class BaseDatasets(torch.utils.data.Dataset):
                 img = cv2.resize(img, (int(w0 * r), int(h0 * r)), interpolation=interp)
             return img, (h0, w0), img.shape[:2]
         else:
-            return self.imgs[index], self.image_hw0[index], self.image_hw[index]
+            return self.imgs[index], self.img_hw0[index], self.img_hw[index]
 
     def load_mosaic(self, index: int) -> Tuple[np.ndarray, List]:
         """loads images in a mosaic
@@ -462,7 +463,7 @@ class BaseDatasets(torch.utils.data.Dataset):
         return img, labels_out, self.img_files[index], shapes
 
     @staticmethod
-    def collate_fn(batch: list) -> tuple:
+    def collate_fn(batch: Tensor) -> tuple:
         # transposed
         img, label, path, shapes = zip(*batch)
         for i, data in enumerate(label):
