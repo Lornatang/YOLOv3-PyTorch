@@ -239,8 +239,6 @@ class YOLOLayer(nn.Module):
             self.create_grids((img_size[1] // stride, img_size[0] // stride))  # number x, y grid points
 
     def create_grids(self, ng: tuple = (13, 13), device: torch.device = "cpu") -> None:
-        if self.img_size[0] != 416 or self.img_size[1] != 416:
-            ng = self.img_size[0] // self.stride, self.img_size[1] // self.stride
         self.nx, self.ny = ng
         self.ng = torch.tensor(ng, dtype=torch.float, device=device)
 
