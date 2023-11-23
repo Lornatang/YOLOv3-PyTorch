@@ -22,12 +22,9 @@ import torch
 from torch import nn
 from torch.backends import cudnn
 
-from yolov3_pytorch.models.darknet import Darknet
-from yolov3_pytorch.models.utils import load_state_dict
-from yolov3_pytorch.utils.common import load_class_names_from_file, scale_coords, xyxy2xywh
-from yolov3_pytorch.utils.nms import non_max_suppression
-from yolov3_pytorch.utils.plots import plot_one_box
-from yolov3_pytorch.data import LoadImages,LoadStreams
+from yolov3_pytorch.data import LoadImages, LoadStreams
+from yolov3_pytorch.models import Darknet, load_state_dict
+from yolov3_pytorch.utils import load_class_names_from_file, select_device, scale_coords, xyxy2xywh, non_max_suppression, plot_one_box
 
 
 class Inferencer:
@@ -40,9 +37,9 @@ class Inferencer:
 
         self.class_names = load_class_names_from_file(opts.class_names_path)
         self.num_classes = len(self.class_names)
-        self.colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(self.class_names))]
+        self.colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(self.num_classes)]
 
-        self.model_weights_path = opts.model_weights_path
+        self.weights = opts.weights
         self.half = opts.half
         self.fuse = opts.fuse
         self.show_image = opts.show_image
@@ -53,20 +50,10 @@ class Inferencer:
         self.augment = opts.augment
         self.filter_classes = opts.filter_classes
         self.agnostic_nms = opts.agnostic_nms
-        self.device = opts.device
+        self.device = select_device(opts.device)
 
-        if self.device == "cpu":
+        if self.device.type == "cpu":
             self.half = False
-            self.device = torch.device("cpu")
-        elif self.device == "gpu":
-            if not torch.cuda.is_available():
-                warnings.warn("CUDA is not available. Using CPU.")
-                self.half = False
-                self.device = torch.device("cpu")
-            else:
-                self.device = torch.device("cuda")
-        else:
-            raise ValueError(f"'{self.device}' is not supported.")
 
         # Load model and data
         if self.inputs.startswith("rtsp") or self.inputs.startswith("http"):
@@ -81,30 +68,28 @@ class Inferencer:
             self.save_image = True
             cudnn.benchmark = False
             self.dataset = LoadImages(self.inputs, self.img_size, self.gray)
+
         self.model = self.build_model()
 
         os.makedirs(self.output, exist_ok=True)
 
     def build_model(self) -> nn.Module:
         # Create model
-        model = Darknet(self.model_config_path,
-                        self.img_size,
-                        self.gray,
-                        False,
-                        False)
+        model = Darknet(self.model_config_path, self.img_size, self.gray)
         model = model.to(self.device)
 
         model.num_classes = self.num_classes
 
         # Load model weights
-        if self.model_weights_path.endswith(".pth.tar"):
-            state_dict = torch.load(self.model_weights_path, map_location=self.device)["state_dict"]
-            model = load_state_dict(model, state_dict)
-        elif self.model_weights_path.endswith(".weights"):
-            model.load_darknet_weights(self.model_weights_path)
-        else:
-            raise ValueError(f"'{self.model_weights_path}' is not supported.")
-        print(f"Loaded `{self.model_weights_path}` models weights successfully.")
+        with torch.no_grad():
+            if self.weights.endswith(".pth.tar"):
+                state_dict = torch.load(self.weights, map_location=self.device)["state_dict"]
+                model = load_state_dict(model, state_dict)
+            elif self.weights.endswith(".weights"):
+                model.load_darknet_weights(self.weights)
+            else:
+                raise ValueError(f"'{self.weights}' is not supported.")
+        print(f"Loaded `{self.weights}` models weights successfully.")
 
         if self.half:
             model.half()
@@ -114,13 +99,15 @@ class Inferencer:
 
         return model
 
-    def predict(self) -> None:
+    def inference(self) -> None:
         self.model.eval()
 
         for path, img, raw_img, video_capture in self.dataset:
+            # Move device transfer and data type conversion outside the loop if they don't depend on loop variables
             img = img.to(self.device)
             img = img.half() if self.half else img.float()
             img /= 255.0
+
             if img.ndimension() == 3:
                 img = img.unsqueeze(0)
 
@@ -142,6 +129,7 @@ class Inferencer:
 
             # Process detections
             for detect_index, detect_result in enumerate(output):
+                # Assign values based on detection mode
                 if self.detect_video:
                     path, results, raw_frame = path[detect_index], f"{detect_index}: ", raw_img[detect_index].copy()
                 elif self.detect_image:
@@ -152,11 +140,10 @@ class Inferencer:
                 save_path = str(Path(self.output) / Path(path).name)
                 results += f"{img.shape[2]}x{img.shape[3]} "
                 gn = torch.tensor(raw_frame.shape)[[1, 0, 1, 0]]
+
                 if detect_result is not None and len(detect_result):
                     # Rescale boxes from image_size to raw_frame size
-                    detect_result[:, :4] = scale_coords(img.shape[2:],
-                                                        detect_result[:, :4],
-                                                        raw_frame.shape).round()
+                    detect_result[:, :4] = scale_coords(img.shape[2:], detect_result[:, :4], raw_frame.shape).round()
 
                     # Print results
                     for c in detect_result[:, -1].unique():
@@ -186,11 +173,14 @@ class Inferencer:
                 # Save results (image with detections)
                 if self.save_image:
                     if self.dataset.mode == "images":
+                        # Save the image with detections
                         cv2.imwrite(save_path, raw_frame)
                     else:
+                        # Release the previous video writer and create a new one
                         vid_writer.release()
                         fps = video_capture.get(cv2.CAP_PROP_FPS)
                         w = int(video_capture.get(cv2.CAP_PROP_FRAME_WIDTH))
                         h = int(video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
                         vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*self.fourcc), fps, (w, h))
+                        # Write the current frame with detections to the video
                         vid_writer.write(raw_frame)

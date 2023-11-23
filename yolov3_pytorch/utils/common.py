@@ -24,7 +24,8 @@ except ImportError:
     accimage = None
 
 __all__ = [
-    "clip_coords", "coco80_to_coco91_class", "labels_to_class_weights", "load_class_names_from_file", "scale_coords", "xywh2xyxy", "xyxy2xywh",
+    "clip_coords", "coco80_to_coco91_class", "labels_to_class_weights", "load_class_names_from_file", "select_device",
+    "scale_coords", "xywh2xyxy","xyxy2xywh",
 ]
 
 
@@ -94,6 +95,22 @@ def load_class_names_from_file(path: Union[str, Path]) -> list:
         lines = [line.strip() for line in class_names_file.readlines()]
 
     return lines
+
+
+def select_device(device: str = "") -> torch.device:
+    r"""Selects the device to be used for training/inference.
+
+    Args:
+        device (str, optional): The device to use. Defaults to "".
+
+    Returns:
+        torch.device: The device to be used
+    """
+    if device == "" or device == "gpu":
+        device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    else:
+        device = "cpu"
+    return torch.device(device)
 
 
 def scale_coords(new_image_shape, coords, raw_image_shape, ratio_pad=None) -> np.ndarray:

@@ -16,7 +16,7 @@ Inference master program
 """
 import argparse
 
-from yolov3_pytorch.engine.inferer import Inferencer
+from yolov3_pytorch.engine.inferencer import Inferencer
 
 
 def get_opts() -> argparse.Namespace:
@@ -30,8 +30,8 @@ def get_opts() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=str,
-        default="./results/predict/YOLOv3_Tiny-VOC0712",
-        help="path to outputs dir. Default: ``./results/predict/YOLOv3_Tiny-VOC0712``",
+        default="./results/inference/",
+        help="path to outputs dir. Default: ``./results/inference``",
     )
     parser.add_argument(
         "--class-names-path",
@@ -57,7 +57,7 @@ def get_opts() -> argparse.Namespace:
         help="whether to grayscale image input",
     )
     parser.add_argument(
-        "--model-weights-path",
+        "--weights",
         type=str,
         default="./results/pretrained_models/YOLOv3_Tiny-VOC0712-20231107.pth.tar",
         help="path to weights file. Default: ``./results/pretrained_models/YOLOv3_Tiny-VOC0712-20231107.pth.tar``",
@@ -119,7 +119,7 @@ def get_opts() -> argparse.Namespace:
         "--device",
         default="gpu",
         choices=["cpu", "gpu"],
-        help="Device to use. Default: ``gpu``",
+        help="Device to use. Choice: ['cpu', 'gpu']. Default: ``gpu``",
     )
     opts = parser.parse_args()
 
@@ -130,7 +130,7 @@ def main() -> None:
     opts = get_opts()
 
     app = Inferencer(opts)
-    app.predict()
+    app.inference()
 
 
 if __name__ == "__main__":
