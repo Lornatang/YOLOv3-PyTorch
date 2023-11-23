@@ -247,13 +247,14 @@ def random_affine(
     Returns:
         tuple: Augmented image and targets
     """
-
-    img_h, img_w = img.shape[0] + border * 2, img.shape[1] + border * 2
+    img_h = img.shape[0] + border * 2
+    img_w = img.shape[1] + border * 2
 
     # Rotation and Scale
+    rotation_matrix = np.eye(3)
     rotation_angle = random.uniform(-degrees, degrees)
     rotation_scale = random.uniform(1 - scale, 1 + scale)
-    rotation_matrix = cv2.getRotationMatrix2D(center=(img.shape[1] / 2, img.shape[0] / 2), angle=rotation_angle, scale=rotation_scale)
+    rotation_matrix[:2] = cv2.getRotationMatrix2D(center=(img.shape[1] / 2, img.shape[0] / 2), angle=rotation_angle, scale=rotation_scale)
 
     # Translation
     translation_matrix = np.eye(3)
@@ -266,8 +267,8 @@ def random_affine(
     shear_matrix[1, 0] = math.tan(random.uniform(-shear, shear) * math.pi / 180)  # y shear (deg)
 
     # Combined rotation matrix
-    affine_matrix = np.matmul(np.matmul(shear_matrix, translation_matrix), rotation_matrix)
-    if (border != 0) or not np.allclose(affine_matrix, np.eye(3)):  # image changed
+    affine_matrix = shear_matrix @ translation_matrix @ rotation_matrix
+    if (border != 0) or (affine_matrix != np.eye(3)).any():  # image changed
         img = cv2.warpAffine(img, affine_matrix[:2], dsize=(img_w, img_h), flags=cv2.INTER_LINEAR, borderValue=(114, 114, 114))
 
     # Transform label coordinates
@@ -280,17 +281,19 @@ def random_affine(
         xy = (xy @ affine_matrix.T)[:, :2].reshape(num_targets, 8)
 
         # create new boxes
-        xy = xy.reshape(num_targets, 4, 2)
-        xy_min = xy.min(axis=1)
-        xy_max = xy.max(axis=1)
-        xy = np.concatenate((xy_min[:, 0], xy_min[:, 1], xy_max[:, 0], xy_max[:, 1])).reshape(num_targets, 4)
+        x = xy[:, [0, 2, 4, 6]]
+        y = xy[:, [1, 3, 5, 7]]
+        xy = np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1))).reshape(4, num_targets).T
 
         # reject warped points outside of image
-        xy[:, [0, 2]] = np.clip(xy[:, [0, 2]], 0, img_w)
-        xy[:, [1, 3]] = np.clip(xy[:, [1, 3]], 0, img_h)
+        xy[:, [0, 2]] = xy[:, [0, 2]].clip(0, img_w)
+        xy[:, [1, 3]] = xy[:, [1, 3]].clip(0, img_h)
         w = xy[:, 2] - xy[:, 0]
         h = xy[:, 3] - xy[:, 1]
-        i = (w > 4) & (h > 4)
+        area = w * h
+        area0 = (targets[:, 3] - targets[:, 1]) * (targets[:, 4] - targets[:, 2])
+        aspect_ratio = np.maximum(w / (h + 1e-16), h / (w + 1e-16))
+        i = (w > 4) & (h > 4) & (area / (area0 * scale + 1e-16) > 0.2) & (aspect_ratio < 10)
 
         targets = targets[i]
         targets[:, 1:5] = xy[i]

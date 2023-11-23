@@ -17,10 +17,10 @@ from typing import Dict
 
 import numpy as np
 import torch
+import torch.utils.data
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 from torch import nn
-from torch.utils.data import DataLoader
 from torchvision.ops import boxes
 from tqdm import tqdm
 
@@ -45,46 +45,43 @@ class Evaler:
         self.config = config
         self.device = device
 
-    def load_datasets(self) -> DataLoader:
+    def load_datasets(self) -> torch.utils.data.DataLoader:
         r"""Load training and test datasets from a configuration file, such as yaml
 
         Returns:
             DataLoader: test_dataloader
 
         """
-        if self.config["DATASET"]["SINGLE_CLASSES"] == 1:
+        if self.config["VAL"]["DATASET"]["SINGLE_CLASSES"]:
             self.config["MODEL"]["NUM_CLASSES"] = 1
-        self.config["TRAIN"]["LOSSES"]["CLS_LOSS"]["WEIGHT"] *= self.config["MODEL"]["NUM_CLASSES"] / 80
 
-        test_datasets = BaseDatasets(self.config["DATASET"]["TEST_PATH"],
-                                     self.config["TEST"]["IMG_SIZE"],
-                                     self.config["TEST"]["HYP"]["IMGS_PER_BATCH"],
-                                     False,
-                                     self.config["AUGMENT"]["HYP"],
-                                     self.config["DATASET"]["RECT_LABEL"],
-                                     self.config["DATASET"]["CACHE_IMAGES"],
-                                     self.config["DATASET"]["SINGLE_CLASSES"],
-                                     pad=0.5,
-                                     gray=self.config["MODEL"]["GRAY"])
+        val_datasets = BaseDatasets(self.config["VAL"]["DATASET"]["ROOT"],
+                                    self.config["MODEL"]["IMG_SIZE"],
+                                    self.config["VAL"]["HYP"]["IMGS_PER_BATCH"],
+                                    self.config["VAL"]["DATASET"]["AUGMENT"],
+                                    self.config["AUGMENT"]["HYP"],
+                                    self.config["VAL"]["DATASET"]["RECT_LABEL"],
+                                    self.config["VAL"]["DATASET"]["CACHE_IMAGES"],
+                                    self.config["VAL"]["DATASET"]["SINGLE_CLASSES"],
+                                    pad=0.5,
+                                    gray=self.config["MODEL"]["GRAY"])
+        val_dataloader = torch.utils.data.DataLoader(val_datasets,
+                                                     batch_size=self.config["VAL"]["HYP"]["IMGS_PER_BATCH"],
+                                                     shuffle=False,
+                                                     num_workers=4,
+                                                     pin_memory=True,
+                                                     drop_last=False,
+                                                     persistent_workers=True,
+                                                     collate_fn=val_datasets.collate_fn)
 
-        test_dataloader = DataLoader(test_datasets,
-                                     batch_size=self.config["TEST"]["HYP"]["IMGS_PER_BATCH"],
-                                     shuffle=False,
-                                     num_workers=4,
-                                     pin_memory=True,
-                                     drop_last=False,
-                                     persistent_workers=True,
-                                     collate_fn=test_datasets.collate_fn)
-
-        return test_dataloader
+        return val_dataloader
 
     def build_model(self) -> nn.Module:
         # Create model
         model = Darknet(self.config["MODEL"]["CONFIG_PATH"],
-                        self.config["TRAIN"]["IMG_SIZE"],
+                        self.config["MODEL"]["IMG_SIZE"],
                         self.config["MODEL"]["GRAY"],
-                        self.config["MODEL"]["COMPILED"],
-                        False)
+                        self.config["MODEL"]["COMPILED"])
         model = model.to(self.device)
 
         model.num_classes = self.config["MODEL"]["NUM_CLASSES"]
@@ -94,9 +91,15 @@ class Evaler:
             model = torch.compile(model)
 
         # Load model weights
-        model_weights_path = self.config["TEST"]["WEIGHTS_PATH"]
+        model_weights_path = self.config["VAL"]["WEIGHTS"]
         if model_weights_path.endswith(".pth.tar"):
-            state_dict = torch.load(model_weights_path, map_location=self.device)["state_dict"]
+            checkpoint = torch.load(model_weights_path, map_location=self.device)
+            if checkpoint["state_dict"]:
+                state_dict = checkpoint["state_dict"]
+            elif checkpoint["ema_state_dict"]:
+                state_dict = checkpoint["ema_state_dict"]
+            else:
+                raise ValueError(f"'{model_weights_path}' is not supported.")
             model = load_state_dict(model, state_dict)
         elif model_weights_path.endswith(".weights"):
             model = load_darknet_weights(model, model_weights_path)
@@ -107,25 +110,25 @@ class Evaler:
         return model
 
     def validate(self):
-        test_dataloader = self.load_datasets()
+        val_dataloader = self.load_datasets()
         model = self.build_model()
         self.validate_on_epoch(
             model,
-            test_dataloader,
-            self.config["DATASET"]["CLASS_NAMES"],
-            self.config["TEST"]["AUGMENT"],
-            self.config["TEST"]["CONF_THRESH"],
-            self.config["TEST"]["IOU_THRESH"],
-            (self.config["TEST"]["IOUV1"], self.config["TEST"]["IOUV2"]),
-            self.config["TEST"]["GT_JSON_PATH"],
-            self.config["TEST"]["PRED_JSON_PATH"],
-            self.config["TEST"]["VERBOSE"],
+            val_dataloader,
+            self.config["CLASS_NAMES"],
+            self.config["VAL"]["DATASET"]["AUGMENT"],
+            self.config["VAL"]["CONF_THRESH"],
+            self.config["VAL"]["IOU_THRESH"],
+            (self.config["VAL"]["IOUV1"], self.config["VAL"]["IOUV2"]),
+            self.config["VAL"]["GT_JSON_PATH"],
+            self.config["VAL"]["PRED_JSON_PATH"],
+            self.config["VAL"]["VERBOSE"],
             self.device)
 
     @staticmethod
     def validate_on_epoch(
             model: nn.Module,
-            dataloader: DataLoader,
+            dataloader: torch.utils.data.DataLoader,
             class_names: list,
             augment: bool,
             conf_thresh: float = 0.01,

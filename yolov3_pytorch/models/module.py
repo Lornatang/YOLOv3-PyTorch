@@ -219,9 +219,12 @@ class YOLOLayer(nn.Module):
         """
         super(YOLOLayer, self).__init__()
         self.anchors = torch.Tensor(anchors)
-        self.index = yolo_index  # index of this layer in layers
+        self.num_classes = num_classes
+        self.img_size = img_size
+        self.yolo_index = yolo_index  # index of this layer in layers
         self.layers = layers  # model output layer indices
         self.stride = stride  # layer stride
+        self.onnx_export = onnx_export
         self.nl = len(layers)  # number of output layers (3)
         self.na = len(anchors)  # number of anchors (3)
         self.num_classes = num_classes  # number of classes (80)
@@ -229,15 +232,16 @@ class YOLOLayer(nn.Module):
         self.nx, self.ny, self.ng = 0, 0, 0  # initialize number of x, y grid points
         self.anchor_vec = self.anchors / self.stride
         self.anchor_wh = self.anchor_vec.view(1, self.na, 1, 1, 2)
-        self.onnx_export = onnx_export
         self.grid = None
 
-        if onnx_export:
+        if self.onnx_export:
             self.training = False
             self.create_grids((img_size[1] // stride, img_size[0] // stride))  # number x, y grid points
 
-    def create_grids(self, ng: tuple = (13, 13), device: str = "cpu"):
-        self.nx, self.ny = ng  # x and y grid size
+    def create_grids(self, ng: tuple = (13, 13), device: torch.device = "cpu") -> None:
+        if self.img_size[0] != 416 or self.img_size[1] != 416:
+            ng = self.img_size[0] // self.stride, self.img_size[1] // self.stride
+        self.nx, self.ny = ng
         self.ng = torch.tensor(ng, dtype=torch.float, device=device)
 
         # Build xy offsets

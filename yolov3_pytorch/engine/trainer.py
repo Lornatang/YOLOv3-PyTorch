@@ -14,23 +14,21 @@
 import math
 import os
 import random
-import shutil
 import time
 from pathlib import Path
 from typing import Dict
 
-import numpy as np
 import torch
+import torch.utils.data
 from torch import optim
 from torch.cuda import amp
 from torch.nn import functional as F_torch
 from torch.optim.swa_utils import AveragedModel
-from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from yolov3_pytorch.data.base import BaseDatasets
-from yolov3_pytorch.engine.evaler import Evaler
-from yolov3_pytorch.models.darknet import Darknet
+from yolov3_pytorch.data import BaseDatasets
+from yolov3_pytorch.engine import Evaler
+from yolov3_pytorch.models import Darknet
 from yolov3_pytorch.models.losses import compute_loss
 from yolov3_pytorch.models.utils import load_state_dict, load_resume_state_dict
 from yolov3_pytorch.utils.common import labels_to_class_weights
@@ -57,15 +55,17 @@ class Trainer:
         self.save_weights_dir = save_weights_dir
         self.tblogger = tblogger
 
+        self.train_datasets, self.val_datasets, self.train_dataloader, self.val_dataloader = self.load_datasets()
+        self.train_batches = len(self.train_dataloader)
+        self.model, self.ema_model = self.build_model()
+        self.optim = self.define_optim()
+        self.lr_scheduler = self.define_lr_scheduler()
+
         self.start_epoch = 0
+        self.load_checkpoint()
+
         self.best_mean_ap = 0.0
         self.evaler = Evaler(self.config, self.device)
-
-        self.train_datasets, self.test_datasets, self.train_dataloader, self.test_dataloader = self.load_datasets()
-        self.train_batches, self.test_batches = len(self.train_dataloader), len(self.test_dataloader)
-        self.model, self.ema_model = self.build_model()
-        self.optimizer = self.define_optimizer()
-        self.scheduler = self.define_scheduler()
 
     def load_datasets(self) -> tuple:
         r"""Load training and test datasets from a configuration file, such as yaml
@@ -74,56 +74,55 @@ class Trainer:
             tuple: train_dataloader, test_dataloader
 
         """
-        if self.config["DATASET"]["SINGLE_CLASSES"] == 1:
+        if self.config["TRAIN"]["DATASET"]["SINGLE_CLASSES"]:
             self.config["MODEL"]["NUM_CLASSES"] = 1
         self.config["TRAIN"]["LOSSES"]["CLS_LOSS"]["WEIGHT"] *= self.config["MODEL"]["NUM_CLASSES"] / 80
 
-        train_datasets = BaseDatasets(self.config["DATASET"]["TRAIN_PATH"],
-                                      self.config["TRAIN"]["IMG_SIZE"],
+        train_datasets = BaseDatasets(self.config["TRAIN"]["DATASET"]["ROOT"],
+                                      self.config["MODEL"]["IMG_SIZE"],
                                       self.config["TRAIN"]["HYP"]["IMGS_PER_BATCH"],
-                                      self.config["AUGMENT"]["ENABLE"],
+                                      self.config["TRAIN"]["DATASET"]["AUGMENT"],
                                       self.config["AUGMENT"]["HYP"],
-                                      self.config["DATASET"]["RECT_LABEL"],
-                                      self.config["DATASET"]["CACHE_IMAGES"],
-                                      self.config["DATASET"]["SINGLE_CLASSES"],
+                                      self.config["TRAIN"]["DATASET"]["RECT_LABEL"],
+                                      self.config["TRAIN"]["DATASET"]["CACHE_IMAGES"],
+                                      self.config["TRAIN"]["DATASET"]["SINGLE_CLASSES"],
                                       pad=0.0,
                                       gray=self.config["MODEL"]["GRAY"])
-        test_datasets = BaseDatasets(self.config["DATASET"]["TEST_PATH"],
-                                     self.config["TEST"]["IMG_SIZE"],
-                                     self.config["TEST"]["HYP"]["IMGS_PER_BATCH"],
-                                     False,
-                                     self.config["AUGMENT"]["HYP"],
-                                     self.config["DATASET"]["RECT_LABEL"],
-                                     self.config["DATASET"]["CACHE_IMAGES"],
-                                     self.config["DATASET"]["SINGLE_CLASSES"],
-                                     pad=0.5,
-                                     gray=self.config["MODEL"]["GRAY"])
-        train_dataloader = DataLoader(train_datasets,
-                                      batch_size=self.config["TRAIN"]["HYP"]["IMGS_PER_BATCH"],
-                                      shuffle=True,
-                                      num_workers=4,
-                                      pin_memory=True,
-                                      drop_last=True,
-                                      persistent_workers=True,
-                                      collate_fn=train_datasets.collate_fn)
-        test_dataloader = DataLoader(test_datasets,
-                                     batch_size=self.config["TEST"]["HYP"]["IMGS_PER_BATCH"],
-                                     shuffle=False,
-                                     num_workers=4,
-                                     pin_memory=True,
-                                     drop_last=False,
-                                     persistent_workers=True,
-                                     collate_fn=test_datasets.collate_fn)
+        val_datasets = BaseDatasets(self.config["VAL"]["DATASET"]["ROOT"],
+                                    self.config["MODEL"]["IMG_SIZE"],
+                                    self.config["VAL"]["HYP"]["IMGS_PER_BATCH"],
+                                    self.config["VAL"]["DATASET"]["AUGMENT"],
+                                    self.config["AUGMENT"]["HYP"],
+                                    self.config["VAL"]["DATASET"]["RECT_LABEL"],
+                                    self.config["VAL"]["DATASET"]["CACHE_IMAGES"],
+                                    self.config["VAL"]["DATASET"]["SINGLE_CLASSES"],
+                                    pad=0.5,
+                                    gray=self.config["MODEL"]["GRAY"])
+        train_dataloader = torch.utils.data.DataLoader(train_datasets,
+                                                       batch_size=self.config["TRAIN"]["HYP"]["IMGS_PER_BATCH"],
+                                                       shuffle=True,
+                                                       num_workers=4,
+                                                       pin_memory=True,
+                                                       drop_last=True,
+                                                       persistent_workers=True,
+                                                       collate_fn=train_datasets.collate_fn)
+        val_dataloader = torch.utils.data.DataLoader(val_datasets,
+                                                     batch_size=self.config["VAL"]["HYP"]["IMGS_PER_BATCH"],
+                                                     shuffle=False,
+                                                     num_workers=4,
+                                                     pin_memory=True,
+                                                     drop_last=False,
+                                                     persistent_workers=True,
+                                                     collate_fn=val_datasets.collate_fn)
 
-        return train_datasets, test_datasets, train_dataloader, test_dataloader
+        return train_datasets, val_datasets, train_dataloader, val_dataloader
 
     def build_model(self) -> tuple:
         # Create model
         model = Darknet(self.config["MODEL"]["CONFIG_PATH"],
-                        self.config["TRAIN"]["IMG_SIZE"],
+                        self.config["MODEL"]["IMG_SIZE"],
                         self.config["MODEL"]["GRAY"],
-                        self.config["MODEL"]["COMPILED"],
-                        False)
+                        self.config["MODEL"]["COMPILED"])
         model = model.to(self.device)
 
         model.num_classes = self.config["MODEL"]["NUM_CLASSES"]
@@ -140,46 +139,33 @@ class Trainer:
 
         return model, ema_model
 
-    def define_optimizer(self) -> optim:
-        optim_group, weight_decay, biases = [], [], []  # optimizer parameter groups
-        for k, v in dict(self.model.named_parameters()).items():
-            if ".bias" in k:
-                biases += [v]  # biases
-            elif "Conv2d.weight" in k:
-                weight_decay += [v]  # apply weight_decay
-            else:
-                optim_group += [v]  # all else
-
-        if self.config["TRAIN"]["OPTIM"]["NAME"] == "Adam":
-            optimizer = optim.Adam(optim_group,
+    def define_optim(self) -> optim:
+        if self.config["TRAIN"]["OPTIM"]["NAME"] == "adam":
+            optimizer = optim.Adam(self.model.parameters(),
                                    self.config["TRAIN"]["OPTIM"]["LR"],
                                    (self.config["TRAIN"]["OPTIM"]["BETA1"], self.config["TRAIN"]["OPTIM"]["BETA2"]),
                                    weight_decay=self.config["TRAIN"]["OPTIM"]["WEIGHT_DECAY"])
-        elif self.config["TRAIN"]["OPTIM"]["NAME"] == "SGD":
-            optimizer = optim.SGD(optim_group,
+        elif self.config["TRAIN"]["OPTIM"]["NAME"] == "sgd":
+            optimizer = optim.SGD(self.model.parameters(),
                                   self.config["TRAIN"]["OPTIM"]["LR"],
                                   self.config["TRAIN"]["OPTIM"]["MOMENTUM"],
                                   weight_decay=self.config["TRAIN"]["OPTIM"]["WEIGHT_DECAY"])
-            optimizer.add_param_group({"params": weight_decay, "weight_decay": self.config["TRAIN"]["OPTIM"]["WEIGHT_DECAY"]})
-            optimizer.add_param_group({"params": biases})
+
         else:
             raise NotImplementedError("Only Support ['SGD', 'Adam'] optimizer")
-        del optim_group, weight_decay, biases
 
         return optimizer
 
-    def define_scheduler(self) -> optim.lr_scheduler:
+    def define_lr_scheduler(self) -> optim.lr_scheduler:
         r"""Define a learning rate scheduler
 
         Returns:
             torch.optim.lr_scheduler: learning rate scheduler
         """
-
-        # Only use SGD optimizer
-        if self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["NAME"] == "LambdaLR" and self.config["TRAIN"]["OPTIM"]["NAME"] == "SGD":
-            lf = lambda x: (((1 + math.cos(x * math.pi / self.config["TRAIN"]["HYP"]["EPOCHS"])) / 2) ** 1.0) * 0.95 + 0.05  # cosine
-            scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=lf)
-            scheduler.last_epoch = self.start_epoch - 1
+        if self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["NAME"] == "cosine_with_warm":
+            scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optim,
+                                                                       self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["T_0"],
+                                                                       eta_min=self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["ETA_MIN"])
         else:
             print("No learning rate scheduler")
             scheduler = None
@@ -188,39 +174,45 @@ class Trainer:
 
     def load_checkpoint(self) -> None:
         # Load weights
-        pretrained_model_weights_path = self.config["TRAIN"]["CHECKPOINT"]["PRETRAINED_MODEL_WEIGHTS_PATH"]
-        resume_model_weights_path = self.config["TRAIN"]["CHECKPOINT"]["RESUME_MODEL_WEIGHTS_PATH"]
+        pretrained_weights = self.config["TRAIN"]["CHECKPOINT"]["PRETRAINED_WEIGHTS"]
+        resume_weights = self.config["TRAIN"]["CHECKPOINT"]["RESUME_WEIGHTS"]
 
-        if pretrained_model_weights_path != "" and os.path.exists(pretrained_model_weights_path):
-            print(f"Load pretrained model weights from '{pretrained_model_weights_path}'")
-            state_dict = torch.load(pretrained_model_weights_path, map_location=self.device)["state_dict"]
+        if pretrained_weights != "" and os.path.exists(pretrained_weights):
+            print(f"Load pretrained model weights from '{pretrained_weights}'")
+            state_dict = torch.load(pretrained_weights, map_location=self.device)["state_dict"]
             self.model = load_state_dict(self.model, state_dict)
-        elif resume_model_weights_path != "" and os.path.exists(resume_model_weights_path):
-            print(f"Load resume model weights from '{resume_model_weights_path}'")
-            self.start_epoch, self.best_mean_ap, self.model, self.ema_model, self.optimizer = load_resume_state_dict(self.model,
-                                                                                                                     self.ema_model,
-                                                                                                                     resume_model_weights_path)
+        elif resume_weights != "" and os.path.exists(resume_weights):
+            print(f"Load resume model weights from '{resume_weights}'")
+            self.start_epoch, self.best_mean_ap, self.model, self.ema_model, self.optim = load_resume_state_dict(self.model,
+                                                                                                                 self.ema_model,
+                                                                                                                 resume_weights)
         else:
             print("No pretrained or resume model weights. Train from scratch")
 
     def save_checkpoint(self, epoch: int, mean_ap: float) -> None:
         # Automatically save models weights
         is_best = mean_ap > self.best_mean_ap
-        is_last = (epoch + 1) == self.config["TRAIN"]["HYP"]["EPOCHS"]
         self.best_mean_ap = max(mean_ap, self.best_mean_ap)
-        weights_path = os.path.join(self.save_weights_dir, f"epoch_{epoch}.pth.tar")
-        torch.save({"epoch": epoch + 1,
-                    "best_mean_ap": self.best_mean_ap,
-                    "state_dict": self.model.state_dict(),
-                    "ema_state_dict": self.ema_model.state_dict(),
-                    "optimizer": self.optimizer},
-                   weights_path)
+
+        state_dict = {
+            "epoch": epoch + 1,
+            "best_mean_ap": self.best_mean_ap,
+            "state_dict": self.model.state_dict(),
+            "ema_state_dict": self.ema_model.state_dict(),
+            "optim": self.optim,
+            "lr_scheduler": self.lr_scheduler if self.lr_scheduler is not None else None,
+        }
+
         if is_best:
-            best_weights_path = os.path.join(self.save_weights_dir, "best.pth.tar")
-            shutil.copyfile(weights_path, best_weights_path)
-        if is_last:
-            last_weights_path = os.path.join(self.save_weights_dir, "last.pth.tar")
-            shutil.copyfile(weights_path, last_weights_path)
+            weights_path = os.path.join(self.save_weights_dir, f"best.pth.tar")
+            torch.save(state_dict, weights_path)
+
+        if self.config["TRAIN"]["SAVE_EVERY_EPOCH"] % (epoch + 1) == 0:
+            weights_path = os.path.join(self.save_weights_dir, f"epoch_{epoch:06d}.pth.tar")
+            torch.save(state_dict, weights_path)
+
+        weights_path = os.path.join(self.save_weights_dir, f"last.pth.tar")
+        torch.save(state_dict, weights_path)
 
     def train_on_epoch(self, epoch):
         # The information printed by the progress bar
@@ -232,7 +224,7 @@ class Trainer:
         losses = AverageMeter("Loss", ":6.6f")
         progress = ProgressMeter(self.train_batches,
                                  [batch_time, data_time, giou_losses, obj_losses, cls_losses, losses],
-                                 prefix=f"Epoch: [{epoch + 1}]")
+                                 prefix=f"Epoch: [{epoch}]")
 
         # Put the generator in training mode
         self.model.train()
@@ -252,36 +244,26 @@ class Trainer:
             data_time.update(time.time() - end)
 
             # Plot images with bounding boxes
-            visual_anno_path = os.path.join(".", self.config["EXP_NAME"] + ".jpg")
+            visual_anno_path = os.path.join("./results/train", self.config["EXP_NAME"] + ".jpg")
             if total_batch_idx < 1:
                 if os.path.exists(visual_anno_path):
                     os.remove(visual_anno_path)
-                plot_images(imgs, targets, paths, visual_anno_path, max_size=self.config["TRAIN"]["IMG_SIZE"])
-
-            # Burn-in
-            if total_batch_idx <= self.config["TRAIN"]["HYP"]["NUM_BURN"] and self.config["TRAIN"]["OPTIM"]["NAME"] == "SGD":
-                xi = [0, self.config["TRAIN"]["HYP"]["NUM_BURN"]]
-                for j, x in enumerate(self.optimizer.param_groups):
-                    # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
-                    lr_decay = lambda lr: (((1 + math.cos(lr * math.pi / self.config["TRAIN"]["HYP"]["EPOCHS"])) / 2) ** 1.0) * 0.95 + 0.05
-                    x["lr"] = np.interp(total_batch_idx, xi, [0.1 if j == 2 else 0.0, x["initial_lr"] * lr_decay(epoch)])
-                    if "momentum" in x:
-                        x["momentum"] = np.interp(total_batch_idx, xi, [0.9, self.config["TRAIN"]["OPTIM"]["MOMENTUM"]])
+                plot_images(imgs, targets, paths, visual_anno_path, max_size=self.config["MODEL"]["IMG_SIZE"])
 
             # Multi-Scale
             if self.config["TRAIN"]["MULTI_SCALE"]["ENABLE"]:
-                if self.config["TRAIN"]["MULTI_SCALE"]["IMG_SIZE_MIN"] % self.config["TRAIN"]["MULTI_SCALE"]["GRID_SIZE"] == 0:
-                    raise ValueError("MULTI_SCALE.IMG_SIZE_MIN must be a multiple of MULTI_SCALE.GRID_SIZE")
-                if self.config["TRAIN"]["MULTI_SCALE"]["IMG_SIZE_MAX"] % self.config["TRAIN"]["MULTI_SCALE"]["GRID_SIZE"] == 0:
-                    raise ValueError("MULTI_SCALE.IMG_SIZE_MAX must be a multiple of MULTI_SCALE.GRID_SIZE")
+                if self.config["TRAIN"]["MULTI_SCALE"]["IMG_SIZE_MIN"] % self.config["MODEL"]["GRID_SIZE"] != 0:
+                    raise ValueError("MULTI_SCALE.IMG_SIZE_MIN must be a multiple of MODEL.GRID_SIZE")
+                if self.config["TRAIN"]["MULTI_SCALE"]["IMG_SIZE_MAX"] % self.config["MODEL"]["GRID_SIZE"] != 0:
+                    raise ValueError("MULTI_SCALE.IMG_SIZE_MAX must be a multiple of MODEL.GRID_SIZE")
 
-                min_grid = self.config["TRAIN"]["MULTI_SCALE"]["IMG_SIZE_MIN"] // self.config["TRAIN"]["MULTI_SCALE"]["GRID_SIZE"]
-                max_grid = self.config["TRAIN"]["MULTI_SCALE"]["IMG_SIZE_MAX"] // self.config["TRAIN"]["MULTI_SCALE"]["GRID_SIZE"]
-                img_size = random.randrange(min_grid, max_grid + 1) * self.config["TRAIN"]["GRID_SIZE"]
+                min_grid = self.config["TRAIN"]["MULTI_SCALE"]["IMG_SIZE_MIN"] // self.config["MODEL"]["GRID_SIZE"]
+                max_grid = self.config["TRAIN"]["MULTI_SCALE"]["IMG_SIZE_MAX"] // self.config["MODEL"]["GRID_SIZE"]
+                img_size = random.randrange(min_grid, max_grid + 1) * self.config["MODEL"]["GRID_SIZE"]
                 scale_factor = img_size / max(imgs.shape[2:])
                 if scale_factor != 1:
                     # new shape (stretched to 32-multiple)
-                    new_img_size = [math.ceil(x * scale_factor / self.config["TRAIN"]["MULTI_SCALE"]["GRID_SIZE"]) * self.config["TRAIN"]["GRID_SIZE"]
+                    new_img_size = [math.ceil(x * scale_factor / self.config["MODEL"]["GRID_SIZE"]) * self.config["MODEL"]["GRID_SIZE"]
                                     for x in imgs.shape[2:]]
                     imgs = F_torch.interpolate(imgs, size=new_img_size, mode="bilinear", align_corners=False)
 
@@ -302,8 +284,8 @@ class Trainer:
             self.scaler.scale(loss).backward()
 
             # update generator weights
-            if total_batch_idx % accumulate == 0:
-                self.scaler.step(self.optimizer)
+            if (total_batch_idx + 1) % accumulate == 0:
+                self.scaler.step(self.optim)
                 self.scaler.update()
 
             # update exponential average models weights
@@ -320,7 +302,7 @@ class Trainer:
             end = time.time()
 
             # Record training log information
-            if (batch_idx + 1) % self.config["TRAIN"]["PRINT_FREQ"] == 0 or (batch_idx + 1) == self.train_batches:
+            if batch_idx % self.config["TRAIN"]["PRINT_FREQ"] == 0 or (batch_idx + 1) == self.train_batches:
                 # Writer Loss to file
                 self.tblogger.add_scalar("Train/GIoULoss", loss_item[0], total_batch_idx)
                 self.tblogger.add_scalar("Train/ObjLoss", loss_item[1], total_batch_idx)
@@ -330,34 +312,32 @@ class Trainer:
                 progress.display(batch_idx + 1)
 
     def train(self):
-        self.load_checkpoint()
-
         for epoch in range(self.start_epoch, self.config["TRAIN"]["HYP"]["EPOCHS"]):
             self.train_on_epoch(epoch)
 
-            # Update learning rate scheduler
-            if self.scheduler is not None:
-                self.scheduler.step()
-
             mean_p, mean_r, mean_ap, mean_f1 = self.evaler.validate_on_epoch(
                 self.model,
-                self.test_dataloader,
-                self.config["DATASET"]["CLASS_NAMES"],
-                self.config["TEST"]["AUGMENT"],
-                self.config["TEST"]["CONF_THRESH"],
-                self.config["TEST"]["IOU_THRESH"],
-                (self.config["TEST"]["IOUV1"], self.config["TEST"]["IOUV2"]),
-                self.config["TEST"]["GT_JSON_PATH"],
-                self.config["TEST"]["PRED_JSON_PATH"],
+                self.val_dataloader,
+                self.config["CLASS_NAMES"],
+                self.config["VAL"]["DATASET"]["AUGMENT"],
+                self.config["VAL"]["CONF_THRESH"],
+                self.config["VAL"]["IOU_THRESH"],
+                (self.config["VAL"]["IOUV1"], self.config["VAL"]["IOUV2"]),
+                self.config["VAL"]["GT_JSON_PATH"],
+                self.config["VAL"]["PRED_JSON_PATH"],
                 False,
                 self.device,
             )
 
-            self.tblogger.add_scalar("Test/Precision", mean_p, epoch)
-            self.tblogger.add_scalar("Test/Recall", mean_r, epoch)
-            self.tblogger.add_scalar("Test/mAP", mean_ap, epoch)
-            self.tblogger.add_scalar("Test/F1", mean_f1, epoch)
+            self.tblogger.add_scalar("Val/Precision", mean_p, epoch)
+            self.tblogger.add_scalar("Val/Recall", mean_r, epoch)
+            self.tblogger.add_scalar("Val/mAP", mean_ap, epoch)
+            self.tblogger.add_scalar("Val/F1", mean_f1, epoch)
             print("\n")
+
+            # Update learning rate scheduler
+            if self.lr_scheduler is not None:
+                self.lr_scheduler.step()
 
             # Save weights
             self.save_checkpoint(epoch, mean_ap)

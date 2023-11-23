@@ -1,16 +1,16 @@
-.idea/
-.vscode/
+.idea
+.vscode
 
-build/*
-data/examples/*
+build
+data/examples
 data/voc0712
 data/coco2014
 data/coco2017
-figure/*
-dist/*
-samples/*
-results/*
-yolov3_pytorch.egg-info/*
+figure
+dist
+results
+tb_logger
+yolov3_pytorch.egg-info
 
 .DS_Store
 *.pth
