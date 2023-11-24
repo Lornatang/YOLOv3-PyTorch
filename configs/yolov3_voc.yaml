@@ -73,6 +73,7 @@ TRAIN:
     LR: 0.01  # SGD 0.01, Adam 0.001
     MOMENTUM: 0.9
     WEIGHT_DECAY: 0.0005
+    NESTEROV: True
 
     LR_SCHEDULER:
       NAME: "cosine_with_warm"

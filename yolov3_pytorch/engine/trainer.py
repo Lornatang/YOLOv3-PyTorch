@@ -149,7 +149,8 @@ class Trainer:
             optimizer = optim.SGD(self.model.parameters(),
                                   self.config["TRAIN"]["OPTIM"]["LR"],
                                   self.config["TRAIN"]["OPTIM"]["MOMENTUM"],
-                                  weight_decay=self.config["TRAIN"]["OPTIM"]["WEIGHT_DECAY"])
+                                  weight_decay=self.config["TRAIN"]["OPTIM"]["WEIGHT_DECAY"],
+                                  nesterov=self.config["TRAIN"]["OPTIM"]["NESTEROV"])
 
         else:
             raise NotImplementedError("Only Support ['SGD', 'Adam'] optimizer")
@@ -207,9 +208,10 @@ class Trainer:
             weights_path = os.path.join(self.save_weights_dir, f"best.pth.tar")
             torch.save(state_dict, weights_path)
 
-        if self.config["TRAIN"]["SAVE_EVERY_EPOCH"] % (epoch + 1) == 0:
-            weights_path = os.path.join(self.save_weights_dir, f"epoch_{epoch:06d}.pth.tar")
-            torch.save(state_dict, weights_path)
+        if self.config["TRAIN"]["SAVE_EVERY_EPOCH"] > 0:
+            if (epoch + 1) % self.config["TRAIN"]["SAVE_EVERY_EPOCH"] == 0:
+                weights_path = os.path.join(self.save_weights_dir, f"epoch_{epoch:06d}.pth.tar")
+                torch.save(state_dict, weights_path)
 
         weights_path = os.path.join(self.save_weights_dir, f"last.pth.tar")
         torch.save(state_dict, weights_path)
