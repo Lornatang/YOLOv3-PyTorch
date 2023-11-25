@@ -299,8 +299,6 @@ class Trainer:
                     checkpoint = torch.load(f, map_location=self.device)
                 self.start_epoch = checkpoint.get("epoch", 0)
                 self.best_mean_ap = checkpoint.get("best_mean_ap", 0.0)
-                if self.device.type == "cuda":
-                    self.best_mean_ap = self.best_mean_ap.to(self.device)
                 load_state_dict(self.model, checkpoint.get("state_dict", checkpoint.get("ema_state_dict")))
                 self.optim.load_state_dict(checkpoint.get("optim", {}))
                 self.lr_scheduler.load_state_dict(checkpoint.get("lr_scheduler", {}))
