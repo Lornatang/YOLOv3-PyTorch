@@ -72,7 +72,8 @@ class Evaler:
                                                      num_workers=4,
                                                      pin_memory=True,
                                                      drop_last=False,
-                                                     persistent_workers=True)
+                                                     persistent_workers=True,
+                                                     collate_fn=val_datasets.collate_fn)
 
         return val_dataloader
 

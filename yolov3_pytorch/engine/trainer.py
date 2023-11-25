@@ -102,14 +102,16 @@ class Trainer:
                                                        num_workers=4,
                                                        pin_memory=True,
                                                        drop_last=True,
-                                                       persistent_workers=True)
+                                                       persistent_workers=True,
+                                                       collate_fn=train_datasets.collate_fn)
         val_dataloader = torch.utils.data.DataLoader(val_datasets,
                                                      batch_size=self.config["VAL"]["HYP"]["IMGS_PER_BATCH"],
                                                      shuffle=False,
                                                      num_workers=4,
                                                      pin_memory=True,
                                                      drop_last=False,
-                                                     persistent_workers=True)
+                                                     persistent_workers=True,
+                                                     collate_fn=val_datasets.collate_fn)
 
         return train_datasets, val_datasets, train_dataloader, val_dataloader
 
