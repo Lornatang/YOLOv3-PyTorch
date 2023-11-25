@@ -299,9 +299,10 @@ class Trainer:
                     checkpoint = torch.load(f, map_location=self.device)
                 self.start_epoch = checkpoint.get("epoch", 0)
                 self.best_mean_ap = checkpoint.get("best_mean_ap", 0.0)
-                load_state_dict(self.model, checkpoint.get("state_dict", checkpoint.get("ema_state_dict")))
-                self.optim.load_state_dict(checkpoint.get("optim", {}))
-                self.lr_scheduler.load_state_dict(checkpoint.get("lr_scheduler", {}))
+                load_state_dict(self.model, checkpoint.get("state_dict", {}))
+                load_state_dict(self.ema_model, checkpoint.get("ema_state_dict", {}))
+                self.optim = checkpoint.get("optim", {})
+                self.lr_scheduler = checkpoint.get("lr_scheduler", {})
                 print(f"Loaded checkpoint '{weights_path}'")
             else:
                 raise FileNotFoundError(f"No checkpoint found at '{weights_path}'")
