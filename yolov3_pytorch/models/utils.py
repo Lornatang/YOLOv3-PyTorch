@@ -20,11 +20,10 @@ from typing import Union
 import numpy as np
 import thop
 import torch
-from torch import nn, optim, Tensor
-
+from torch import nn, Tensor
 
 __all__ = [
-    "load_state_dict", "load_resume_state_dict", "load_darknet_weights", "save_darknet_weights", "profile"
+    "load_state_dict", "load_darknet_weights", "save_darknet_weights", "profile"
 ]
 
 
@@ -76,51 +75,6 @@ def load_state_dict(
     model.load_state_dict(model_state_dict)
 
     return model
-
-
-def load_resume_state_dict(
-        model: nn.Module,
-        ema_model: nn.Module,
-        model_weights_path: str | Path,
-) -> tuple[int, float, nn.Module, nn.Module, optim.Optimizer]:
-    """Load the PyTorch model weights from the model weight address
-
-    Args:
-        model (nn.Module): PyTorch model
-        ema_model (nn.Module): EMA model
-        model_weights_path (str | Path): Path to the PyTorch model weights
-
-    Returns:
-        start_epoch (int): Start epoch
-        best_mean_ap (float): Best mean average precision
-        model (nn.Module): PyTorch model with loaded weights
-        ema_model (nn.Module): EMA model with loaded weights
-        optimizer (optim.Optimizer): Optimizer
-    """
-
-    # Check if the model weights file exists
-    if not os.path.exists(model_weights_path):
-        raise FileNotFoundError(f"Model weights file not found '{model_weights_path}'")
-
-    # Check if the model weights file has the correct format
-    if model_weights_path.endswith(".weights"):
-        raise ValueError(f"You loaded darknet model weights '{model_weights_path}', must be converted to PyTorch model weights")
-
-    # Load the checkpoint from the model weights file
-    checkpoint = torch.load(model_weights_path, map_location=lambda storage, loc: storage)
-
-    # Extract the necessary information from the checkpoint
-    start_epoch = checkpoint["epoch"]
-    best_mean_ap = checkpoint["best_mean_ap"]
-
-    # Load the model weights and EMA model weights from the checkpoint
-    model = load_state_dict(model, checkpoint["state_dict"])
-    ema_model = load_state_dict(ema_model, checkpoint["ema_state_dict"])
-
-    # Load the optimizer state from the checkpoint
-    optimizer = checkpoint["optimizer"]
-
-    return start_epoch, best_mean_ap, model, ema_model, optimizer
 
 
 def load_darknet_weights(model: nn.Module, weights_path: Union[str, Path]) -> nn.Module:

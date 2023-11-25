@@ -73,18 +73,19 @@ TRAIN:
     IMGS_PER_BATCH: 8
     ACCUMULATE_BATCH_SIZE: 64
 
-    EPOCHS: 300  # 500200 batches at bs 64, 117263 images = 273 epochs ~= 300 epochs
+    EPOCHS: 300
 
   OPTIM:
     NAME: "sgd"
     LR: 0.01  # SGD 0.01, Adam 0.001
     MOMENTUM: 0.9
     WEIGHT_DECAY: 0.0005
+    NESTEROV: True
 
     LR_SCHEDULER:
       NAME: "cosine_with_warm"
       T_0: 50
-      ETA_MIN: 0.0001
+      ETA_MIN: 0
 
   IOU_THRESH: 0.20  # iou training threshold
 
@@ -122,8 +123,7 @@ VAL:
 
   CONF_THRESH: 0.01
   IOU_THRESH: 0.5
-  IOUV1: 0.5
-  IOUV2: 0.95
+  IOUV: (0.5, 0.95)  # mAP 0.5:0.95
   GT_JSON_PATH: ""  # "./data/coco2014/annotations/instances_val2014.json"
   PRED_JSON_PATH: "" # "./results/YOLOv3-COCO2014.json"
   VERBOSE: False

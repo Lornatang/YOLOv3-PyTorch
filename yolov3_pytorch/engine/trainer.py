@@ -16,7 +16,7 @@ import os
 import random
 import time
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Union
 
 import torch
 import torch.utils.data
@@ -27,10 +27,10 @@ from torch.optim.swa_utils import AveragedModel
 from torch.utils.tensorboard import SummaryWriter
 
 from yolov3_pytorch.data import BaseDatasets
-from yolov3_pytorch.engine import Evaler
+from yolov3_pytorch.engine.evaler import Evaler
 from yolov3_pytorch.models import Darknet
 from yolov3_pytorch.models.losses import compute_loss
-from yolov3_pytorch.models.utils import load_state_dict, load_resume_state_dict
+from yolov3_pytorch.models.utils import load_state_dict
 from yolov3_pytorch.utils.common import labels_to_class_weights
 from yolov3_pytorch.utils.loggers import AverageMeter, ProgressMeter
 from yolov3_pytorch.utils.plots import plot_images
@@ -46,7 +46,7 @@ class Trainer:
             config: Dict,
             scaler: amp.GradScaler,
             device: torch.device,
-            save_weights_dir: str | Path,
+            save_weights_dir: Union[str, Path],
             tblogger: SummaryWriter,
     ) -> None:
         self.config = config
@@ -62,10 +62,8 @@ class Trainer:
         self.lr_scheduler = self.define_lr_scheduler()
 
         self.start_epoch = 0
-        self.load_checkpoint()
-
         self.best_mean_ap = 0.0
-        self.evaler = Evaler(self.config, self.device)
+        self.eval = Evaler(self.config, self.device)
 
     def load_datasets(self) -> tuple:
         r"""Load training and test datasets from a configuration file, such as yaml
@@ -104,16 +102,14 @@ class Trainer:
                                                        num_workers=4,
                                                        pin_memory=True,
                                                        drop_last=True,
-                                                       persistent_workers=True,
-                                                       collate_fn=train_datasets.collate_fn)
+                                                       persistent_workers=True)
         val_dataloader = torch.utils.data.DataLoader(val_datasets,
                                                      batch_size=self.config["VAL"]["HYP"]["IMGS_PER_BATCH"],
                                                      shuffle=False,
                                                      num_workers=4,
                                                      pin_memory=True,
                                                      drop_last=False,
-                                                     persistent_workers=True,
-                                                     collate_fn=val_datasets.collate_fn)
+                                                     persistent_workers=True)
 
         return train_datasets, val_datasets, train_dataloader, val_dataloader
 
@@ -149,10 +145,11 @@ class Trainer:
             optimizer = optim.SGD(self.model.parameters(),
                                   self.config["TRAIN"]["OPTIM"]["LR"],
                                   self.config["TRAIN"]["OPTIM"]["MOMENTUM"],
-                                  weight_decay=self.config["TRAIN"]["OPTIM"]["WEIGHT_DECAY"])
+                                  weight_decay=self.config["TRAIN"]["OPTIM"]["WEIGHT_DECAY"],
+                                  nesterov=self.config["TRAIN"]["OPTIM"]["NESTEROV"])
 
         else:
-            raise NotImplementedError("Only Support ['SGD', 'Adam'] optimizer")
+            raise NotImplementedError("Only Support ['sgd', 'adam'] optimizer")
 
         return optimizer
 
@@ -162,68 +159,21 @@ class Trainer:
         Returns:
             torch.optim.lr_scheduler: learning rate scheduler
         """
-        if self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["NAME"] == "cosine_with_warm":
-            scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optim,
-                                                                       self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["T_0"],
-                                                                       eta_min=self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["ETA_MIN"])
-        else:
-            print("No learning rate scheduler")
-            scheduler = None
+        if self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["NAME"] != "cosine_with_warm":
+            print("No support for other learning rate schedulers, default set lr_scheduler=CosineAnnealingWarmRestarts")
 
+        scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optim, self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["T_0"])
         return scheduler
-
-    def load_checkpoint(self) -> None:
-        # Load weights
-        pretrained_weights = self.config["TRAIN"]["CHECKPOINT"]["PRETRAINED_WEIGHTS"]
-        resume_weights = self.config["TRAIN"]["CHECKPOINT"]["RESUME_WEIGHTS"]
-
-        if pretrained_weights != "" and os.path.exists(pretrained_weights):
-            print(f"Load pretrained model weights from '{pretrained_weights}'")
-            state_dict = torch.load(pretrained_weights, map_location=self.device)["state_dict"]
-            self.model = load_state_dict(self.model, state_dict)
-        elif resume_weights != "" and os.path.exists(resume_weights):
-            print(f"Load resume model weights from '{resume_weights}'")
-            self.start_epoch, self.best_mean_ap, self.model, self.ema_model, self.optim = load_resume_state_dict(self.model,
-                                                                                                                 self.ema_model,
-                                                                                                                 resume_weights)
-        else:
-            print("No pretrained or resume model weights. Train from scratch")
-
-    def save_checkpoint(self, epoch: int, mean_ap: float) -> None:
-        # Automatically save models weights
-        is_best = mean_ap > self.best_mean_ap
-        self.best_mean_ap = max(mean_ap, self.best_mean_ap)
-
-        state_dict = {
-            "epoch": epoch + 1,
-            "best_mean_ap": self.best_mean_ap,
-            "state_dict": self.model.state_dict(),
-            "ema_state_dict": self.ema_model.state_dict(),
-            "optim": self.optim,
-            "lr_scheduler": self.lr_scheduler if self.lr_scheduler is not None else None,
-        }
-
-        if is_best:
-            weights_path = os.path.join(self.save_weights_dir, f"best.pth.tar")
-            torch.save(state_dict, weights_path)
-
-        if self.config["TRAIN"]["SAVE_EVERY_EPOCH"] % (epoch + 1) == 0:
-            weights_path = os.path.join(self.save_weights_dir, f"epoch_{epoch:06d}.pth.tar")
-            torch.save(state_dict, weights_path)
-
-        weights_path = os.path.join(self.save_weights_dir, f"last.pth.tar")
-        torch.save(state_dict, weights_path)
 
     def train_on_epoch(self, epoch):
         # The information printed by the progress bar
         batch_time = AverageMeter("Time", ":6.3f")
         data_time = AverageMeter("Data", ":6.3f")
-        giou_losses = AverageMeter("GIoULoss", ":6.6f")
-        obj_losses = AverageMeter("ObjLoss", ":6.6f")
-        cls_losses = AverageMeter("ClsLoss", ":6.6f")
-        losses = AverageMeter("Loss", ":6.6f")
+        iou_losses = AverageMeter("IoULoss", ":.4e")
+        obj_losses = AverageMeter("ObjLoss", ":.4e")
+        cls_losses = AverageMeter("ClsLoss", ":.4e")
         progress = ProgressMeter(self.train_batches,
-                                 [batch_time, data_time, giou_losses, obj_losses, cls_losses, losses],
+                                 [batch_time, data_time, iou_losses, obj_losses, cls_losses],
                                  prefix=f"Epoch: [{epoch}]")
 
         # Put the generator in training mode
@@ -278,8 +228,8 @@ class Trainer:
                                                self.model,
                                                self.config["TRAIN"]["IOU_THRESH"],
                                                self.config["TRAIN"]["LOSSES"])
-                loss *= self.config["TRAIN"]["HYP"]["IMGS_PER_BATCH"] / self.config["TRAIN"]["HYP"]["ACCUMULATE_BATCH_SIZE"]
-
+            # Scale loss
+            loss *= self.config["TRAIN"]["HYP"]["IMGS_PER_BATCH"] / self.config["TRAIN"]["HYP"]["ACCUMULATE_BATCH_SIZE"]
             # Backpropagation
             self.scaler.scale(loss).backward()
 
@@ -287,15 +237,13 @@ class Trainer:
             if (total_batch_idx + 1) % accumulate == 0:
                 self.scaler.step(self.optim)
                 self.scaler.update()
-
-            # update exponential average models weights
-            self.ema_model.update_parameters(self.model)
+                # update exponential average models weights
+                self.ema_model.update_parameters(self.model)
 
             # Statistical loss value for terminal data output
-            giou_losses.update(loss_item[0], self.config["TRAIN"]["HYP"]["IMGS_PER_BATCH"])
+            iou_losses.update(loss_item[0], self.config["TRAIN"]["HYP"]["IMGS_PER_BATCH"])
             obj_losses.update(loss_item[1], self.config["TRAIN"]["HYP"]["IMGS_PER_BATCH"])
             cls_losses.update(loss_item[2], self.config["TRAIN"]["HYP"]["IMGS_PER_BATCH"])
-            losses.update(loss_item[3], self.config["TRAIN"]["HYP"]["IMGS_PER_BATCH"])
 
             # measure elapsed time
             batch_time.update(time.time() - end)
@@ -304,28 +252,29 @@ class Trainer:
             # Record training log information
             if batch_idx % self.config["TRAIN"]["PRINT_FREQ"] == 0 or (batch_idx + 1) == self.train_batches:
                 # Writer Loss to file
-                self.tblogger.add_scalar("Train/GIoULoss", loss_item[0], total_batch_idx)
+                self.tblogger.add_scalar("Train/IoULoss", loss_item[0], total_batch_idx)
                 self.tblogger.add_scalar("Train/ObjLoss", loss_item[1], total_batch_idx)
                 self.tblogger.add_scalar("Train/ClsLoss", loss_item[2], total_batch_idx)
-                self.tblogger.add_scalar("Train/Loss", loss_item[3], total_batch_idx)
 
                 progress.display(batch_idx + 1)
 
     def train(self):
+        self.load_checkpoint()
+
         for epoch in range(self.start_epoch, self.config["TRAIN"]["HYP"]["EPOCHS"]):
             self.train_on_epoch(epoch)
 
-            mean_p, mean_r, mean_ap, mean_f1 = self.evaler.validate_on_epoch(
+            mean_p, mean_r, mean_ap, mean_f1 = self.eval.validate_on_epoch(
                 self.model,
                 self.val_dataloader,
                 self.config["CLASS_NAMES"],
                 self.config["VAL"]["DATASET"]["AUGMENT"],
                 self.config["VAL"]["CONF_THRESH"],
                 self.config["VAL"]["IOU_THRESH"],
-                (self.config["VAL"]["IOUV1"], self.config["VAL"]["IOUV2"]),
+                eval(self.config["VAL"]["IOUV"]),
                 self.config["VAL"]["GT_JSON_PATH"],
                 self.config["VAL"]["PRED_JSON_PATH"],
-                False,
+                self.config["VAL"]["VERBOSE"],
                 self.device,
             )
 
@@ -336,8 +285,60 @@ class Trainer:
             print("\n")
 
             # Update learning rate scheduler
-            if self.lr_scheduler is not None:
-                self.lr_scheduler.step()
+            self.lr_scheduler.step()
 
             # Save weights
             self.save_checkpoint(epoch, mean_ap)
+
+    def load_checkpoint(self) -> None:
+        def _load(weights_path: str) -> None:
+            if os.path.isfile(weights_path):
+                with open(weights_path, "rb") as f:
+                    checkpoint = torch.load(f, map_location=self.device)
+                self.start_epoch = checkpoint.get("epoch", 0)
+                self.best_mean_ap = checkpoint.get("best_mean_ap", 0.0)
+                if self.device.type == "cuda":
+                    self.best_mean_ap = self.best_mean_ap.to(self.device)
+                load_state_dict(self.model, checkpoint.get("state_dict", checkpoint.get("ema_state_dict")))
+                self.optim.load_state_dict(checkpoint.get("optim", {}))
+                self.lr_scheduler.load_state_dict(checkpoint.get("lr_scheduler", {}))
+                print(f"Loaded checkpoint '{weights_path}'")
+            else:
+                raise FileNotFoundError(f"No checkpoint found at '{weights_path}'")
+
+        pretrained_weights = self.config["TRAIN"]["CHECKPOINT"]["PRETRAINED_WEIGHTS"]
+        resume_weights = self.config["TRAIN"]["CHECKPOINT"]["RESUME_WEIGHTS"]
+        if pretrained_weights:
+            _load(pretrained_weights)
+        elif resume_weights:
+            _load(resume_weights)
+        else:
+            print("No checkpoint or pretrained weights found, train from scratch")
+
+    def save_checkpoint(self, epoch: int, mean_ap: float) -> None:
+        # Automatically save models weights
+        is_best = mean_ap > self.best_mean_ap
+        self.best_mean_ap = max(mean_ap, self.best_mean_ap)
+
+        state_dict = {
+            "epoch": epoch + 1,
+            "best_mean_ap": self.best_mean_ap,
+            "state_dict": self.model.state_dict(),
+            "ema_state_dict": self.ema_model.state_dict(),
+            "optim": self.optim,
+            "lr_scheduler": self.lr_scheduler if self.lr_scheduler is not None else None,
+        }
+
+        weights_dir = self.save_weights_dir
+
+        if is_best:
+            weights_path = os.path.join(weights_dir, "best.pth.tar")
+        else:
+            weights_path = os.path.join(weights_dir, f"epoch_{epoch:06d}.pth.tar")
+
+        with open(weights_path, "wb") as f:
+            torch.save(state_dict, f)
+
+        weights_path = os.path.join(weights_dir, "last.pth.tar")
+        with open(weights_path, "wb") as f:
+            torch.save(state_dict, f)

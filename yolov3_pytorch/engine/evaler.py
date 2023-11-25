@@ -12,6 +12,7 @@
 # limitations under the License.
 # ==============================================================================
 import json
+import os
 from pathlib import Path
 from typing import Dict
 
@@ -71,8 +72,7 @@ class Evaler:
                                                      num_workers=4,
                                                      pin_memory=True,
                                                      drop_last=False,
-                                                     persistent_workers=True,
-                                                     collate_fn=val_datasets.collate_fn)
+                                                     persistent_workers=True)
 
         return val_dataloader
 
@@ -92,19 +92,24 @@ class Evaler:
 
         # Load model weights
         model_weights_path = self.config["VAL"]["WEIGHTS"]
-        if model_weights_path.endswith(".pth.tar"):
+        extension = os.path.splitext(model_weights_path)[1]
+
+        load_functions = {
+            ".pth.tar": load_state_dict,
+            ".weights": load_darknet_weights,
+        }
+
+        if extension in load_functions:
+            load_function = load_functions[extension]
             checkpoint = torch.load(model_weights_path, map_location=self.device)
-            if checkpoint["state_dict"]:
-                state_dict = checkpoint["state_dict"]
-            elif checkpoint["ema_state_dict"]:
-                state_dict = checkpoint["ema_state_dict"]
+            state_dict = checkpoint.get("state_dict") or checkpoint.get("ema_state_dict")
+            if state_dict:
+                model = load_function(model, state_dict)
             else:
                 raise ValueError(f"'{model_weights_path}' is not supported.")
-            model = load_state_dict(model, state_dict)
-        elif model_weights_path.endswith(".weights"):
-            model = load_darknet_weights(model, model_weights_path)
         else:
             raise ValueError(f"'{model_weights_path}' is not supported.")
+
         print(f"Loaded `{model_weights_path}` models weights successfully.")
 
         return model
@@ -119,7 +124,7 @@ class Evaler:
             self.config["VAL"]["DATASET"]["AUGMENT"],
             self.config["VAL"]["CONF_THRESH"],
             self.config["VAL"]["IOU_THRESH"],
-            (self.config["VAL"]["IOUV1"], self.config["VAL"]["IOUV2"]),
+            eval(self.config["VAL"]["IOUV"]),
             self.config["VAL"]["GT_JSON_PATH"],
             self.config["VAL"]["PRED_JSON_PATH"],
             self.config["VAL"]["VERBOSE"],
