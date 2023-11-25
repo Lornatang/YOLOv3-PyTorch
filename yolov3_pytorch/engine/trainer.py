@@ -301,8 +301,8 @@ class Trainer:
                 self.best_mean_ap = checkpoint.get("best_mean_ap", 0.0)
                 load_state_dict(self.model, checkpoint.get("state_dict", {}))
                 load_state_dict(self.ema_model, checkpoint.get("ema_state_dict", {}))
-                self.optim = checkpoint.get("optim", {})
-                self.lr_scheduler = checkpoint.get("lr_scheduler", {})
+                load_state_dict(self.optim, checkpoint.get("optim_state_dict", {}))
+                load_state_dict(self.lr_scheduler, checkpoint.get("lr_scheduler_state_dict", {}))
                 print(f"Loaded checkpoint '{weights_path}'")
             else:
                 raise FileNotFoundError(f"No checkpoint found at '{weights_path}'")
@@ -326,8 +326,8 @@ class Trainer:
             "best_mean_ap": self.best_mean_ap,
             "state_dict": self.model.state_dict(),
             "ema_state_dict": self.ema_model.state_dict(),
-            "optim": self.optim,
-            "lr_scheduler": self.lr_scheduler if self.lr_scheduler is not None else None,
+            "optim_state_dict": self.optim.state_dict(),
+            "lr_scheduler_state_dict": self.lr_scheduler.state_dict() if self.lr_scheduler is not None else None,
         }
 
         weights_dir = self.save_weights_dir
