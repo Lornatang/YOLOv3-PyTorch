@@ -76,9 +76,9 @@ TRAIN:
     NESTEROV: True
 
     LR_SCHEDULER:
-      NAME: "cosine_with_warm"
-      T_0: 50
-      ETA_MIN: 0
+      NAME: "step_lr"
+      STEP_SIZE: 50
+      GAMMA: 0.1
 
   IOU_THRESH: 0.20  # iou training threshold
 

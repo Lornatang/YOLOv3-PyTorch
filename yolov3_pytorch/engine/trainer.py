@@ -161,10 +161,15 @@ class Trainer:
         Returns:
             torch.optim.lr_scheduler: learning rate scheduler
         """
-        if self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["NAME"] != "cosine_with_warm":
-            print("No support for other learning rate schedulers, default set lr_scheduler=CosineAnnealingWarmRestarts")
-
-        scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optim, self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["T_0"])
+        lr_scheduler_name = self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["NAME"]
+        if lr_scheduler_name == "step_lr":
+            scheduler = optim.lr_scheduler.StepLR(self.optim,
+                                                  self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["STEP_SIZE"],
+                                                  self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["GAMMA"])
+        elif lr_scheduler_name == "cosine_with_warm":
+            scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optim, self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["T_0"])
+        else:
+            raise NotImplementedError("Only Support ['step_lr', 'cosine_with_warm'] lr_scheduler")
         return scheduler
 
     def train_on_epoch(self, epoch):
