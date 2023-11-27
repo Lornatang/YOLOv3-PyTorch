@@ -285,10 +285,10 @@ class Trainer:
                 self.config["VAL"]["VERBOSE"],
                 self.device,
             )
-            self.tblogger.add_scalar("Val/Precision", mean_p, epoch)
-            self.tblogger.add_scalar("Val/Recall", mean_r, epoch)
-            self.tblogger.add_scalar("Val/mAP", mean_ap, epoch)
-            self.tblogger.add_scalar("Val/F1", mean_f1, epoch)
+            self.tblogger.add_scalar("Val/Precision", mean_p, epoch + 1)
+            self.tblogger.add_scalar("Val/Recall", mean_r, epoch + 1)
+            self.tblogger.add_scalar("Val/mAP", mean_ap, epoch + 1)
+            self.tblogger.add_scalar("Val/F1", mean_f1, epoch + 1)
             print("\n")
 
             # Update learning rate scheduler
@@ -336,7 +336,7 @@ class Trainer:
         }
 
         if (epoch + 1) % self.config["TRAIN"]["SAVE_EVERY_EPOCH"] == 0:
-            weights_path = os.path.join(self.save_weights_dir, f"epoch_{epoch:06d}.pth.tar")
+            weights_path = os.path.join(self.save_weights_dir, f"epoch_{epoch + 1:06d}.pth.tar")
             torch.save(state_dict, weights_path)
 
         if is_best:
