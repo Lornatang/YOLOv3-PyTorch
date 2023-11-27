@@ -25,7 +25,6 @@ from torch.cuda import amp
 from torch.nn import functional as F_torch
 from torch.optim.swa_utils import AveragedModel
 from torch.utils.tensorboard import SummaryWriter
-
 from yolov3_pytorch.data import BaseDatasets
 from yolov3_pytorch.engine.evaler import Evaler
 from yolov3_pytorch.models import Darknet
@@ -257,7 +256,7 @@ class Trainer:
             end = time.time()
 
             # Record training log information
-            if batch_idx % self.config["TRAIN"]["PRINT_FREQ"] == 0 or (batch_idx + 1) == self.train_batches:
+            if batch_idx % self.config["TRAIN"]["PRINT_FREQ"] == 0 or (batch_idx + 1) % self.train_batches == 0:
                 # Writer Loss to file
                 self.tblogger.add_scalar("Train/IoULoss", loss_item[0], total_batch_idx)
                 self.tblogger.add_scalar("Train/ObjLoss", loss_item[1], total_batch_idx)
@@ -284,7 +283,6 @@ class Trainer:
                 self.config["VAL"]["VERBOSE"],
                 self.device,
             )
-
             self.tblogger.add_scalar("Val/Precision", mean_p, epoch)
             self.tblogger.add_scalar("Val/Recall", mean_r, epoch)
             self.tblogger.add_scalar("Val/mAP", mean_ap, epoch)
@@ -335,16 +333,13 @@ class Trainer:
             "lr_scheduler_state_dict": self.lr_scheduler.state_dict() if self.lr_scheduler is not None else None,
         }
 
-        weights_dir = self.save_weights_dir
+        if (epoch + 1) % self.config["TRAIN"]["SAVE_EVERY_EPOCH"] == 0:
+            weights_path = os.path.join(self.save_weights_dir, f"epoch_{epoch:06d}.pth.tar")
+            torch.save(state_dict, weights_path)
 
         if is_best:
-            weights_path = os.path.join(weights_dir, "best.pth.tar")
-        else:
-            weights_path = os.path.join(weights_dir, f"epoch_{epoch:06d}.pth.tar")
+            weights_path = os.path.join(self.save_weights_dir, "best.pth.tar")
+            torch.save(state_dict, weights_path)
 
-        with open(weights_path, "wb") as f:
-            torch.save(state_dict, f)
-
-        weights_path = os.path.join(weights_dir, "last.pth.tar")
-        with open(weights_path, "wb") as f:
-            torch.save(state_dict, f)
+        weights_path = os.path.join(self.save_weights_dir, "last.pth.tar")
+        torch.save(state_dict, weights_path)
