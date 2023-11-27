@@ -75,44 +75,44 @@ class Trainer:
             self.config["MODEL"]["NUM_CLASSES"] = 1
         self.config["TRAIN"]["LOSSES"]["CLS_LOSS"]["WEIGHT"] *= self.config["MODEL"]["NUM_CLASSES"] / 80
 
-        train_datasets = BaseDatasets(self.config["TRAIN"]["DATASET"]["ROOT"],
-                                      self.config["MODEL"]["IMG_SIZE"],
-                                      self.config["TRAIN"]["HYP"]["IMGS_PER_BATCH"],
-                                      self.config["TRAIN"]["DATASET"]["AUGMENT"],
-                                      self.config["AUGMENT"]["HYP"],
-                                      self.config["TRAIN"]["DATASET"]["RECT_LABEL"],
-                                      self.config["TRAIN"]["DATASET"]["CACHE_IMAGES"],
-                                      self.config["TRAIN"]["DATASET"]["SINGLE_CLASSES"],
-                                      pad=0.0,
-                                      gray=self.config["MODEL"]["GRAY"])
-        val_datasets = BaseDatasets(self.config["VAL"]["DATASET"]["ROOT"],
-                                    self.config["MODEL"]["IMG_SIZE"],
-                                    self.config["VAL"]["HYP"]["IMGS_PER_BATCH"],
-                                    self.config["VAL"]["DATASET"]["AUGMENT"],
-                                    self.config["AUGMENT"]["HYP"],
-                                    self.config["VAL"]["DATASET"]["RECT_LABEL"],
-                                    self.config["VAL"]["DATASET"]["CACHE_IMAGES"],
-                                    self.config["VAL"]["DATASET"]["SINGLE_CLASSES"],
-                                    pad=0.5,
-                                    gray=self.config["MODEL"]["GRAY"])
-        train_dataloader = torch.utils.data.DataLoader(train_datasets,
+        train_dataset = BaseDatasets(self.config["TRAIN"]["DATASET"]["ROOT"],
+                                     self.config["MODEL"]["IMG_SIZE"],
+                                     self.config["TRAIN"]["HYP"]["IMGS_PER_BATCH"],
+                                     self.config["TRAIN"]["DATASET"]["AUGMENT"],
+                                     self.config["AUGMENT"]["HYP"],
+                                     self.config["TRAIN"]["DATASET"]["RECT_LABEL"],
+                                     self.config["TRAIN"]["DATASET"]["CACHE_IMAGES"],
+                                     self.config["TRAIN"]["DATASET"]["SINGLE_CLASSES"],
+                                     pad=0.0,
+                                     gray=self.config["MODEL"]["GRAY"])
+        val_dataset = BaseDatasets(self.config["VAL"]["DATASET"]["ROOT"],
+                                   self.config["MODEL"]["IMG_SIZE"],
+                                   self.config["VAL"]["HYP"]["IMGS_PER_BATCH"],
+                                   self.config["VAL"]["DATASET"]["AUGMENT"],
+                                   self.config["AUGMENT"]["HYP"],
+                                   self.config["VAL"]["DATASET"]["RECT_LABEL"],
+                                   self.config["VAL"]["DATASET"]["CACHE_IMAGES"],
+                                   self.config["VAL"]["DATASET"]["SINGLE_CLASSES"],
+                                   pad=0.5,
+                                   gray=self.config["MODEL"]["GRAY"])
+        train_dataloader = torch.utils.data.DataLoader(train_dataset,
                                                        batch_size=self.config["TRAIN"]["HYP"]["IMGS_PER_BATCH"],
                                                        shuffle=True,
                                                        num_workers=4,
                                                        pin_memory=True,
                                                        drop_last=True,
                                                        persistent_workers=True,
-                                                       collate_fn=train_datasets.collate_fn)
-        val_dataloader = torch.utils.data.DataLoader(val_datasets,
+                                                       collate_fn=train_dataset.collate_fn)
+        val_dataloader = torch.utils.data.DataLoader(val_dataset,
                                                      batch_size=self.config["VAL"]["HYP"]["IMGS_PER_BATCH"],
                                                      shuffle=False,
                                                      num_workers=4,
                                                      pin_memory=True,
                                                      drop_last=False,
                                                      persistent_workers=True,
-                                                     collate_fn=val_datasets.collate_fn)
+                                                     collate_fn=val_dataset.collate_fn)
 
-        return train_datasets, val_datasets, train_dataloader, val_dataloader
+        return train_dataset, val_dataset, train_dataloader, val_dataloader
 
     def build_model(self) -> tuple:
         # Create model
@@ -167,8 +167,10 @@ class Trainer:
                                                   self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["GAMMA"])
         elif lr_scheduler_name == "cosine_with_warm":
             scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optim, self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["T_0"])
+        elif lr_scheduler_name == "cosine":
+            scheduler = optim.lr_scheduler.CosineAnnealingLR(self.optim, self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["T_max"])
         else:
-            raise NotImplementedError("Only Support ['step_lr', 'cosine_with_warm'] lr_scheduler")
+            raise NotImplementedError("Only Support ['step_lr', 'cosine_with_warm', 'cosine'] lr_scheduler")
         return scheduler
 
     def train_on_epoch(self, epoch):
@@ -235,12 +237,12 @@ class Trainer:
                                                self.config["TRAIN"]["IOU_THRESH"],
                                                self.config["TRAIN"]["LOSSES"])
             # Scale loss
-            loss *= self.config["TRAIN"]["HYP"]["IMGS_PER_BATCH"] / self.config["TRAIN"]["HYP"]["ACCUMULATE_BATCH_SIZE"]
+            loss /= accumulate
             # Backpropagation
             self.scaler.scale(loss).backward()
 
             # update generator weights
-            if (total_batch_idx + 1) % accumulate == 0:
+            if (batch_idx + 1) % accumulate == 0 or (batch_idx + 1) == self.train_batches:
                 self.scaler.step(self.optim)
                 self.scaler.update()
                 # update exponential average models weights
