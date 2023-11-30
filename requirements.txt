@@ -6,10 +6,11 @@ tqdm
 setuptools
 opencv-python
 typing
-Pillow
+Pillow==9.5.0
 scikit-image
 torchvision
 matplotlib
 scipy
 pycocotools
 thop
+wandb

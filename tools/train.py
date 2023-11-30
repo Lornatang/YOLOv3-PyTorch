@@ -18,11 +18,11 @@ All training scripts are scheduled by this script
 import argparse
 import os
 import random
-from datetime import datetime
 
 import numpy as np
 import torch
 import yaml
+import wandb
 from torch.backends import cudnn
 from torch.cuda import amp
 from torch.utils.tensorboard import SummaryWriter
@@ -46,14 +46,18 @@ def init(config) -> tuple:
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
+    # Define the running device number
+    device = torch.device("cuda", config["DEVICE_ID"])
+
+    if device.type != "cuda":
+        raise RuntimeError("Only CUDA is supported.")
+
     # Because the size of the input image is fixed, the fixed CUDNN convolution method can greatly increase the running speed
     cudnn.benchmark = True
+    torch.set_float32_matmul_precision("high")
 
     # Initialize the mixed precision method
     scaler = amp.GradScaler()
-
-    # Define the running device number
-    device = torch.device("cuda", config["DEVICE_ID"])
 
     # Create a folder to save the model and log
     strtime = time.strftime("%Y%m%d_%H%M%S", time.localtime())
@@ -64,6 +68,11 @@ def init(config) -> tuple:
 
     # Use tensorboard to record the training process
     tblogger = SummaryWriter(save_tblogger_dir)
+
+    # wandb
+    wandb_project_name = config["PROJECT_NAME"]
+    wandb_name = config["EXP_NAME"] + "-" + strtime
+    wandb.init(config=config, project=wandb_project_name, name=wandb_name)
 
     return scaler, device, save_weights_dir, tblogger
 

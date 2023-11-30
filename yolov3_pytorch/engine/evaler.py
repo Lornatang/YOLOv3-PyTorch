@@ -12,7 +12,6 @@
 # limitations under the License.
 # ==============================================================================
 import json
-import os
 from pathlib import Path
 from typing import Dict
 
@@ -27,7 +26,7 @@ from tqdm import tqdm
 
 from yolov3_pytorch.data.base import BaseDatasets
 from yolov3_pytorch.models.darknet import Darknet
-from yolov3_pytorch.models.utils import load_state_dict, load_darknet_weights
+from yolov3_pytorch.models.utils import load_state_dict
 from yolov3_pytorch.utils.common import clip_coords, coco80_to_coco91_class, scale_coords, xywh2xyxy, xyxy2xywh
 from yolov3_pytorch.utils.metrics import ap_per_class
 from yolov3_pytorch.utils.nms import non_max_suppression
@@ -83,7 +82,6 @@ class Evaler:
                         self.config["MODEL"]["IMG_SIZE"],
                         self.config["MODEL"]["GRAY"],
                         self.config["MODEL"]["COMPILED"])
-        model = model.to(self.device)
 
         model.num_classes = self.config["MODEL"]["NUM_CLASSES"]
 
@@ -92,26 +90,24 @@ class Evaler:
             model = torch.compile(model)
 
         # Load model weights
-        model_weights_path = self.config["VAL"]["WEIGHTS"]
-        extension = os.path.splitext(model_weights_path)[1]
+        weights = self.config["VAL"]["WEIGHTS"]
 
-        load_functions = {
-            ".pth.tar": load_state_dict,
-            ".weights": load_darknet_weights,
-        }
-
-        if extension in load_functions:
-            load_function = load_functions[extension]
-            checkpoint = torch.load(model_weights_path, map_location=self.device)
-            state_dict = checkpoint.get("state_dict") or checkpoint.get("ema_state_dict")
+        if weights.endswith(".pth.tar"):
+            checkpoint = torch.load(weights, map_location=self.device)
+            state_dict = checkpoint.get("state_dict")
+            ema_state_dict = checkpoint.get("ema_state_dict")
             if state_dict:
-                model = load_function(model, state_dict)
+                model = load_state_dict(model, state_dict, self.config["MODEL"]["COMPILE_MODE"])
+            elif ema_state_dict:
+                model = load_state_dict(model, ema_state_dict, self.config["MODEL"]["COMPILE_MODE"])
             else:
-                raise ValueError(f"'{model_weights_path}' is not supported.")
+                raise ValueError(f"The checkpoint file `{weights}` is invalid.")
         else:
-            raise ValueError(f"'{model_weights_path}' is not supported.")
+            raise ValueError(f"'{weights}' is not supported.")
 
-        print(f"Loaded `{model_weights_path}` models weights successfully.")
+        print(f"Loaded `{weights}` models weights successfully.")
+        model = model.to(self.device)
+        model.eval()
 
         return model
 

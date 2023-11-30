@@ -11,8 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-# experiment name
-EXP_NAME: yolov3_voc0712
+PROJECT_NAME: yolov3
+EXP_NAME: yolov3-voc0712
 # random number seed
 SEED: 42
 # run device models
@@ -38,7 +38,7 @@ MODEL:
   IMG_SIZE: 512
   GRAY: False
   NUM_CLASSES: 20
-  COMPILED: False
+  COMPILE_MODE: False
 
   GRID_SIZE: 32
 
@@ -56,10 +56,7 @@ TRAIN:
     IMG_SIZE_MIN: 320
     IMG_SIZE_MAX: 512
 
-  # Model file address, used for pre-training and recovery training
-  CHECKPOINT:
-    PRETRAINED_WEIGHTS: ""
-    RESUME_WEIGHTS: ""
+  WEIGHTS: ""
 
   # training hyperparameters
   HYP:

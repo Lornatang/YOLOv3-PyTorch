@@ -20,19 +20,18 @@ from typing import Dict, Union
 
 import torch
 import torch.utils.data
+import wandb
 from torch import optim
 from torch.cuda import amp
 from torch.nn import functional as F_torch
 from torch.optim.swa_utils import AveragedModel
 from torch.utils.tensorboard import SummaryWriter
+
 from yolov3_pytorch.data import BaseDatasets
-from yolov3_pytorch.engine.evaler import Evaler
-from yolov3_pytorch.models import Darknet
+from yolov3_pytorch.engine import Evaler
+from yolov3_pytorch.models import Darknet, load_state_dict
 from yolov3_pytorch.models.losses import compute_loss
-from yolov3_pytorch.models.utils import load_state_dict
-from yolov3_pytorch.utils.common import labels_to_class_weights
-from yolov3_pytorch.utils.loggers import AverageMeter, ProgressMeter
-from yolov3_pytorch.utils.plots import plot_images
+from yolov3_pytorch.utils import labels_to_class_weights, plot_images, AverageMeter, ProgressMeter
 
 __all__ = [
     "Trainer",
@@ -119,7 +118,7 @@ class Trainer:
         model = Darknet(self.config["MODEL"]["CONFIG_PATH"],
                         self.config["MODEL"]["IMG_SIZE"],
                         self.config["MODEL"]["GRAY"],
-                        self.config["MODEL"]["COMPILED"])
+                        self.config["MODEL"]["COMPILE_MODE"])
         model = model.to(self.device)
 
         model.num_classes = self.config["MODEL"]["NUM_CLASSES"]
@@ -130,7 +129,7 @@ class Trainer:
         ema_model = AveragedModel(model, self.device, ema_avg_fn)
 
         # Compile model
-        if self.config["MODEL"]["COMPILED"]:
+        if self.config["MODEL"]["COMPILE_MODE"]:
             model = torch.compile(model)
             ema_model = torch.compile(ema_model)
 
@@ -140,7 +139,7 @@ class Trainer:
         if self.config["TRAIN"]["OPTIM"]["NAME"] == "adam":
             optimizer = optim.Adam(self.model.parameters(),
                                    self.config["TRAIN"]["OPTIM"]["LR"],
-                                   (self.config["TRAIN"]["OPTIM"]["BETA1"], self.config["TRAIN"]["OPTIM"]["BETA2"]),
+                                   eval(self.config["TRAIN"]["OPTIM"]["BETAS"]),
                                    weight_decay=self.config["TRAIN"]["OPTIM"]["WEIGHT_DECAY"])
         elif self.config["TRAIN"]["OPTIM"]["NAME"] == "sgd":
             optimizer = optim.SGD(self.model.parameters(),
@@ -162,16 +161,16 @@ class Trainer:
         """
         lr_scheduler_name = self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["NAME"]
         if lr_scheduler_name == "step_lr":
-            scheduler = optim.lr_scheduler.StepLR(self.optim,
-                                                  self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["STEP_SIZE"],
-                                                  self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["GAMMA"])
+            lr_scheduler = optim.lr_scheduler.StepLR(self.optim,
+                                                     self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["STEP_SIZE"],
+                                                     self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["GAMMA"])
         elif lr_scheduler_name == "cosine_with_warm":
-            scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optim, self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["T_0"])
+            lr_scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optim, self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["T_0"])
         elif lr_scheduler_name == "cosine":
-            scheduler = optim.lr_scheduler.CosineAnnealingLR(self.optim, self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["T_max"])
+            lr_scheduler = optim.lr_scheduler.CosineAnnealingLR(self.optim, self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["T_max"])
         else:
             raise NotImplementedError("Only Support ['step_lr', 'cosine_with_warm', 'cosine'] lr_scheduler")
-        return scheduler
+        return lr_scheduler
 
     def train_on_epoch(self, epoch):
         # The information printed by the progress bar
@@ -194,7 +193,7 @@ class Trainer:
         accumulate = max(round(self.config["TRAIN"]["HYP"]["ACCUMULATE_BATCH_SIZE"] / self.config["TRAIN"]["HYP"]["IMGS_PER_BATCH"]), 1)
 
         for batch_idx, (imgs, targets, paths, _) in enumerate(self.train_dataloader):
-            total_batch_idx = batch_idx + (self.train_batches * epoch)
+            total_batch_idx = batch_idx + (self.train_batches * epoch) + 1
             imgs = imgs.to(self.device).float() / 255.0
             targets = targets.to(self.device)
 
@@ -258,11 +257,21 @@ class Trainer:
             end = time.time()
 
             # Record training log information
-            if batch_idx % self.config["TRAIN"]["PRINT_FREQ"] == 0 or (batch_idx + 1) % self.train_batches == 0:
-                # Writer Loss to file
-                self.tblogger.add_scalar("Train/IoULoss", loss_item[0], total_batch_idx)
-                self.tblogger.add_scalar("Train/ObjLoss", loss_item[1], total_batch_idx)
-                self.tblogger.add_scalar("Train/ClsLoss", loss_item[2], total_batch_idx)
+            if batch_idx % self.config["TRAIN"]["PRINT_FREQ"] == 0:
+                # Tensorboard
+                self.tblogger.add_scalar("train/iou_loss", loss_item[0], total_batch_idx)
+                self.tblogger.add_scalar("train/obj_loss", loss_item[1], total_batch_idx)
+                self.tblogger.add_scalar("train/cls_loss", loss_item[2], total_batch_idx)
+
+                # Wandb
+                wandb.log(
+                    {
+                        "iou_loss(train)": loss_item[0],
+                        "obj_loss(train)": loss_item[1],
+                        "cls_loss(train)": loss_item[2],
+                    },
+                    step=total_batch_idx,
+                )
 
                 progress.display(batch_idx + 1)
 
@@ -285,11 +294,24 @@ class Trainer:
                 self.config["VAL"]["VERBOSE"],
                 self.device,
             )
-            self.tblogger.add_scalar("Val/Precision", mean_p, epoch + 1)
-            self.tblogger.add_scalar("Val/Recall", mean_r, epoch + 1)
-            self.tblogger.add_scalar("Val/mAP", mean_ap, epoch + 1)
-            self.tblogger.add_scalar("Val/F1", mean_f1, epoch + 1)
             print("\n")
+
+            # Tensorboard
+            self.tblogger.add_scalar("val/precision", mean_p, epoch + 1)
+            self.tblogger.add_scalar("val/recall", mean_r, epoch + 1)
+            self.tblogger.add_scalar("val/mean_ap", mean_ap, epoch + 1)
+            self.tblogger.add_scalar("val/f1", mean_f1, epoch + 1)
+
+            # Wandb
+            wandb.log(
+                {
+                    "epoch": epoch + 1,
+                    "precision(val)": mean_p,
+                    "recall(val)": mean_r,
+                    "mean_ap(val)": mean_ap,
+                    "f1(val)": mean_f1,
+                }
+            )
 
             # Update learning rate scheduler
             self.lr_scheduler.step()
@@ -298,26 +320,17 @@ class Trainer:
             self.save_checkpoint(epoch, mean_ap)
 
     def load_checkpoint(self) -> None:
-        def _load(weights_path: str) -> None:
-            if os.path.isfile(weights_path):
-                with open(weights_path, "rb") as f:
-                    checkpoint = torch.load(f, map_location=self.device)
-                self.start_epoch = checkpoint.get("epoch", 0)
-                self.best_mean_ap = checkpoint.get("best_mean_ap", 0.0)
-                load_state_dict(self.model, checkpoint.get("state_dict", {}))
-                load_state_dict(self.ema_model, checkpoint.get("ema_state_dict", {}))
-                load_state_dict(self.optim, checkpoint.get("optim_state_dict", {}))
-                load_state_dict(self.lr_scheduler, checkpoint.get("lr_scheduler_state_dict", {}))
-                print(f"Loaded checkpoint '{weights_path}'")
-            else:
-                raise FileNotFoundError(f"No checkpoint found at '{weights_path}'")
-
-        pretrained_weights = self.config["TRAIN"]["CHECKPOINT"]["PRETRAINED_WEIGHTS"]
-        resume_weights = self.config["TRAIN"]["CHECKPOINT"]["RESUME_WEIGHTS"]
-        if pretrained_weights:
-            _load(pretrained_weights)
-        elif resume_weights:
-            _load(resume_weights)
+        weights = self.config["TRAIN"]["WEIGHTS"]
+        if weights.endswith(".pth.tar"):
+            with open(weights, "rb") as f:
+                checkpoint = torch.load(f, map_location=self.device)
+            self.start_epoch = checkpoint.get("epoch", 0)
+            self.best_mean_ap = checkpoint.get("best_mean_ap", 0.0)
+            load_state_dict(self.model, checkpoint.get("state_dict", {}), self.config["MODEL"]["COMPILE_MODE"])
+            load_state_dict(self.ema_model, checkpoint.get("ema_state_dict", {}), self.config["MODEL"]["COMPILE_MODE"])
+            load_state_dict(self.optim, checkpoint.get("optim_state_dict", {}), False)
+            load_state_dict(self.lr_scheduler, checkpoint.get("lr_scheduler_state_dict", {}), False)
+            print(f"Loaded checkpoint '{weights}'")
         else:
             print("No checkpoint or pretrained weights found, train from scratch")
 
@@ -332,7 +345,7 @@ class Trainer:
             "state_dict": self.model.state_dict(),
             "ema_state_dict": self.ema_model.state_dict(),
             "optim_state_dict": self.optim.state_dict(),
-            "lr_scheduler_state_dict": self.lr_scheduler.state_dict() if self.lr_scheduler is not None else None,
+            "lr_scheduler_state_dict": self.lr_scheduler.state_dict(),
         }
 
         if (epoch + 1) % self.config["TRAIN"]["SAVE_EVERY_EPOCH"] == 0:

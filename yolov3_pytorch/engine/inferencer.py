@@ -83,8 +83,15 @@ class Inferencer:
         # Load model weights
         with torch.no_grad():
             if self.weights.endswith(".pth.tar"):
-                state_dict = torch.load(self.weights, map_location=self.device)["state_dict"]
-                model = load_state_dict(model, state_dict)
+                ckpt = torch.load(self.weights, map_location=self.device)
+                state_dict = ckpt.get("state_dict")
+                ema_state_dict = ckpt.get("ema_state_dict")
+                if state_dict:
+                    model = load_state_dict(model, state_dict, False)
+                elif ema_state_dict:
+                    model = load_state_dict(model, ema_state_dict, False)
+                else:
+                    raise ValueError(f"The checkpoint file `{self.weights}` is invalid.")
             elif self.weights.endswith(".weights"):
                 model.load_darknet_weights(self.weights)
             else:
