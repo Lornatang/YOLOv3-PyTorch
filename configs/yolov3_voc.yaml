@@ -73,8 +73,7 @@ TRAIN:
     NESTEROV: True
 
     LR_SCHEDULER:
-      NAME: "cosine"
-      T_max: 25
+      NAME: "one_cycle"
 
   IOU_THRESH: 0.20  # iou training threshold
 

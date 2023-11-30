@@ -168,6 +168,8 @@ class Trainer:
             lr_scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optim, self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["T_0"])
         elif lr_scheduler_name == "cosine":
             lr_scheduler = optim.lr_scheduler.CosineAnnealingLR(self.optim, self.config["TRAIN"]["OPTIM"]["LR_SCHEDULER"]["T_max"])
+        elif lr_scheduler_name == "one_cycle":
+            lr_scheduler = optim.lr_scheduler.OneCycleLR(self.optim, self.config["TRAIN"]["OPTIM"]["LR"], self.config["TRAIN"]["HYP"]["EPOCHS"])
         else:
             raise NotImplementedError("Only Support ['step_lr', 'cosine_with_warm', 'cosine'] lr_scheduler")
         return lr_scheduler

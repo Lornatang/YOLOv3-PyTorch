@@ -80,9 +80,7 @@ TRAIN:
     NESTEROV: True
 
     LR_SCHEDULER:
-      NAME: "step_lr"
-      STEP_SIZE: 50
-      GAMMA: 0.1
+      NAME: "one_cycle"
 
   IOU_THRESH: 0.20  # iou training threshold
 
