@@ -10,6 +10,7 @@ figure
 dist
 results
 tb_logger
+wandb
 yolov3_pytorch.egg-info
 
 .DS_Store
