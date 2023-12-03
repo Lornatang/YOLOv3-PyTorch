@@ -330,8 +330,8 @@ class Trainer:
             self.best_mean_ap = checkpoint.get("best_mean_ap", 0.0)
             load_state_dict(self.model, checkpoint.get("state_dict", {}), self.config["MODEL"]["COMPILE_MODE"])
             load_state_dict(self.ema_model, checkpoint.get("ema_state_dict", {}), self.config["MODEL"]["COMPILE_MODE"])
-            load_state_dict(self.optim, checkpoint.get("optim_state_dict", {}), False)
-            load_state_dict(self.lr_scheduler, checkpoint.get("lr_scheduler_state_dict", {}), False)
+            self.optim.load_state_dict(checkpoint.get("optim_state_dict", {}))
+            self.lr_scheduler.load_state_dict(checkpoint.get("lr_scheduler_state_dict", {}))
             print(f"Loaded checkpoint '{weights}'")
         else:
             print("No checkpoint or pretrained weights found, train from scratch")
