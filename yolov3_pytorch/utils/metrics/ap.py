@@ -36,7 +36,7 @@ def compute_ap(recall: np.ndarray, precision: np.ndarray) -> float:
     mean_precision = np.maximum.accumulate(mean_precision[::-1])[::-1]
 
     # Integrate area under curve
-    x = np.linspace(0, 1, 101)  # 101-point interp (COCO)
+    x = np.linspace(0, 1, 101)  # 101-point interp (COCO-Detection)
     ap = np.trapz(np.interp(x, mean_recall, mean_precision), x)  # integrate
 
     return ap

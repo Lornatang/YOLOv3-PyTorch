@@ -322,9 +322,9 @@ class Trainer:
             self.save_checkpoint(epoch, mean_ap)
 
     def load_checkpoint(self) -> None:
-        weights = self.config["TRAIN"]["WEIGHTS"]
-        if weights.endswith(".pth.tar"):
-            with open(weights, "rb") as f:
+        weights_path = self.config["TRAIN"]["WEIGHTS_PATH"]
+        if weights_path.endswith(".pth.tar"):
+            with open(weights_path, "rb") as f:
                 checkpoint = torch.load(f, map_location=self.device)
             self.start_epoch = checkpoint.get("epoch", 0)
             self.best_mean_ap = checkpoint.get("best_mean_ap", 0.0)
@@ -332,7 +332,7 @@ class Trainer:
             load_state_dict(self.ema_model, checkpoint.get("ema_state_dict", {}), self.config["MODEL"]["COMPILE_MODE"])
             self.optim.load_state_dict(checkpoint.get("optim_state_dict", {}))
             self.lr_scheduler.load_state_dict(checkpoint.get("lr_scheduler_state_dict", {}))
-            print(f"Loaded checkpoint '{weights}'")
+            print(f"Loaded checkpoint '{weights_path}'")
         else:
             print("No checkpoint or pretrained weights found, train from scratch")
 

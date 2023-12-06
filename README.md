@@ -7,16 +7,16 @@
     - [Requirements](#requirements)
     - [From PyPI](#from-pypi)
     - [Local Install](#local-install)
-- [Inference (TODO)](#inference-todo)
 - [All pretrained model weights](#all-pretrained-model-weights)
-- [How Test and Train](#how-test-and-train)
-    - [Test yolov3_tiny_voc model](#test-yolov3tinyvoc-model)
-    - [Train yolov3_tiny_voc model](#train-yolov3tinyvoc-model)
-    - [Resume train yolov3_tiny_voc model](#resume-train-yolov3tinyvoc-model)
-- [Result](#result)
+- [Inference](#inference)
+- [Test](#test)
+- [Results](#results)
+    - [COCO Object Detection](#coco-object-detection)
+    - [VOC Object Detection](#voc-object-detection)
+- [Results](#results)
 - [Contributing](#contributing)
 - [Credit](#credit)
-    - [YOLOv3: An Incremental Improvement](#yolov3--an-incremental-improvement)
+    - [YOLOv3: An Incremental Improvement](#yolov3-an-incremental-improvement)
 
 ## Introduction
 
@@ -51,13 +51,15 @@ pip install -e .
 - [Google Driver](https://drive.google.com/drive/folders/1b5f3FSeZwIFs4bp17OWKhQeaEcMKJyma?usp=sharing)
 - [Baidu Driver](https://pan.baidu.com/s/1GvepU_8APWChG_03yUVQ_w?pwd=7e0g)
 
-## Inference (e.g YOLOv3_Tiny-VOC0712)
+## Inference
 
 ```shell
-# Download YOLOv3_Tiny-VOC0712 model weights to `./results/pretrained_models`
-wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar -O ./resutls/pretrained_models/YOLOv3_Tiny-VOC0712-20231107.pth.tar
+# Download pretrained model weights to `./results/pretrained_models`
+wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-COCO-20231107.pth.tar -O ./results/pretrained_models/YOLOv3_Tiny-COCO-20231107.pth.tar
 python ./tools/inference.py ./data/examples/dog.jpg
-# Result will be saved to `./results/predict/YOLOv3_Tiny-VOC0712/dog.jpg`
+# Loaded `./results/pretrained_models/YOLOv3_Tiny-COCO-20231107.pth.tar` models weights successfully.
+# image 1/1 ./data/examples/dog.jpg: 320x416 1 bicycle, 2 car, 1 dog,
+# See ./results/inference/dog.jpg for visualization.
 ```
 
 <div align="center">
@@ -66,46 +68,42 @@ python ./tools/inference.py ./data/examples/dog.jpg
 
 ## Test
 
-### VOC0712
-
 ```shell
 # Download dataset to `./data`
 cd ./scripts
 bash ./process_voc0712_dataset.sh
 cd ..
 # Download pretrained model weights to `./results/pretrained_models`
-wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar -O ./resutls/pretrained_models/YOLOv3_Tiny-VOC0712-20231107.pth.tar
-python ./tools/eval.py ./configs/YOLOv3_Tiny-VOC0712.yaml
+wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC-20231107.pth.tar -O ./results/pretrained_models/YOLOv3_Tiny-VOC-20231107.pth.tar
+python ./tools/eval.py ./configs/VOC-Detection/yolov3_tiny.yaml
 ```
 
 ### Results
 
-#### COCO2014
+#### COCO Object Detection
 
-|                                                                     Model                                                                     | Size | mAP<sup>val<br/>0.5:0.95 | FLOPs(G) | Parameters(M) | Memory(MB) |
-|:---------------------------------------------------------------------------------------------------------------------------------------------:|:----:|:------------------------:|:--------:|:-------------:|:----------:|
-|     [**YOLOv3_Tiny-COCO2014**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-COCO2014-20231107.pth.tar)     | 416  |           18.7           |   5.6    |     0.71      |    8.9     |
-| [**YOLOv3_Tiny_PRN-COCO2014**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny_PRN-COCO2014-20231107.pth.tar) | 416  |           11.1           |   3.5    |     0.66      |    4.9     |
-|          [**YOLOv3-COCO2014**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3-COCO2014-20231107.pth.tar)          | 416  |           66.7           |   66.2   |     0.88      |    61.9    |
-|      [**YOLOv3_SPP-COCO2014**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_SPP-COCO2014-20231107.pth.tar)      | 416  |           66.7           |   66.5   |     0.88      |    63.0    |
+|                                Name                                | Size | mAP<sup>val<br/>0.5:0.95 | FLOPs(G) | Parameters(M) | Memory(MB) |                                                       download                                                       |
+|:------------------------------------------------------------------:|:----:|:------------------------:|:--------:|:-------------:|:----------:|:--------------------------------------------------------------------------------------------------------------------:|
+|     [**yolov3_tiny**](configs/COCO-Detection/yolov3_tiny.yaml)     | 416  |           18.7           |   5.6    |     0.71      |    8.9     |   https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_Tiny-COCO-20231107.pth.tar?download=true   |
+| [**yolov3_tiny_prn**](configs/COCO-Detection/yolov3_tiny_prn.yaml) | 416  |           11.1           |   3.5    |     0.66      |    4.9     | https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_Tiny_PRN-COCO-20231107.pth.tar?download=true |
+|          [**yolov3**](configs/COCO-Detection/yolov3.yaml)          | 416  |           66.7           |   66.2   |     0.88      |    61.9    |     https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3-COCO-20231107.pth.tar?download=true      |
+|      [**yolov3_spp**](configs/COCO-Detection/yolov3_spp.yaml)      | 416  |           66.7           |   66.5   |     0.88      |    63.0    |   https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_SPP-COCO-20231107.pth.tar?download=true    |
 
-#### VOC
+#### VOC Object Detection
 
-|                                                                             Model                                                                             | Size | mAP<sup>val<br/>0.5:0.95 | FLOPs(B) | Memory(MB) | Parameters(M) |
-|:-------------------------------------------------------------------------------------------------------------------------------------------------------------:|:----:|:------------------------:|:--------:|:----------:|:-------------:|
-|              [**YOLOv3_Tiny-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar)              | 416  |           58.8           |   5.5    |    0.27    |      8.7      |
-|          [**YOLOv3_Tiny_PRN-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny_PRN-VOC0712-20231107.pth.tar)          | 416  |           47.9           |   3.5    |    0.27    |      4.9      |
-|                   [**YOLOv3-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3-VOC0712-20231107.pth.tar)                   | 416  |           82.9           |   65.7   |    0.61    |     61.6      |
-|               [**YOLOv3_SPP-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_SPP-VOC0712-20231107.pth.tar)               | 416  |           83.2           |   66.1   |    0.88    |     62.7      |
-|       [**YOLOv3_MobileNetV1-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_MobileNetV1-VOC0712-20231107.pth.tar)       | 416  |           65.6           |   6.6    |    0.69    |      6.2      |
-|       [**YOLOv3_MobileNetV2-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_MobileNetV2-VOC0712-20231107.pth.tar)       | 416  |           68.2           |   3.5    |    0.49    |      4.3      |
-| [**YOLOv3_MobileNetV3_Large-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_MobileNetV3_Large-VOC0712-20231107.pth.tar) | 416  |           70.1           |   2.8    |    0.50    |      4.7      |
-| [**YOLOv3_MobileNetV3_Small-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_MobileNetV3_Small-VOC0712-20231107.pth.tar) | 416  |           53.7           |   1.5    |    0.48    |      2.8      |
-|             [**YOLOv3_VGG16-VOC0712**](https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_VGG16-VOC0712-20231107.pth.tar)             | 416  |           74.1           |  122.8   |    0.74    |     35.5      |
+|                                  Model                                  | Size | mAP<sup>val<br/>0.5:0.95 | FLOPs(B) | Memory(MB) | Parameters(M) |                                                        download                                                        |
+|:-----------------------------------------------------------------------:|:----:|:------------------------:|:--------:|:----------:|:-------------:|:----------------------------------------------------------------------------------------------------------------------:|
+|        [**yolov3_tiny**](configs/VOC-Detection/yolov3_tiny.yaml)        | 416  |           58.8           |   5.5    |    0.27    |      8.7      |    https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_Tiny-VOC-20231107.pth.tar?download=true     |
+|    [**yolov3_tiny_prn**](configs/VOC-Detection/yolov3_tiny_prn.yaml)    | 416  |           47.9           |   3.5    |    0.27    |      4.9      |  https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_Tiny_PRN-VOC-20231107.pth.tar?download=true   |
+|             [**yolov3**](configs/VOC-Detection/yolov3.yaml)             | 416  |           82.9           |   65.7   |    0.61    |     61.6      |       https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3-VOC-20231107.pth.tar?download=true       |
+|         [**yolov3_spp**](configs/VOC-Detection/yolov3_spp.yaml)         | 416  |           83.2           |   66.1   |    0.88    |     62.7      |     https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_SPP-VOC-20231107.pth.tar?download=true     |
+| [**yolov3_mobilenetv1**](configs/VOC-Detection/yolov3_mobilenetv1.yaml) | 416  |           65.6           |   6.6    |    0.69    |      6.2      | https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_MobileNetV1-VOC-20231107.pth.tar?download=true |
+| [**yolov3_mobilenetv2**](configs/VOC-Detection/yolov3_mobilenetv2.yaml) | 416  |           68.2           |   3.5    |    0.49    |      4.3      | https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_MobileNetV2-VOC-20231107.pth.tar?download=true |
+|       [**yolov3_vgg16**](configs/VOC-Detection/yolov3_vgg16.yaml)       | 416  |           74.1           |  122.8   |    0.74    |     35.5      |    https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_VGG16-VOC-20231107.pth.tar?download=true    |
 
 ## Train
 
-### VOC0712
+### VOC
 
 ```shell
 # Download dataset to `./data`
@@ -113,11 +111,12 @@ cd ./scripts
 bash ./process_voc0712_dataset.sh
 cd ..
 # Download pretrained model weights to `./results/pretrained_models`
-wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC0712-20231107.pth.tar -O ./resutls/pretrained_models/YOLOv3_Tiny-VOC0712-20231107.pth.tar
-python ./tools/train.py ./configs/YOLOv3_Tiny-VOC0712.yaml
+wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-VOC-20231107.pth.tar -O ./results/pretrained_models/YOLOv3_Tiny-VOC-20231107.pth.tar
+# change WEIGHTS_PATH in ./configs/VOC-Detection/yolov3_tiny.yaml
+python ./tools/train.py ./configs/VOC-Detection/yolov3_tiny.yaml
 ```
 
-### COCO2014 & COCO2017
+### COCO
 
 ```shell
 # COCO2014
@@ -126,18 +125,9 @@ cd ./scripts
 bash ./process_coco2014_dataset.sh
 cd ..
 # Download pretrained model weights to `./results/pretrained_models`
-wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-COCO2014-20231107.pth.tar -O ./resutls/pretrained_models/YOLOv3_Tiny-COCO2014-20231107.pth.tar
-python ./tools/train.py ./configs/YOLOv3_Tiny-COCO2014.yaml
-
-# COCO2017
-# Download dataset to `./data`
-cd ./scripts
-bash ./process_coco2017_dataset.sh
-cd ..
-# Download pretrained model weights to `./results/pretrained_models`
-wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-COCO2017-20231107.pth.tar -O ./resutls/pretrained_models/YOLOv3_Tiny-COCO2017-20231107.pth.tar
-python ./tools/train.py ./configs/YOLOv3_Tiny-COCO2017.yaml
-```
+wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-COCO-20231107.pth.tar -O ./results/pretrained_models/YOLOv3_Tiny-COCO-20231107.pth.tar
+# change WEIGHTS_PATH in ./configs/COCO-Detection/yolov3_tiny.yaml
+python ./tools/train.py ./configs/COCO-Detection/yolov3_tiny.yaml
 
 ### Custom dataset
 

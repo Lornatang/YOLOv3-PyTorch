@@ -72,7 +72,7 @@ def labels_to_class_weights(labels: Tensor, num_classes: int = 80) -> Tensor:
     if labels[0] is None:  # no labels loaded
         return torch.Tensor()
 
-    labels = np.concatenate(labels, 0)  # labels.shape = (866643, 5) for COCO
+    labels = np.concatenate(labels, 0)  # labels.shape = (866643, 5) for COCO-Detection
     classes = labels[:, 0].astype(np.int16)  # labels = [class xywh]
     weights = np.bincount(classes, minlength=num_classes)  # occurences per class
     weights[weights == 0] = 1  # replace empty bins with 1

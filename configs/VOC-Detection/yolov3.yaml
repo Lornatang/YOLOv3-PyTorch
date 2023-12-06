@@ -1,0 +1,104 @@
+PROJECT_NAME: "yolov3"
+EXP_NAME: "yolov3-voc"
+# random number seed
+SEED: 42
+# run device models
+DEVICE_ID: 0
+
+CLASS_NAMES: [ "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chai", "cow", "diningtable", "dog", "horse", "motorbike",
+               "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor" ]
+
+AUGMENT:
+  HYP:
+    HSV_H: 0.0138  # image HSV-Hue augmentation (fraction)
+    HSV_S: 0.678  # image HSV-Saturation augmentation (fraction)
+    HSV_V: 0.36  # image HSV-Value augmentation (fraction)
+    DEGREES: 0  # image rotation (+/- deg)
+    TRANSLATE: 0.0  # image translation (+/- fraction)
+    SCALE: 0.0  # image scale (+/- gain)
+    SHEAR: 0.0  # image shear (+/- gain)
+    USE_LR_FLIP: True  # image left-right flip (probability)
+    USE_UD_FLIP: False  # image up-down flip (probability)
+
+MODEL:
+  CONFIG_PATH: "./model_configs/VOC-Detection/yolov3.cfg"
+  IMG_SIZE: 512
+  GRAY: False
+  NUM_CLASSES: 20
+  COMPILE_MODE: False
+
+  GRID_SIZE: 32
+
+TRAIN:
+  DATASET:
+    ROOT: "./data/voc0712/train.txt"
+    AUGMENT: True
+    RECT_LABEL: False
+    CACHE_IMAGES: False
+    SINGLE_CLASSES: False
+
+  # Multi scale training
+  MULTI_SCALE:
+    ENABLE: True
+    IMG_SIZE_MIN: 320
+    IMG_SIZE_MAX: 512
+
+  WEIGHTS_PATH: ""
+
+  # training hyperparameters
+  HYP:
+    IMGS_PER_BATCH: 8
+    ACCUMULATE_BATCH_SIZE: 64
+
+    EPOCHS: 200
+
+  OPTIM:
+    NAME: "sgd"
+    LR: 0.01  # SGD 0.01, Adam 0.001
+    MOMENTUM: 0.9
+    WEIGHT_DECAY: 0.0005
+    NESTEROV: True
+
+    LR_SCHEDULER:
+      NAME: "one_cycle"
+
+  IOU_THRESH: 0.20  # iou training threshold
+
+  # Loss function
+  LOSSES:
+    GIOU_LOSS:
+      WEIGHT: 3.54
+    CLS_LOSS:
+      WEIGHT: 37.4
+    CLS_BCE_PW_LOSS:
+      WEIGHT: 1.0
+    OBJ_LOSS:
+      WEIGHT: 64.3
+    OBJ_BCE_PW_LOSS:
+      WEIGHT: 1.0
+    FL_GAMMA_LOSS:
+      WEIGHT: 0.0
+
+  PRINT_FREQ: 100
+  SAVE_EVERY_EPOCH: 5
+
+VAL:
+  DATASET:
+    ROOT: "./data/voc0712/test.txt"
+    AUGMENT: False
+    RECT_LABEL: False
+    CACHE_IMAGES: False
+    SINGLE_CLASSES: False
+
+  WEIGHTS_PATH: ""
+
+  # test hyperparameters
+  HYP:
+    IMGS_PER_BATCH: 16
+
+  CONF_THRESH: 0.01
+  IOU_THRESH: 0.5
+  IOUV: (0.5, 0.95)  # mAP 0.5:0.95
+  GT_JSON_PATH: ""  # "./data/coco2014/annotations/instances_val2014.json"
+  PRED_JSON_PATH: "" # "./results/YOLOv3_Tiny-VOC0712.json"
+  VERBOSE: False

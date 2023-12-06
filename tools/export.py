@@ -32,7 +32,7 @@ def get_opts() -> argparse.Namespace:
     parser.add_argument(
         "--cfg",
         type=str,
-        default="model_configs/voc_exp/yolov3.cfg",
+        default="model_configs/exp/yolov3.cfg",
         help="Model config file path",
     )
     parser.add_argument(

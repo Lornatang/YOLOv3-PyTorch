@@ -1,0 +1,5 @@
+_BASE_: "./yolov3.yaml"
+EXP_NAME: "yolov3_tiny-coco"
+
+MODEL:
+  CONFIG_PATH: "./model_configs/COCO-Detection/yolov3_tiny.cfg"

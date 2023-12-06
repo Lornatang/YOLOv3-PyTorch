@@ -1,0 +1,5 @@
+_BASE_: "./yolov3.yaml"
+EXP_NAME: "yolov3_tiny_prn-voc"
+
+MODEL:
+  CONFIG_PATH: "./model_configs/VOC-Detection/yolov3_tiny_prn.cfg"

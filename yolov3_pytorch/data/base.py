@@ -395,7 +395,7 @@ class BaseDatasets(torch.utils.data.Dataset):
             # Letterbox
             shape = self.batch_shapes[self.batch_idx[index]] if self.rect_label else self.img_size  # final letterboxed shape
             img, ratio, pad = letterbox(img, shape, auto=False, scaleup=self.augment)
-            shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
+            shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO-Detection mAP rescaling
 
             # Load labels
             labels = []

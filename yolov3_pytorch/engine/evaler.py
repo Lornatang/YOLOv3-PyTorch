@@ -90,10 +90,10 @@ class Evaler:
             model = torch.compile(model)
 
         # Load model weights
-        weights = self.config["VAL"]["WEIGHTS"]
+        weights_path = self.config["VAL"]["WEIGHTS_PATH"]
 
-        if weights.endswith(".pth.tar"):
-            checkpoint = torch.load(weights, map_location=self.device)
+        if weights_path.endswith(".pth.tar"):
+            checkpoint = torch.load(weights_path, map_location=self.device)
             state_dict = checkpoint.get("state_dict")
             ema_state_dict = checkpoint.get("ema_state_dict")
             if state_dict:
@@ -101,11 +101,11 @@ class Evaler:
             elif ema_state_dict:
                 model = load_state_dict(model, ema_state_dict, self.config["MODEL"]["COMPILE_MODE"])
             else:
-                raise ValueError(f"The checkpoint file `{weights}` is invalid.")
+                raise ValueError(f"The checkpoint file `{weights_path}` is invalid.")
         else:
-            raise ValueError(f"'{weights}' is not supported.")
+            raise ValueError(f"'{weights_path}' is not supported.")
 
-        print(f"Loaded `{weights}` models weights successfully.")
+        print(f"Loaded `{weights_path}` models weights successfully.")
         model = model.to(self.device)
         model.eval()
 
