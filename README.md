@@ -82,24 +82,24 @@ python ./tools/eval.py ./configs/VOC-Detection/yolov3_tiny.yaml
 
 #### COCO Object Detection
 
-|                                Name                                | Size | mAP<sup>val<br/>0.5:0.95 | FLOPs(G) | Parameters(M) | Memory(MB) |                                                       download                                                       |
-|:------------------------------------------------------------------:|:----:|:------------------------:|:--------:|:-------------:|:----------:|:--------------------------------------------------------------------------------------------------------------------:|
-|     [**yolov3_tiny**](configs/COCO-Detection/yolov3_tiny.yaml)     | 416  |           18.7           |   5.6    |     0.71      |    8.9     |   https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_Tiny-COCO-20231107.pth.tar?download=true   |
-| [**yolov3_tiny_prn**](configs/COCO-Detection/yolov3_tiny_prn.yaml) | 416  |           11.1           |   3.5    |     0.66      |    4.9     | https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_Tiny_PRN-COCO-20231107.pth.tar?download=true |
-|          [**yolov3**](configs/COCO-Detection/yolov3.yaml)          | 416  |           66.7           |   66.2   |     0.88      |    61.9    |     https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3-COCO-20231107.pth.tar?download=true      |
-|      [**yolov3_spp**](configs/COCO-Detection/yolov3_spp.yaml)      | 416  |           66.7           |   66.5   |     0.88      |    63.0    |   https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_SPP-COCO-20231107.pth.tar?download=true    |
+|                                Name                                | Size | mAP<sup>val<br/>0.5:0.95 | FLOPs(G) | Parameters(M) | Memory(MB) |                                                         download                                                          |
+|:------------------------------------------------------------------:|:----:|:------------------------:|:--------:|:-------------:|:----------:|:-------------------------------------------------------------------------------------------------------------------------:|
+|     [**yolov3_tiny**](configs/COCO-Detection/yolov3_tiny.yaml)     | 416  |           18.7           |   5.6    |     0.71      |    8.9     | [model](https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_Tiny-COCO-20231107.pth.tar?download=true) |
+| [**yolov3_tiny_prn**](configs/COCO-Detection/yolov3_tiny_prn.yaml) | 416  |           11.1           |   3.5    |     0.66      |    4.9     |   [model](https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_Tiny_PRN-COCO-20231107.pth.tar?download=true)    |
+|          [**yolov3**](configs/COCO-Detection/yolov3.yaml)          | 416  |           66.7           |   66.2   |     0.88      |    61.9    |        [model](https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3-COCO-20231107.pth.tar?download=true)        |
+|      [**yolov3_spp**](configs/COCO-Detection/yolov3_spp.yaml)      | 416  |           66.7           |   66.5   |     0.88      |    63.0    |      [model](https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_SPP-COCO-20231107.pth.tar?download=true)      |
 
 #### VOC Object Detection
 
 |                                  Model                                  | Size | mAP<sup>val<br/>0.5:0.95 | FLOPs(B) | Memory(MB) | Parameters(M) |                                                        download                                                        |
 |:-----------------------------------------------------------------------:|:----:|:------------------------:|:--------:|:----------:|:-------------:|:----------------------------------------------------------------------------------------------------------------------:|
-|        [**yolov3_tiny**](configs/VOC-Detection/yolov3_tiny.yaml)        | 416  |           58.8           |   5.5    |    0.27    |      8.7      |    https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_Tiny-VOC-20231107.pth.tar?download=true     |
-|    [**yolov3_tiny_prn**](configs/VOC-Detection/yolov3_tiny_prn.yaml)    | 416  |           47.9           |   3.5    |    0.27    |      4.9      |  https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_Tiny_PRN-VOC-20231107.pth.tar?download=true   |
-|             [**yolov3**](configs/VOC-Detection/yolov3.yaml)             | 416  |           82.9           |   65.7   |    0.61    |     61.6      |       https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3-VOC-20231107.pth.tar?download=true       |
-|         [**yolov3_spp**](configs/VOC-Detection/yolov3_spp.yaml)         | 416  |           83.2           |   66.1   |    0.88    |     62.7      |     https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_SPP-VOC-20231107.pth.tar?download=true     |
-| [**yolov3_mobilenetv1**](configs/VOC-Detection/yolov3_mobilenetv1.yaml) | 416  |           65.6           |   6.6    |    0.69    |      6.2      | https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_MobileNetV1-VOC-20231107.pth.tar?download=true |
-| [**yolov3_mobilenetv2**](configs/VOC-Detection/yolov3_mobilenetv2.yaml) | 416  |           68.2           |   3.5    |    0.49    |      4.3      | https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_MobileNetV2-VOC-20231107.pth.tar?download=true |
-|       [**yolov3_vgg16**](configs/VOC-Detection/yolov3_vgg16.yaml)       | 416  |           74.1           |  122.8   |    0.74    |     35.5      |    https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_VGG16-VOC-20231107.pth.tar?download=true    |
+|        [**yolov3_tiny**](configs/VOC-Detection/yolov3_tiny.yaml)        | 416  |           58.8           |   5.5    |    0.27    |      8.7      |    [model](https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_Tiny-VOC-20231107.pth.tar?download=true)     |
+|    [**yolov3_tiny_prn**](configs/VOC-Detection/yolov3_tiny_prn.yaml)    | 416  |           47.9           |   3.5    |    0.27    |      4.9      |  [model](https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_Tiny_PRN-VOC-20231107.pth.tar?download=true)   |
+|             [**yolov3**](configs/VOC-Detection/yolov3.yaml)             | 416  |           82.9           |   65.7   |    0.61    |     61.6      |       [model](https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3-VOC-20231107.pth.tar?download=true)       |
+|         [**yolov3_spp**](configs/VOC-Detection/yolov3_spp.yaml)         | 416  |           83.2           |   66.1   |    0.88    |     62.7      |     [model](https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_SPP-VOC-20231107.pth.tar?download=true)     |
+| [**yolov3_mobilenetv1**](configs/VOC-Detection/yolov3_mobilenetv1.yaml) | 416  |           65.6           |   6.6    |    0.69    |      6.2      | [model](https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_MobileNetV1-VOC-20231107.pth.tar?download=true) |
+| [**yolov3_mobilenetv2**](configs/VOC-Detection/yolov3_mobilenetv2.yaml) | 416  |           68.2           |   3.5    |    0.49    |      4.3      | [model](https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_MobileNetV2-VOC-20231107.pth.tar?download=true) |
+|       [**yolov3_vgg16**](configs/VOC-Detection/yolov3_vgg16.yaml)       | 416  |           74.1           |  122.8   |    0.74    |     35.5      |    [model](https://huggingface.co/goodfellowliu/YOLOv3-PyTorch/resolve/main/YOLOv3_VGG16-VOC-20231107.pth.tar?download=true)    |
 
 ## Train
 
@@ -128,6 +128,7 @@ cd ..
 wget https://github.com/Lornatang/YOLOv3-PyTorch/releases/download/0.1.5/YOLOv3_Tiny-COCO-20231107.pth.tar -O ./results/pretrained_models/YOLOv3_Tiny-COCO-20231107.pth.tar
 # change WEIGHTS_PATH in ./configs/COCO-Detection/yolov3_tiny.yaml
 python ./tools/train.py ./configs/COCO-Detection/yolov3_tiny.yaml
+```
 
 ### Custom dataset
 
