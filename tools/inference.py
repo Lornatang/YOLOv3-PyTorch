@@ -42,8 +42,8 @@ def get_opts() -> argparse.Namespace:
     parser.add_argument(
         "--model-config-path",
         type=str,
-        default="./model_configs/COCO-Detection/yolov3_tiny.cfg",
-        help="path to model config file. Default: ``./model_configs/COCO-Detection/yolov3_tiny.cfg``",
+        default="./model_configs/COCO-Detection/yolov3.cfg",
+        help="path to model config file. Default: ``./model_configs/COCO-Detection/yolov3.cfg``",
     )
     parser.add_argument(
         "--img-size",
@@ -59,8 +59,8 @@ def get_opts() -> argparse.Namespace:
     parser.add_argument(
         "--weights",
         type=str,
-        default="./results/pretrained_models/YOLOv3_Tiny-COCO-20231107.pth.tar",
-        help="path to weights file. Default: ``./results/pretrained_models/YOLOv3_Tiny-COCO-20231107.pth.tar``",
+        default="./results/pretrained_models/YOLOv3-COCO-20231107.pth.tar",
+        help="path to weights file. Default: ``./results/pretrained_models/YOLOv3-COCO-20231107.pth.tar``",
     )
     parser.add_argument(
         "--half",
