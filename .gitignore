@@ -2,10 +2,13 @@
 .vscode
 
 build
+configs/ours.yaml
 data/examples
 data/voc0712
 data/coco2014
 data/coco2017
+data/ours
+data/ours.names
 figure
 dist
 results
