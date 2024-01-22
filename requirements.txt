@@ -6,7 +6,7 @@ tqdm
 setuptools
 opencv-python
 typing
-Pillow==10.0.1
+Pillow==10.2.0
 scikit-image
 torchvision
 matplotlib
